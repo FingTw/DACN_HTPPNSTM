@@ -2,7 +2,6 @@ import express from "express";
 import cors from "cors";
 import { connectDB, syncDB } from "./config/db.js";
 import sequelize from "./config/db.js"; // Sử dụng instance đã export
-import initModels from "./models/init-models.js";
 
 const app = express();
 
@@ -10,28 +9,42 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Khởi tạo Sequelize và model
-await connectDB(); // Chỉ kiểm tra kết nối, không gán biến
-const models = initModels(sequelize); // Truyền đúng instance Sequelize
-await syncDB(); // Đồng bộ database (tạo bảng nếu chưa có)
+// Hàm chính để khởi động ứng dụng
+async function startServer() {
+  // 1. Kết nối đến DB
+  await connectDB();
 
-// // Route ví dụ để kiểm tra model Chitiet_donhang
-// app.get("/chitiet_donhang", async (req, res) => {
-//   try {
-//     const chitiet = await models.chitiet_donhang.findAll({
-//       include: [
-//         { model: models.donhang, as: "MaDH_donhang" },
-//         { model: models.sanpham, as: "MaSP_sanpham" },
-//       ],
-//     });
-//     res.json(chitiet);
-//   } catch (err) {
-//     res.status(500).json({ error: err.message });
-//   }
-// });
+  // 2. Import và Khởi tạo Models
+  // Sử dụng Dynamic Import để xử lý module CommonJS
+  const initModelsModule = await import("./models/init-models.js");
 
-// Khởi động server
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  // Kiểm tra và truy cập hàm initModels.
+  // Do file là CJS, hàm chính thường nằm ở .default hoặc .initModels
+  const initModels = initModelsModule.default || initModelsModule.initModels;
+
+  if (typeof initModels !== "function") {
+    console.error("Lỗi: Không tìm thấy hàm initModels trong module.");
+    return;
+  }
+
+  // Khởi tạo các Models (models chứa các đối tượng Model đã được liên kết)
+  const models = initModels(sequelize);
+
+  // 3. Đồng bộ Database (nếu cần)
+  await syncDB();
+
+  // (Tại đây, bạn có thể truyền models vào các controller hoặc router nếu cần)
+  // Ví dụ: app.use('/api/sanpham', sanphamRouter(models.sanpham));
+
+  // 4. Khởi động server
+  const PORT = process.env.PORT || 3000;
+  app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+  });
+}
+
+// Chạy hàm chính
+startServer().catch((err) => {
+  console.error("Lỗi Fatal khi khởi động Server:", err);
+  process.exit(1);
 });

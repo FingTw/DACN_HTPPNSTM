@@ -1,43 +1,32 @@
-import { DataTypes, Model } from "sequelize";
-export default (sequelize) => {
-  class Phongban extends Model {
-    static associate(models) {
-      Phongban.hasMany(models.nhanvien, {
-        as: "nhanviens",
-        foreignKey: "MaPB",
-      });
-    }
-  }
 
-  Phongban.init(
-    {
-      MaPB: {
-        type: DataTypes.STRING(10),
-        allowNull: false,
-        primaryKey: true,
-      },
-      TenPB: {
-        type: DataTypes.STRING(100),
-        allowNull: false,
-      },
-      MoTa: {
-        type: DataTypes.TEXT,
-        allowNull: true,
-      },
+export default function(sequelize, DataTypes) {
+  return sequelize.define('phongban', {
+    MaPB: {
+      type: DataTypes.STRING(10),
+      allowNull: false,
+      primaryKey: true
     },
-    {
-      sequelize,
-      tableName: "phongban",
-      timestamps: false,
-      indexes: [
-        {
-          name: "PRIMARY",
-          unique: true,
-          using: "BTREE",
-          fields: [{ name: "MaPB" }],
-        },
-      ],
+    TenPB: {
+      type: DataTypes.STRING(100),
+      allowNull: false
+    },
+    MoTa: {
+      type: DataTypes.TEXT,
+      allowNull: true
     }
-  );
-  return Phongban;
+  }, {
+    sequelize,
+    tableName: 'phongban',
+    timestamps: false,
+    indexes: [
+      {
+        name: "PRIMARY",
+        unique: true,
+        using: "BTREE",
+        fields: [
+          { name: "MaPB" },
+        ]
+      },
+    ]
+  });
 };
