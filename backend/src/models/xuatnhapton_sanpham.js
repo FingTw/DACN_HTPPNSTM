@@ -1,61 +1,51 @@
-import { DataTypes, Model } from "sequelize";
-export default (sequelize) => {
-  class Xuatnhapton_sanpham extends Model {
-    static associate(models) {
-      Xuatnhapton_sanpham.belongsTo(models.xuatnhapton, {
-        as: "MaXNT_xuatnhapton",
-        foreignKey: "MaXNT",
-      });
-      Xuatnhapton_sanpham.belongsTo(models.sanpham, {
-        as: "MaSP_sanpham",
-        foreignKey: "MaSP",
-      });
-    }
-  }
 
-  Xuatnhapton_sanpham.init(
-    {
-      MaXNT: {
-        type: DataTypes.STRING(10),
-        allowNull: false,
-        primaryKey: true,
-        references: {
-          model: "xuatnhapton",
-          key: "MaXNT",
-        },
-      },
-      MaSP: {
-        type: DataTypes.STRING(10),
-        allowNull: false,
-        primaryKey: true,
-        references: {
-          model: "sanpham",
-          key: "MaSP",
-        },
-      },
-      SoLuong: {
-        type: DataTypes.INTEGER,
-        allowNull: true,
-      },
+export default function(sequelize, DataTypes) {
+  return sequelize.define('xuatnhapton_sanpham', {
+    MaXNT: {
+      type: DataTypes.STRING(10),
+      allowNull: false,
+      defaultValue: "",
+      primaryKey: true,
+      references: {
+        model: 'xuatnhapton',
+        key: 'MaXNT'
+      }
     },
-    {
-      sequelize,
-      tableName: "xuatnhapton_sanpham",
-      timestamps: false,
-      indexes: [
-        {
-          name: "PRIMARY",
-          unique: true,
-          using: "BTREE",
-          fields: [{ name: "MaXNT" }, { name: "MaSP" }],
-        },
-        {
-          name: "MaSP",
-          using: "BTREE",
-          fields: [{ name: "MaSP" }],
-        },
-      ],
+    MaSP: {
+      type: DataTypes.STRING(10),
+      allowNull: false,
+      defaultValue: "",
+      primaryKey: true,
+      references: {
+        model: 'sanpham',
+        key: 'MaSP'
+      }
+    },
+    SoLuong: {
+      type: DataTypes.INTEGER,
+      allowNull: true
     }
-  );
-  return Xuatnhapton_sanpham;
+  }, {
+    sequelize,
+    tableName: 'xuatnhapton_sanpham',
+    timestamps: false,
+    indexes: [
+      {
+        name: "PRIMARY",
+        unique: true,
+        using: "BTREE",
+        fields: [
+          { name: "MaXNT" },
+          { name: "MaSP" },
+        ]
+      },
+      {
+        name: "MaSP",
+        using: "BTREE",
+        fields: [
+          { name: "MaSP" },
+        ]
+      },
+    ]
+  });
 };
