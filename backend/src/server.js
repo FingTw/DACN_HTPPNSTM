@@ -1,50 +1,83 @@
+// 📦 server.js — File khởi động chính của backend Node.js (REST API)
+
 import express from "express";
 import cors from "cors";
 import { connectDB, syncDB } from "./config/db.js";
-import sequelize from "./config/db.js"; // Sử dụng instance đã export
+import sequelize from "./config/db.js"; // Instance Sequelize (đã cấu hình sẵn)
 
-const app = express();
+import sanphamroutes from "./routes/sanphamroutes.js"; // 🟢 Import router sản phẩm
+import cuahangRoutes from "./routes/cuahangRoutes.js"; // 🟢 Import router cửa hàng
 
-// Middleware
-app.use(cors());
-app.use(express.json());
+const app = express(); // Tạo ứng dụng Express
 
-// Hàm chính để khởi động ứng dụng
-async function startServer() {
-  // 1. Kết nối đến DB
-  await connectDB();
+// 🧩 Middleware (các lớp trung gian)
+app.use(cors()); // Cho phép frontend truy cập từ domain khác (CORS)
+app.use(express.json()); // Cho phép nhận dữ liệu JSON từ client (Postman, frontend,...)
 
-  // 2. Import và Khởi tạo Models
-  // Sử dụng Dynamic Import để xử lý module CommonJS
-  const initModelsModule = await import("./models/init-models.js");
-
-  // Kiểm tra và truy cập hàm initModels.
-  // Do file là CJS, hàm chính thường nằm ở .default hoặc .initModels
-  const initModels = initModelsModule.default || initModelsModule.initModels;
-
-  if (typeof initModels !== "function") {
-    console.error("Lỗi: Không tìm thấy hàm initModels trong module.");
-    return;
-  }
-
-  // Khởi tạo các Models (models chứa các đối tượng Model đã được liên kết)
-  const models = initModels(sequelize);
-
-  // 3. Đồng bộ Database (nếu cần)
-  await syncDB();
-
-  // (Tại đây, bạn có thể truyền models vào các controller hoặc router nếu cần)
-  // Ví dụ: app.use('/api/sanpham', sanphamRouter(models.sanpham));
-
-  // 4. Khởi động server
-  const PORT = process.env.PORT || 3000;
-  app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+// 🏠 Route chính để test server
+app.get("/", (req, res) => {
+  res.json({
+    message: "🚀 Backend Server is running!",
+    timestamp: new Date().toISOString(),
+    endpoints: {
+      sanpham: "/api/sanpham",
+      cuahang: "/api/cuahang",
+      docs: "Check API documentation for available endpoints",
+    },
   });
+});
+
+// 🚀 Hàm khởi động chính
+async function startServer() {
+  try {
+    // 1️⃣ Kết nối cơ sở dữ liệu
+    await connectDB();
+
+    // 2️⃣ Import & khởi tạo Models (chuyển định nghĩa bảng trong DB thành đối tượng JS)
+    const initModelsModule = await import("./models/init-models.js");
+    const initModels = initModelsModule.default || initModelsModule.initModels;
+    const models = initModels(sequelize);
+
+    // 3️⃣ Đồng bộ DB (tùy chọn)
+    // Nếu bảng chưa tồn tại, Sequelize có thể tự tạo dựa trên model
+    await syncDB();
+
+    // 4️⃣ Đăng ký các Router API
+    // Mọi request bắt đầu bằng /api/sanpham → sẽ được chuyển tới sanphamRouter
+    app.use("/api/sanpham", sanphamroutes);
+    app.use("/api/cuahang", cuahangRoutes);
+
+    // 5️⃣ Xử lý route không tồn tại
+    app.use("*", (req, res) => {
+      res.status(404).json({
+        error: "Route not found",
+        availableRoutes: ["/api/sanpham", "/api/cuahang", "/"],
+      });
+    });
+
+    // 6️⃣ Xử lý lỗi toàn cục
+    app.use((err, req, res, next) => {
+      console.error("🔥 Error:", err);
+      res.status(500).json({
+        error: "Internal server error",
+        message: err.message,
+      });
+    });
+
+    // 7️⃣ Khởi động server
+    const PORT = process.env.PORT || 3000;
+    app.listen(PORT, () => {
+      console.log(`✅ Server running on port ${PORT}`);
+      console.log(`🌐 API base URL: http://localhost:${PORT}`);
+      console.log(`📦 Products API: http://localhost:${PORT}/api/sanpham`);
+      console.log(`🏪 Stores API: http://localhost:${PORT}/api/cuahang`);
+      console.log(`🏠 Test route: http://localhost:${PORT}/`);
+    });
+  } catch (err) {
+    console.error("❌ Lỗi khi khởi động server:", err);
+    process.exit(1); // Dừng tiến trình nếu có lỗi nghiêm trọng
+  }
 }
 
-// Chạy hàm chính
-startServer().catch((err) => {
-  console.error("Lỗi Fatal khi khởi động Server:", err);
-  process.exit(1);
-});
+// ▶️ Chạy server
+startServer();
