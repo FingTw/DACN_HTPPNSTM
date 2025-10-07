@@ -13,10 +13,13 @@ import _nhanvien from "./nhanvien.js";
 import _phongban from "./phongban.js";
 import _pttt from "./pttt.js";
 import _ptvc from "./ptvc.js";
+import _taikhoan from "./taikhoan.js";
+import _taikhoan_vaitro from "./taikhoan_vaitro.js";
+import _vaitro from "./vaitro.js";
+import _password_reset_token from "./password_reset_token.js";
 import _sanpham from "./sanpham.js";
 import _sanpham_danhmuc from "./sanpham_danhmuc.js";
 import _sanpham_hinhanh from "./sanpham_hinhanh.js";
-import _taikhoan from "./taikhoan.js";
 import _xuatnhapton from "./xuatnhapton.js";
 import _xuatnhapton_sanpham from "./xuatnhapton_sanpham.js";
 import _yeucaudathang from "./yeucaudathang.js";
@@ -43,6 +46,9 @@ function initModels(sequelize) {
   var xuatnhapton = _xuatnhapton(sequelize, DataTypes);
   var xuatnhapton_sanpham = _xuatnhapton_sanpham(sequelize, DataTypes);
   var yeucaudathang = _yeucaudathang(sequelize, DataTypes);
+  var vaitro = _vaitro(sequelize, DataTypes);
+  var taikhoan_vaitro = _taikhoan_vaitro(sequelize, DataTypes);
+  var password_reset_token = _password_reset_token(sequelize, DataTypes);
 
   danhmuc.belongsToMany(sanpham, { as: 'MaSP_sanpham_sanpham_danhmucs', through: sanpham_danhmuc, foreignKey: "MaDM", otherKey: "MaSP" });
   donhang.belongsToMany(sanpham, { as: 'MaSP_sanphams', through: chitiet_donhang, foreignKey: "MaDH", otherKey: "MaSP" });
@@ -112,6 +118,10 @@ function initModels(sequelize) {
   xuatnhapton.hasMany(xuatnhapton_sanpham, { as: "xuatnhapton_sanphams", foreignKey: "MaXNT"});
   denghicungcap.belongsTo(yeucaudathang, { as: "MaYCDH_yeucaudathang", foreignKey: "MaYCDH"});
   yeucaudathang.hasMany(denghicungcap, { as: "denghicungcaps", foreignKey: "MaYCDH"});
+  taikhoan.belongsToMany(vaitro, { through: taikhoan_vaitro, foreignKey: "MaTK", otherKey: "MaVT" });
+  vaitro.belongsToMany(taikhoan, { through: taikhoan_vaitro, foreignKey: "MaVT", otherKey: "MaTK" });
+  password_reset_token.belongsTo(taikhoan, { as: "MaTK_taikhoan", foreignKey: "MaTK"});
+  taikhoan.hasMany(password_reset_token, { as: "password_reset_tokens", foreignKey: "MaTK" });
 
   return {
     chitiet_donhang,
@@ -135,10 +145,10 @@ function initModels(sequelize) {
     xuatnhapton,
     xuatnhapton_sanpham,
     yeucaudathang,
+    vaitro,
+    taikhoan_vaitro,
+    password_reset_token,
   };
 }
-
-
-
 
 export { initModels };

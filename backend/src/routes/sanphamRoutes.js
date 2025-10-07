@@ -8,7 +8,7 @@ import {
   deleteSanpham,
   getMySanpham,
 } from "../controllers/sanphamcontroller.js";
-import { authenticateToken } from "../middlewares/authMiddleware.js";
+// import { authenticateToken } from "../middlewares/authMiddleware.js";
 
 const router = express.Router();
 
@@ -29,16 +29,29 @@ router.get("/cuahang/:MaCH", getSanphamByCuaHang);
 // 🔐 PROTECTED ROUTES - CẦN ĐĂNG NHẬP + CÓ CỬA HÀNG
 // ======================================
 
+// // Thêm sản phẩm mới vào cửa hàng của tôi
+// router.post("/", authenticateToken, createSanpham);
+
+// // Lấy danh sách sản phẩm của cửa hàng tôi
+// router.get("/my/products", authenticateToken, getMySanpham);
+
+// // Cập nhật sản phẩm của cửa hàng tôi
+// router.put("/:MaSP", authenticateToken, updateSanpham);
+
+// // Xóa sản phẩm của cửa hàng tôi
+// router.delete("/:MaSP", authenticateToken, deleteSanpham);
+// ...existing code...
+
 // Thêm sản phẩm mới vào cửa hàng của tôi
-router.post("/", authenticateToken, createSanpham);
+router.post("/", createSanpham);
 
 // Lấy danh sách sản phẩm của cửa hàng tôi
-router.get("/my/products", authenticateToken, getMySanpham);
+router.get("/my/products", getMySanpham);
 
 // Cập nhật sản phẩm của cửa hàng tôi
-router.put("/:MaSP", authenticateToken, updateSanpham);
+router.put("/:MaSP", updateSanpham);
 
 // Xóa sản phẩm của cửa hàng tôi
-router.delete("/:MaSP", authenticateToken, deleteSanpham);
+router.delete("/:MaSP", deleteSanpham);
 
 export default router;
