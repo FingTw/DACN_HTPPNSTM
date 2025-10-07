@@ -70,7 +70,7 @@ import {
   getThongKeTonKho,
   getThongKeTonKhoFilter,
 } from "../controllers/cuahangController.js";
-import { authenticateToken } from "../middlewares/authMiddleware.js";
+// import { authenticateToken } from "../middlewares/authMiddleware.js";
 
 const router = express.Router();
 
@@ -98,24 +98,43 @@ router.get("/:MaCH/thong-ke/filter", getThongKeTonKhoFilter);
 // 🔐 PROTECTED ROUTES - CẦN ĐĂNG NHẬP
 // ======================================
 
+// // Đăng ký gian hàng mới
+// router.post("/", authenticateToken, createCuahang);
+
+// // Lấy thông tin cửa hàng của tôi
+// router.get("/my/store", authenticateToken, getMyCuahang);
+
+// // Thống kê tồn kho cửa hàng của tôi (bản gốc)
+// router.get("/my/store/thong-ke-ton-kho", authenticateToken, getThongKeTonKho);
+// router.get(
+//   "/my/store/thong-ke/filter",
+//   authenticateToken,
+//   getThongKeTonKhoFilter
+// );
+
+// // Cập nhật thông tin cửa hàng của tôi
+// router.put("/:MaCH", authenticateToken, updateCuahang);
+
+// // Xóa cửa hàng của tôi
+// router.delete("/:MaCH", authenticateToken, deleteCuahang);
+
 // Đăng ký gian hàng mới
-router.post("/", authenticateToken, createCuahang);
+router.post("/", createCuahang);
 
 // Lấy thông tin cửa hàng của tôi
-router.get("/my/store", authenticateToken, getMyCuahang);
+router.get("/my/store", getMyCuahang);
 
 // Thống kê tồn kho cửa hàng của tôi (bản gốc)
-router.get("/my/store/thong-ke-ton-kho", authenticateToken, getThongKeTonKho);
+router.get("/my/store/thong-ke-ton-kho", getThongKeTonKho);
 router.get(
   "/my/store/thong-ke/filter",
-  authenticateToken,
   getThongKeTonKhoFilter
 );
 
 // Cập nhật thông tin cửa hàng của tôi
-router.put("/:MaCH", authenticateToken, updateCuahang);
+router.put("/:MaCH", updateCuahang);
 
 // Xóa cửa hàng của tôi
-router.delete("/:MaCH", authenticateToken, deleteCuahang);
+router.delete("/:MaCH", deleteCuahang);
 
 export default router;

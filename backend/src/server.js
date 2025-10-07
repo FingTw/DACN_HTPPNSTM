@@ -7,6 +7,7 @@ import sequelize from "./config/db.js"; // Instance Sequelize (đã cấu hình 
 
 import sanphamroutes from "./routes/sanphamroutes.js"; // 🟢 Import router sản phẩm
 import cuahangRoutes from "./routes/cuahangRoutes.js"; // 🟢 Import router cửa hàng
+import authRoutes from "./routes/authRoutes.js"; // 🟢 Import router auth
 
 const app = express(); // Tạo ứng dụng Express
 
@@ -22,6 +23,7 @@ app.get("/", (req, res) => {
     endpoints: {
       sanpham: "/api/sanpham",
       cuahang: "/api/cuahang",
+      auth: "/api/auth",
       docs: "Check API documentation for available endpoints",
     },
   });
@@ -46,12 +48,13 @@ async function startServer() {
     // Mọi request bắt đầu bằng /api/sanpham → sẽ được chuyển tới sanphamRouter
     app.use("/api/sanpham", sanphamroutes);
     app.use("/api/cuahang", cuahangRoutes);
+    app.use("/api/auth", authRoutes)
 
     // 5️⃣ Xử lý route không tồn tại
     app.use("*", (req, res) => {
       res.status(404).json({
         error: "Route not found",
-        availableRoutes: ["/api/sanpham", "/api/cuahang", "/"],
+        availableRoutes: ["/api/sanpham", "/api/cuahang", "/api/auth", "/"],
       });
     });
 
@@ -71,6 +74,7 @@ async function startServer() {
       console.log(`🌐 API base URL: http://localhost:${PORT}`);
       console.log(`📦 Products API: http://localhost:${PORT}/api/sanpham`);
       console.log(`🏪 Stores API: http://localhost:${PORT}/api/cuahang`);
+      console.log(`🔐 Auth API: http://localhost:${PORT}/api/auth`);
       console.log(`🏠 Test route: http://localhost:${PORT}/`);
     });
   } catch (err) {
