@@ -23,6 +23,9 @@ import _sanpham_hinhanh from "./sanpham_hinhanh.js";
 import _xuatnhapton from "./xuatnhapton.js";
 import _xuatnhapton_sanpham from "./xuatnhapton_sanpham.js";
 import _yeucaudathang from "./yeucaudathang.js";
+import _giohang from "./giohang.js";
+import _ctgh from "./ctgh.js";
+import _lichsu_trangthai from "./lichsu_trangthai.js";
 
 function initModels(sequelize) {
   var chitiet_donhang = _chitiet_donhang(sequelize, DataTypes);
@@ -49,6 +52,11 @@ function initModels(sequelize) {
   var vaitro = _vaitro(sequelize, DataTypes);
   var taikhoan_vaitro = _taikhoan_vaitro(sequelize, DataTypes);
   var password_reset_token = _password_reset_token(sequelize, DataTypes);
+  var giohang = _giohang(sequelize, DataTypes);
+  var ctgh = _ctgh(sequelize, DataTypes);
+  var lichsu_trangthai = _lichsu_trangthai(sequelize, DataTypes);
+
+  // Thiết lập các quan hệ giữa các bảng (associations) ở đây
 
   danhmuc.belongsToMany(sanpham, { as: 'MaSP_sanpham_sanpham_danhmucs', through: sanpham_danhmuc, foreignKey: "MaDM", otherKey: "MaSP" });
   donhang.belongsToMany(sanpham, { as: 'MaSP_sanphams', through: chitiet_donhang, foreignKey: "MaDH", otherKey: "MaSP" });
@@ -122,6 +130,16 @@ function initModels(sequelize) {
   vaitro.belongsToMany(taikhoan, { through: taikhoan_vaitro, foreignKey: "MaVT", otherKey: "MaTK" });
   password_reset_token.belongsTo(taikhoan, { as: "MaTK_taikhoan", foreignKey: "MaTK"});
   taikhoan.hasMany(password_reset_token, { as: "password_reset_tokens", foreignKey: "MaTK" });
+  giohang.belongsTo(taikhoan, { as: "MaTK_taikhoan", foreignKey: "MaTK"});
+  ctgh.belongsTo(giohang, { as: "MaGH_giohang", foreignKey: "MaGH"});
+  ctgh.belongsTo(sanpham, { as: "MaSP_sanpham", foreignKey: "MaSP"});
+  giohang.hasMany(ctgh, { as: "ctghs", foreignKey: "MaGH"});
+  sanpham.hasMany(ctgh, { as: "ctghs", foreignKey: "MaSP"});
+  lichsu_trangthai.belongsTo(donhang, { as: "MaDH_donhang", foreignKey: "MaDH" });
+  lichsu_trangthai.belongsTo(taikhoan, { as: "NguoiCapNhat_taikhoan", foreignKey: "NguoiCapNhat" });
+  donhang.hasMany(lichsu_trangthai, { as: "lichsu_trangthais", foreignKey: "MaDH" });
+  taikhoan.hasMany(lichsu_trangthai, { as: "lichsu_trangthais", foreignKey: "NguoiCapNhat" });
+
 
   return {
     chitiet_donhang,
@@ -148,6 +166,9 @@ function initModels(sequelize) {
     vaitro,
     taikhoan_vaitro,
     password_reset_token,
+    giohang,
+    ctgh,
+    lichsu_trangthai,
   };
 }
 

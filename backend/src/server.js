@@ -5,11 +5,11 @@ import cors from "cors";
 import { connectDB, syncDB } from "./config/db.js";
 import sequelize from "./config/db.js";
 
-// 🟢 IMPORT ROUTES (CHỈ NHỮNG ROUTES ĐÃ TỒN TẠI)
-import sanphamRoutes from "./routes/sanphamRoutes.js";
-import cuahangRoutes from "./routes/cuahangRoutes.js";
-import authRoutes from "./routes/authRoutes.js";
-// ❌ XÓA: import storeRegistrationRoutes from "./routes/storeRegistrationRoutes.js";
+import sanphamroutes from "./routes/sanphamroutes.js"; // 🟢 Import router sản phẩm
+import cuahangRoutes from "./routes/cuahangRoutes.js"; // 🟢 Import router cửa hàng
+import authRoutes from "./routes/authRoutes.js"; // 🟢 Import router auth
+import cartRoutes from "./routes/cartRoutes.js"; // 🟢 Import router giỏ hàng
+import orderRoutes from "./routes/orderRoutes.js"; // 🟢 Import router đơn hàng
 
 const app = express();
 
@@ -27,8 +27,9 @@ app.get("/", (req, res) => {
       products: "/api/sanpham",
       stores: "/api/cuahang",
       auth: "/api/auth",
-      // ❌ XÓA: store_registration: "/api/store-registration",
-      documentation: "Xem file server.js để biết chi tiết endpoints",
+      cart: "/api/cart",
+      order: "/api/order",
+      docs: "Check API documentation for available endpoints",
     },
   });
 });
@@ -63,6 +64,9 @@ async function startServer() {
 
     // 🏪 STORE MANAGEMENT ROUTES - Quản lý cửa hàng (ĐÃ BAO GỒM ĐĂNG KÝ GIAN HÀNG)
     app.use("/api/cuahang", cuahangRoutes);
+    app.use("/api/auth", authRoutes);
+    app.use("/api/cart", cartRoutes);
+    app.use("/api/order", orderRoutes);
 
     // 📦 PRODUCT ROUTES - Quản lý sản phẩm
     app.use("/api/sanpham", sanphamRoutes);
@@ -74,37 +78,8 @@ async function startServer() {
     // 5️⃣ XỬ LÝ ROUTE KHÔNG TỒN TẠI
     app.use("*", (req, res) => {
       res.status(404).json({
-        success: false,
-        error: "Route không tồn tại",
-        available_routes: {
-          auth: [
-            "POST /api/auth/register - Đăng ký tài khoản",
-            "POST /api/auth/login - Đăng nhập (lấy JWT token)",
-            "POST /api/auth/forgot-password - Quên mật khẩu",
-            "POST /api/auth/reset-password - Đặt lại mật khẩu",
-            "POST /api/auth/change-password - Đổi mật khẩu (cần JWT)",
-          ],
-          stores: [
-            "GET    /api/cuahang - Danh sách cửa hàng (public)",
-            "GET    /api/cuahang/search?keyword=... - Tìm kiếm cửa hàng (public)",
-            "GET    /api/cuahang/:MaCH - Chi tiết cửa hàng (public)",
-            "PATCH  /api/cuahang/:MaCH/theo-doi - Theo dõi cửa hàng (public)",
-            "GET    /api/cuahang/:MaCH/thong-ke-ton-kho - Thống kê tồn kho (public)",
-            "POST   /api/cuahang/dang-ky - Đăng ký cửa hàng (cần JWT)",
-            "GET    /api/cuahang/tao/cua-hang-cua-toi - Cửa hàng của tôi (cần JWT)",
-            "PUT    /api/cuahang/chinh-sua/:MaCH - Chỉnh sửa cửa hàng (cần JWT + chủ cửa hàng)",
-            "DELETE /api/cuahang/xoa/:MaCH - Xóa cửa hàng (cần JWT + chủ cửa hàng)",
-            "GET    /api/cuahang/tao/thong-ke-ton-kho - Thống kê tồn kho của tôi (cần JWT + chủ cửa hàng)",
-            "GET    /api/cuahang/tao/thong-ke-ton-kho/loc - Thống kê có lọc (cần JWT + chủ cửa hàng)",
-          ],
-          products: [
-            "GET    /api/sanpham - Danh sách sản phẩm",
-            "POST   /api/sanpham - Tạo sản phẩm mới",
-            "GET    /api/sanpham/:MaSP - Chi tiết sản phẩm",
-            "PUT    /api/sanpham/:MaSP - Cập nhật sản phẩm",
-            "DELETE /api/sanpham/:MaSP - Xóa sản phẩm",
-          ],
-        },
+        error: "Route not found",
+        availableRoutes: ["/api/sanpham", "/api/cuahang", "/api/auth", "/api/cart", "/api/order", "/"],
       });
     });
 
@@ -124,60 +99,14 @@ async function startServer() {
     // 7️⃣ KHỞI ĐỘNG SERVER
     const PORT = process.env.PORT || 3000;
     app.listen(PORT, () => {
-      console.log(`\n🎉 SERVER ĐÃ KHỞI ĐỘNG THÀNH CÔNG!`);
-      console.log(`═`.repeat(50));
-      console.log(`📍 Port: ${PORT}`);
-      console.log(`🌐 URL: http://localhost:${PORT}`);
-      console.log(`🕐 Time: ${new Date().toLocaleString("vi-VN")}`);
-      console.log(`═`.repeat(50));
-
-      console.log(`\n📚 DANH SÁCH API ENDPOINTS:`);
-      console.log(`🔐 AUTHENTICATION:`);
-      console.log(
-        `   POST http://localhost:${PORT}/api/auth/register - Đăng ký tài khoản`
-      );
-      console.log(
-        `   POST http://localhost:${PORT}/api/auth/login - Đăng nhập (lấy JWT token)`
-      );
-
-      console.log(`\n🏪 STORE REGISTRATION & MANAGEMENT (BẮT BUỘC JWT):`);
-      console.log(
-        `   POST http://localhost:${PORT}/api/cuahang/dang-ky - Đăng ký gian hàng & hợp đồng`
-      );
-      console.log(
-        `   GET  http://localhost:${PORT}/api/cuahang/tao/cua-hang-cua-toi - Xem gian hàng của tôi`
-      );
-      console.log(
-        `   GET  http://localhost:${PORT}/api/cuahang - Danh sách cửa hàng (PUBLIC)`
-      );
-      console.log(
-        `   PUT  http://localhost:${PORT}/api/cuahang/chinh-sua/:MaCH - Chỉnh sửa cửa hàng`
-      );
-
-      console.log(`\n📦 PRODUCT MANAGEMENT:`);
-      console.log(
-        `   GET  http://localhost:${PORT}/api/sanpham - Danh sách sản phẩm`
-      );
-
-      console.log(`\n🛠️ TESTING INSTRUCTIONS:`);
-      console.log(`   1. Đăng ký tài khoản: POST /api/auth/register`);
-      console.log(`   2. Đăng nhập lấy token: POST /api/auth/login`);
-      console.log(`   3. Dán token vào Postman Authorization → Bearer Token`);
-      console.log(`   4. Đăng ký gian hàng: POST /api/cuahang/dang-ky`);
-      console.log(
-        `   5. Kiểm tra gian hàng: GET /api/cuahang/tao/cua-hang-cua-toi`
-      );
-
-      console.log(`\n⚠️  LƯU Ý QUAN TRỌNG:`);
-      console.log(`   - Đăng ký gian hàng CẦN JWT token từ bước đăng nhập`);
-      console.log(`   - Mỗi user chỉ được đăng ký 1 gian hàng duy nhất`);
-      console.log(
-        `   - Token có thời hạn 1 giờ (có thể renew bằng cách đăng nhập lại)`
-      );
-      console.log(`   - Sử dụng Postman để test API endpoints`);
-      console.log(
-        `   - JWT được xử lý trực tiếp trong controller (không cần middleware)`
-      );
+      console.log(`✅ Server running on port ${PORT}`);
+      console.log(`🌐 API base URL: http://localhost:${PORT}`);
+      console.log(`📦 Products API: http://localhost:${PORT}/api/sanpham`);
+      console.log(`🏪 Stores API: http://localhost:${PORT}/api/cuahang`);
+      console.log(`🔐 Auth API: http://localhost:${PORT}/api/auth`);
+      console.log(`🛒 Cart API: http://localhost:${PORT}/api/cart`);
+      console.log(`🧾 Order API: http://localhost:${PORT}/api/order`);
+      console.log(`🏠 Test route: http://localhost:${PORT}/`);
     });
   } catch (err) {
     console.error("❌ LỖI KHỞI ĐỘNG SERVER:", err);
