@@ -4,7 +4,8 @@ import { initModels } from "../models/init-models.js";
 import sequelize from "../config/db.js";
 
 const models = initModels(sequelize);
-const { donhang, chitiet_donhang, sanpham, ptvc, pttt, giohang, ctgh, taikhoan } = models;
+
+const { donhang, chitiet_donhang, sanpham, ptvc, pttt, giohang, ctgh, taikhoan, lichsu_trangthai } = models;
 
 export const checkout = async (req, res) => {
   try {
@@ -201,5 +202,117 @@ export const orderSuccess = async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Lỗi server" });
+  }
+};
+
+export const updateOrderStatus = async (req, res) => {
+  const { MaDH } = req.params;
+  const { TrangThai } = req.body;
+  console.log("📦 Body nhận được:", req.body);
+  console.log("📌 TrangThai:", TrangThai);
+  try {
+    // 🛡️ 1. Xác thực token và lấy MaTK từ JWT
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return res.status(401).json({ message: "Không có token" });
+    }
+    const token = authHeader.split(" ")[1];
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (err) {
+      return res.status(401).json({ message: "Token không hợp lệ" });
+    }
+    const userMaTK = decoded.MaTK;
+
+    // 🔎 2. Lấy đơn hàng
+    const order = await donhang.findOne({ where: { MaDH } });
+    if (!order) {
+      return res.status(404).json({ message: "Không tìm thấy đơn hàng" });
+    }
+
+    // ✅ Gợi ý 1: Kiểm tra quyền người dùng (chỉ người đặt đơn mới được hủy)
+    if (order.MaTK !== userMaTK) {
+      return res.status(403).json({ message: "Bạn không có quyền thay đổi đơn hàng này" });
+    }
+
+    // ✅ Gợi ý 2: Chỉ cho phép hủy khi đơn đang ở trạng thái “Chờ xác nhận” hoặc “Đang xử lý”
+    const choPhepHuy = ["Chờ xác nhận", "Đang xử lý"];
+    if (TrangThai === "Hủy đơn hàng" && !choPhepHuy.includes(order.TrangThai)) {
+      return res.status(400).json({ message: "Không thể hủy đơn ở trạng thái hiện tại" });
+    }
+
+    // 👉 Nếu là hủy đơn, thực hiện trả hàng về giỏ + hoàn lại tồn kho
+    if (TrangThai === "Hủy đơn hàng") {
+      const chiTietList = await chitiet_donhang.findAll({ where: { MaDH } });
+
+      if (!chiTietList || chiTietList.length === 0) {
+        return res.status(400).json({ message: "Đơn hàng không có sản phẩm để hoàn" });
+      }
+
+      // Trả lại tồn kho
+      for (const ct of chiTietList) {
+        const sp = await sanpham.findOne({ where: { MaSP: ct.MaSP } });
+        if (sp) {
+          sp.SLTon += ct.SoLuong;
+          await sp.save();
+        }
+      }
+
+      // Trả lại giỏ hàng
+      let cart = await giohang.findOne({ where: { MaTK: order.MaTK } });
+      if (!cart) {
+        cart = await giohang.create({
+          MaGH: "GH" + Math.random().toString(36).substring(2, 10).toUpperCase(),
+          MaTK: order.MaTK
+        });
+      }
+
+      for (const ct of chiTietList) {
+        let item = await ctgh.findOne({ where: { MaGH: cart.MaGH, MaSP: ct.MaSP } });
+        if (item) {
+          item.SL += ct.SoLuong;
+          item.TongTien = item.SL * ct.GiaBan;
+          await item.save();
+        } else {
+          await ctgh.create({
+            MaGH: cart.MaGH,
+            MaSP: ct.MaSP,
+            SL: ct.SoLuong,
+            TongTien: ct.GiaBan * ct.SoLuong
+          });
+        }
+      }
+    }
+
+    // 📝 Gợi ý 3: Ghi log lịch sử trạng thái
+
+    if (lichsu_trangthai) {
+    await lichsu_trangthai.create({
+    MaLS: "LS" + Math.random().toString(36).substring(2, 10).toUpperCase(),
+    MaDH: order.MaDH,
+    TrangThaiCu: order.TrangThai,
+    TrangThaiMoi: TrangThai,
+    NgayCapNhat: new Date(),
+    NguoiCapNhat: userMaTK
+  });
+}
+
+// ✅ Cập nhật trạng thái đơn hàng trực tiếp bằng .update()
+if (order.TrangThai !== TrangThai) {
+  await donhang.update(
+    { TrangThai },
+    { where: { MaDH } }
+  );
+}else {
+  console.log(`⚠️ Trạng thái không đổi cho đơn ${MaDH} → Không update`);
+}
+
+
+    return res.json({ success: true, message: `Đã cập nhật trạng thái đơn hàng: ${TrangThai}` });
+
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: "Lỗi server", error: err.message });
   }
 };
