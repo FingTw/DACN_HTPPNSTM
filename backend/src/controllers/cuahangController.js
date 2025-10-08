@@ -1,64 +1,212 @@
-//import initModels from "../models/init-models.js";
+// controllers/cuahangController.js
 import { initModels } from "../models/init-models.js";
 import sequelize from "../config/db.js";
+import { Op } from "sequelize";
+import jwt from "jsonwebtoken"; // 🟢 THÊM DÒNG NÀY
+import dotenv from "dotenv"; // 🟢 THÊM DÒNG NÀY
 
 const models = initModels(sequelize);
-const { cuahang, taikhoan, hinhanh, sanpham } = models;
+const {
+  cuahang,
+  taikhoan,
+  hinhanh,
+  sanpham,
+  hdbanhang,
+  vaitro,
+  taikhoan_vaitro,
+} = models;
 
-// 🟢 Đăng ký thông tin gian hàng - CHỈ USER ĐÃ ĐĂNG NHẬP
+// 🟢 NOTE QUAN TRỌNG:
+// - Controller này xử lý cả PUBLIC và PROTECTED routes
+// - Sử dụng req.user từ middleware authenticateToken
+// - Đăng ký cửa hàng BẮT BUỘC có tài khoản và JWT token
+
+// 🏪 ĐĂNG KÝ THÔNG TIN GIAN HÀNG - CHỈ USER ĐÃ ĐĂNG NHẬP
 export const createCuahang = async (req, res) => {
+  const transaction = await sequelize.transaction();
+
   try {
-    const user = req.user;
+    // 🟢 XÁC THỰC JWT TRỰC TIẾP (THÊM CODE NÀY)
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return res.status(401).json({
+        success: false,
+        message: "Token không tồn tại. Vui lòng đăng nhập!",
+      });
+    }
+
+    const token = authHeader.split(" ")[1];
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (err) {
+      return res.status(401).json({
+        success: false,
+        message: "Token không hợp lệ hoặc đã hết hạn",
+      });
+    }
+
+    // 🟢 KIỂM TRA USER TỒN TẠI
+    const user = await taikhoan.findByPk(decoded.MaTK, { transaction });
     if (!user) {
-      return res.status(401).json({ message: "Chưa đăng nhập" });
+      await transaction.rollback();
+      return res.status(404).json({
+        success: false,
+        message: "Không tìm thấy tài khoản",
+      });
     }
 
-    const { MaCH, TenCH, SLTheoDoi, DiemDG, MaHA_CuaHang } = req.body;
+    console.log(`👤 Authenticated user: ${user.MaTK}`);
 
-    // Kiểm tra gian hàng đã tồn tại chưa
-    const existingCH = await cuahang.findByPk(MaCH);
-    if (existingCH) {
-      return res.status(400).json({ message: "Mã gian hàng đã tồn tại" });
-    }
+    const { TenCH, MaHA_CuaHang, LoaiHinhKD, MaSoThue, DCLayHang } = req.body;
 
-    // Kiểm tra user đã có cửa hàng chưa
+    // 🟢 KIỂM TRA USER ĐÃ CÓ CỬA HÀNG CHƯA
     const existingUserCH = await cuahang.findOne({
       where: { MaTK: user.MaTK },
+      transaction,
     });
+
     if (existingUserCH) {
-      return res.status(400).json({ message: "Bạn đã có cửa hàng rồi" });
+      await transaction.rollback();
+      return res.status(400).json({
+        success: false,
+        message: "Bạn đã có cửa hàng rồi",
+        data: {
+          existingStore: {
+            MaCH: existingUserCH.MaCH,
+            TenCH: existingUserCH.TenCH,
+          },
+        },
+      });
+    }
+    // 🟢 TẠO MÃ GIAN HÀNG TỰ ĐỘNG (Format: CHYYMM0001)
+    const now = new Date();
+    const storePrefix =
+      "CH" +
+      now.getFullYear().toString().slice(2) +
+      String(now.getMonth() + 1).padStart(2, "0");
+
+    const lastStore = await cuahang.findOne({
+      where: { MaCH: { [Op.like]: `${storePrefix}%` } },
+      order: [["MaCH", "DESC"]],
+      transaction,
+    });
+
+    let newStoreId = storePrefix + "0001";
+    if (lastStore) {
+      const num = parseInt(lastStore.MaCH.slice(6)) + 1;
+      newStoreId = storePrefix + num.toString().padStart(4, "0");
     }
 
-    // Kiểm tra hình ảnh tồn tại (nếu có MaHA_CuaHang)
+    // 🟢 TẠO MÃ HỢP ĐỒNG TỰ ĐỘNG (Format: HDYYMM0001)
+    const contractPrefix =
+      "HD" +
+      now.getFullYear().toString().slice(2) +
+      String(now.getMonth() + 1).padStart(2, "0");
+
+    const lastContract = await hdbanhang.findOne({
+      where: { MaHD: { [Op.like]: `${contractPrefix}%` } },
+      order: [["MaHD", "DESC"]],
+      transaction,
+    });
+
+    let newContractId = contractPrefix + "0001";
+    if (lastContract) {
+      const num = parseInt(lastContract.MaHD.slice(6)) + 1;
+      newContractId = contractPrefix + num.toString().padStart(4, "0");
+    }
+
+    // 🟢 KIỂM TRA HÌNH ẢNH TỒN TẠI (nếu có)
     if (MaHA_CuaHang) {
-      const existingHA = await hinhanh.findByPk(MaHA_CuaHang);
+      const existingHA = await hinhanh.findByPk(MaHA_CuaHang, { transaction });
       if (!existingHA) {
-        return res.status(400).json({ message: "Hình ảnh không tồn tại" });
+        await transaction.rollback();
+        return res.status(400).json({
+          success: false,
+          message: "Hình ảnh không tồn tại",
+        });
       }
     }
 
-    const newCuahang = await cuahang.create({
-      MaCH,
-      TenCH,
-      SLTheoDoi: SLTheoDoi || 0,
-      DiemDG: DiemDG || 0,
-      MaHA_CuaHang: MaHA_CuaHang || null,
-      MaTK: user.MaTK, // Gán cửa hàng cho user hiện tại
+    // 🟢 TẠO HỢP ĐỒNG BÁN HÀNG
+    const newContract = await hdbanhang.create(
+      {
+        MaHD: newContractId,
+        MaTK: user.MaTK,
+        NgayLap: new Date(),
+        LoaiHinhKD: LoaiHinhKD || "Bán lẻ",
+        MaSoThue: MaSoThue || null,
+        DCLayHang: DCLayHang || null,
+      },
+      { transaction }
+    );
+
+    // 🟢 TẠO GIAN HÀNG
+    const newCuahang = await cuahang.create(
+      {
+        MaCH: newStoreId,
+        TenCH,
+        SLTheoDoi: 0,
+        DiemDG: 0,
+        MaHA_CuaHang: MaHA_CuaHang || null,
+        MaTK: user.MaTK,
+        MaHD: newContractId, // Liên kết với hợp đồng
+      },
+      { transaction }
+    );
+
+    // 🟢 CẬP NHẬT VAI TRÒ THÀNH CHỦ CỬA HÀNG
+    const sellerRole = await vaitro.findOne({
+      where: { TenVT: "Chủ Cửa Hàng" },
+      transaction,
     });
 
+    if (sellerRole) {
+      // Xóa role khách hàng cũ (nếu có)
+      await taikhoan_vaitro.destroy({
+        where: { MaTK: user.MaTK },
+        transaction,
+      });
+
+      // Thêm role chủ cửa hàng
+      await taikhoan_vaitro.create(
+        {
+          MaTK: user.MaTK,
+          MaVT: sellerRole.MaVT,
+        },
+        { transaction }
+      );
+    }
+
+    await transaction.commit();
+
     res.status(201).json({
+      success: true,
       message: "Đăng ký gian hàng thành công",
-      data: newCuahang,
+      data: {
+        store: {
+          MaCH: newCuahang.MaCH,
+          TenCH: newCuahang.TenCH,
+          MaHA_CuaHang: newCuahang.MaHA_CuaHang,
+        },
+        contract: {
+          MaHD: newContract.MaHD,
+          LoaiHinhKD: newContract.LoaiHinhKD,
+          NgayLap: newContract.NgayLap,
+        },
+      },
     });
   } catch (err) {
+    await transaction.rollback();
+    console.error("❌ Lỗi đăng ký gian hàng:", err);
     res.status(500).json({
-      message: "Lỗi khi đăng ký gian hàng",
-      error: err.message,
+      success: false,
+      message: "Lỗi server: " + err.message,
     });
   }
 };
 
-// 🟢 Lấy danh sách tất cả gian hàng - AI CŨNG XEM ĐƯỢC
+// 🟢 LẤY DANH SÁCH TẤT CẢ GIAN HÀNG - AI CŨNG XEM ĐƯỢC
 export const getAllCuahang = async (req, res) => {
   try {
     const { include } = req.query;
@@ -82,7 +230,7 @@ export const getAllCuahang = async (req, res) => {
         options.include.push({
           model: hinhanh,
           as: "MaHA_CuaHang_hinhanh",
-          attributes: ["MaHA", "DuongDan", "MoTa"],
+          attributes: ["MaHA", "URL", "MoTa"],
         });
       }
     }
@@ -90,19 +238,21 @@ export const getAllCuahang = async (req, res) => {
     const data = await cuahang.findAll(options);
 
     res.json({
+      success: true,
       message: "Lấy danh sách gian hàng thành công",
       count: data.length,
       data: data,
     });
   } catch (err) {
     res.status(500).json({
+      success: false,
       message: "Lỗi khi lấy danh sách gian hàng",
       error: err.message,
     });
   }
 };
 
-// 🟢 Lấy thông tin gian hàng theo mã - AI CŨNG XEM ĐƯỢC
+// 🟢 LẤY THÔNG TIN GIAN HÀNG THEO MÃ - AI CŨNG XEM ĐƯỢC
 export const getCuahangById = async (req, res) => {
   try {
     const { MaCH } = req.params;
@@ -127,7 +277,20 @@ export const getCuahangById = async (req, res) => {
         options.include.push({
           model: hinhanh,
           as: "MaHA_CuaHang_hinhanh",
-          attributes: ["MaHA", "DuongDan", "MoTa", "NgayTao"],
+          attributes: ["MaHA", "URL", "MoTa", "NgayTao"],
+        });
+      }
+
+      if (includes.includes("hdbanhang")) {
+        options.include.push({
+          model: hdbanhang,
+          attributes: [
+            "MaHD",
+            "NgayLap",
+            "LoaiHinhKD",
+            "MaSoThue",
+            "DCLayHang",
+          ],
         });
       }
     }
@@ -135,54 +298,69 @@ export const getCuahangById = async (req, res) => {
     const item = await cuahang.findOne(options);
 
     if (!item) {
-      return res.status(404).json({ message: "Không tìm thấy gian hàng" });
+      return res.status(404).json({
+        success: false,
+        message: "Không tìm thấy gian hàng",
+      });
     }
 
     res.json({
+      success: true,
       message: "Lấy thông tin gian hàng thành công",
       data: item,
     });
   } catch (err) {
     res.status(500).json({
+      success: false,
       message: "Lỗi khi lấy thông tin gian hàng",
       error: err.message,
     });
   }
 };
 
-// 🟢 Chỉnh sửa thông tin gian hàng - CHỈ CHỦ CỬA HÀNG
+// ✏️ CHỈNH SỬA THÔNG TIN GIAN HÀNG - CHỈ CHỦ CỬA HÀNG
 export const updateCuahang = async (req, res) => {
   try {
     const { MaCH } = req.params;
     const user = req.user;
 
     if (!user) {
-      return res.status(401).json({ message: "Chưa đăng nhập" });
+      return res.status(401).json({
+        success: false,
+        message: "Chưa đăng nhập",
+      });
     }
 
     const { TenCH, SLTheoDoi, DiemDG, MaHA_CuaHang } = req.body;
 
     const item = await cuahang.findByPk(MaCH);
     if (!item) {
-      return res.status(404).json({ message: "Không tìm thấy gian hàng" });
+      return res.status(404).json({
+        success: false,
+        message: "Không tìm thấy gian hàng",
+      });
     }
 
-    // Kiểm tra quyền sở hữu
+    // 🟢 KIỂM TRA QUYỀN SỞ HỮU
     if (item.MaTK !== user.MaTK) {
       return res.status(403).json({
+        success: false,
         message: "Bạn không có quyền chỉnh sửa cửa hàng này",
       });
     }
 
-    // Kiểm tra hình ảnh tồn tại (nếu có MaHA_CuaHang)
+    // 🟢 KIỂM TRA HÌNH ẢNH TỒN TẠI (nếu có)
     if (MaHA_CuaHang) {
       const existingHA = await hinhanh.findByPk(MaHA_CuaHang);
       if (!existingHA) {
-        return res.status(400).json({ message: "Hình ảnh không tồn tại" });
+        return res.status(400).json({
+          success: false,
+          message: "Hình ảnh không tồn tại",
+        });
       }
     }
 
-    // Cập nhật thông tin (không cho phép thay đổi MaTK)
+    // 🟢 CẬP NHẬT THÔNG TIN
     await item.update({
       TenCH: TenCH !== undefined ? TenCH : item.TenCH,
       SLTheoDoi: SLTheoDoi !== undefined ? SLTheoDoi : item.SLTheoDoi,
@@ -192,18 +370,20 @@ export const updateCuahang = async (req, res) => {
     });
 
     res.json({
+      success: true,
       message: "Cập nhật thông tin gian hàng thành công",
       data: item,
     });
   } catch (err) {
     res.status(500).json({
+      success: false,
       message: "Lỗi khi cập nhật gian hàng",
       error: err.message,
     });
   }
 };
 
-// 🟢 Xóa gian hàng - CHỈ CHỦ CỬA HÀNG (ĐÃ CẬP NHẬT)
+// 🗑️ XÓA GIAN HÀNG - CHỈ CHỦ CỬA HÀNG
 export const deleteCuahang = async (req, res) => {
   const transaction = await sequelize.transaction();
 
@@ -212,28 +392,36 @@ export const deleteCuahang = async (req, res) => {
     const user = req.user;
 
     if (!user) {
-      return res.status(401).json({ message: "Chưa đăng nhập" });
+      return res.status(401).json({
+        success: false,
+        message: "Chưa đăng nhập",
+      });
     }
 
     const item = await cuahang.findByPk(MaCH);
     if (!item) {
-      return res.status(404).json({ message: "Không tìm thấy gian hàng" });
+      return res.status(404).json({
+        success: false,
+        message: "Không tìm thấy gian hàng",
+      });
     }
 
-    // Kiểm tra quyền sở hữu
+    // 🟢 KIỂM TRA QUYỀN SỞ HỮU
     if (item.MaTK !== user.MaTK) {
       return res.status(403).json({
+        success: false,
         message: "Bạn không có quyền xóa cửa hàng này",
       });
     }
 
-    // 🚨 Kiểm tra có sản phẩm thuộc cửa hàng không
+    // 🚨 KIỂM TRA CÓ SẢN PHẨM THUỘC CỬA HÀNG KHÔNG
     const productsCount = await sanpham.count({
       where: { MaCH: MaCH },
     });
 
     if (productsCount > 0) {
       return res.status(400).json({
+        success: false,
         message: `Không thể xóa cửa hàng. Còn ${productsCount} sản phẩm thuộc cửa hàng này. Hãy xóa hoặc chuyển sản phẩm trước.`,
       });
     }
@@ -242,23 +430,28 @@ export const deleteCuahang = async (req, res) => {
     await transaction.commit();
 
     res.json({
+      success: true,
       message: "Xóa gian hàng thành công",
     });
   } catch (err) {
     await transaction.rollback();
     res.status(500).json({
+      success: false,
       message: "Lỗi khi xóa gian hàng",
       error: err.message,
     });
   }
 };
 
-// 🟢 Lấy thông tin cửa hàng của tôi - CHỦ CỬA HÀNG
+// 📋 LẤY THÔNG TIN CỬA HÀNG CỦA TÔI - CHỦ CỬA HÀNG
 export const getMyCuahang = async (req, res) => {
   try {
     const user = req.user;
     if (!user) {
-      return res.status(401).json({ message: "Chưa đăng nhập" });
+      return res.status(401).json({
+        success: false,
+        message: "Chưa đăng nhập",
+      });
     }
 
     const item = await cuahang.findOne({
@@ -267,39 +460,53 @@ export const getMyCuahang = async (req, res) => {
         {
           model: hinhanh,
           as: "MaHA_CuaHang_hinhanh",
-          attributes: ["MaHA", "DuongDan", "MoTa"],
+          attributes: ["MaHA", "URL", "MoTa"],
+        },
+        {
+          model: hdbanhang,
+          attributes: [
+            "MaHD",
+            "NgayLap",
+            "LoaiHinhKD",
+            "MaSoThue",
+            "DCLayHang",
+          ],
         },
       ],
     });
 
     if (!item) {
-      return res.status(404).json({ message: "Bạn chưa có cửa hàng" });
+      return res.status(404).json({
+        success: false,
+        message: "Bạn chưa có cửa hàng",
+      });
     }
 
     res.json({
+      success: true,
       message: "Lấy thông tin cửa hàng thành công",
       data: item,
     });
   } catch (err) {
     res.status(500).json({
+      success: false,
       message: "Lỗi khi lấy thông tin cửa hàng",
       error: err.message,
     });
   }
 };
 
-// 🟢 Tìm kiếm gian hàng theo tên - AI CŨNG XEM ĐƯỢC
+// 🔍 TÌM KIẾM GIAN HÀNG THEO TÊN - AI CŨNG XEM ĐƯỢC
 export const searchCuahang = async (req, res) => {
   try {
     const { keyword } = req.query;
 
     if (!keyword) {
-      return res
-        .status(400)
-        .json({ message: "Vui lòng nhập từ khóa tìm kiếm" });
+      return res.status(400).json({
+        success: false,
+        message: "Vui lòng nhập từ khóa tìm kiếm",
+      });
     }
-
-    const { Op } = await import("sequelize");
 
     const data = await cuahang.findAll({
       where: {
@@ -311,19 +518,21 @@ export const searchCuahang = async (req, res) => {
     });
 
     res.json({
+      success: true,
       message: "Tìm kiếm gian hàng thành công",
       count: data.length,
       data: data,
     });
   } catch (err) {
     res.status(500).json({
+      success: false,
       message: "Lỗi khi tìm kiếm gian hàng",
       error: err.message,
     });
   }
 };
 
-// 🟢 Cập nhật số lượng theo dõi - AI CŨNG ĐƯỢC (không cần đăng nhập)
+// 📈 CẬP NHẬT SỐ LƯỢNG THEO DÕI - AI CŨNG ĐƯỢC
 export const updateTheoDoi = async (req, res) => {
   try {
     const { MaCH } = req.params;
@@ -331,7 +540,10 @@ export const updateTheoDoi = async (req, res) => {
 
     const item = await cuahang.findByPk(MaCH);
     if (!item) {
-      return res.status(404).json({ message: "Không tìm thấy gian hàng" });
+      return res.status(404).json({
+        success: false,
+        message: "Không tìm thấy gian hàng",
+      });
     }
 
     let newSLTheoDoi = item.SLTheoDoi;
@@ -345,156 +557,141 @@ export const updateTheoDoi = async (req, res) => {
     await item.update({ SLTheoDoi: newSLTheoDoi });
 
     res.json({
+      success: true,
       message: "Cập nhật số lượng theo dõi thành công",
       data: item,
     });
   } catch (err) {
     res.status(500).json({
+      success: false,
       message: "Lỗi khi cập nhật số lượng theo dõi",
       error: err.message,
     });
   }
 };
 
-// // 🟢 Thống kê sản phẩm tồn kho của cửa hàng - CHỦ CỬA HÀNG
-// export const getThongKeTonKho = async (req, res) => {
-//   try {
-//     const user = req.user;
-//     if (!user) {
-//       return res.status(401).json({ message: "Chưa đăng nhập" });
-//     }
+// 📊 THỐNG KÊ TỒN KHO CỬA HÀNG - PUBLIC/PROTECTED
+export const getThongKeTonKho = async (req, res) => {
+  try {
+    let MaCH;
 
-//     // Tìm cửa hàng của user
-//     const cuaHang = await cuahang.findOne({
-//       where: { MaTK: user.MaTK },
-//     });
+    if (req.params.MaCH) {
+      // 🟢 ROUTE PUBLIC: /api/cuahang/CH001/thong-ke-ton-kho
+      MaCH = req.params.MaCH;
+    } else {
+      // 🟢 ROUTE PROTECTED: /api/cuahang/tao/thong-ke-ton-kho
+      const user = req.user;
+      if (!user) {
+        return res.status(401).json({
+          success: false,
+          message: "Chưa đăng nhập",
+        });
+      }
 
-//     if (!cuaHang) {
-//       return res.status(404).json({ message: "Bạn không có cửa hàng" });
-//     }
+      const cuaHang = await cuahang.findOne({
+        where: { MaTK: user.MaTK },
+      });
 
-//     // Lấy tất cả sản phẩm của cửa hàng
-//     const products = await sanpham.findAll({
-//       where: { MaCH: cuaHang.MaCH },
-//       attributes: [
-//         'MaSP',
-//         'TenSP',
-//         'SLTon',
-//         'GiaBan',
-//         'TrangThai',
-//         'DVT'
-//       ],
-//       order: [['SLTon', 'DESC']] // Sắp xếp theo tồn kho giảm dần
-//     });
+      if (!cuaHang) {
+        return res.status(404).json({
+          success: false,
+          message: "Bạn không có cửa hàng",
+        });
+      }
 
-//     // Tính toán thống kê
-//     const tongSoSanPham = products.length;
-//     const tongSoLuongTon = products.reduce((sum, product) => sum + (product.SLTon || 0), 0);
-//     const tongGiaTriTonKho = products.reduce((sum, product) => {
-//       return sum + ((product.SLTon || 0) * parseFloat(product.GiaBan || 0));
-//     }, 0);
+      MaCH = cuaHang.MaCH;
+    }
 
-//     // Phân loại sản phẩm theo mức độ tồn kho
-//     const sanPhamSapHet = products.filter(p => p.SLTon > 0 && p.SLTon <= 10);
-//     const sanPhamHetHang = products.filter(p => p.SLTon === 0);
-//     const sanPhamConNhieu = products.filter(p => p.SLTon > 10);
+    // 🟢 KIỂM TRA CỬA HÀNG TỒN TẠI
+    const cuaHangInfo = await cuahang.findByPk(MaCH);
+    if (!cuaHangInfo) {
+      return res.status(404).json({
+        success: false,
+        message: "Không tìm thấy cửa hàng",
+      });
+    }
 
-//     // Top sản phẩm tồn kho nhiều nhất
-//     const topTonKhoNhieu = products.slice(0, 5);
+    // 🟢 LẤY TẤT CẢ SẢN PHẨM CỦA CỬA HÀNG
+    const products = await sanpham.findAll({
+      where: { MaCH: MaCH },
+      attributes: ["MaSP", "TenSP", "SLTon", "GiaBan", "TrangThai", "DVT"],
+      order: [["SLTon", "DESC"]],
+    });
 
-//     // Top sản phẩm sắp hết hàng
-//     const topSapHetHang = [...sanPhamSapHet]
-//       .sort((a, b) => a.SLTon - b.SLTon)
-//       .slice(0, 5);
+    // 🟢 TÍNH TOÁN THỐNG KÊ
+    const tongSoSanPham = products.length;
+    const tongSoLuongTon = products.reduce(
+      (sum, product) => sum + (product.SLTon || 0),
+      0
+    );
+    const tongGiaTriTonKho = products.reduce((sum, product) => {
+      return sum + (product.SLTon || 0) * parseFloat(product.GiaBan || 0);
+    }, 0);
 
-//     res.json({
-//       message: "Thống kê tồn kho thành công",
-//       data: {
-//         thongTinCuaHang: {
-//           MaCH: cuaHang.MaCH,
-//           TenCH: cuaHang.TenCH
-//         },
-//         tongQuan: {
-//           tongSoSanPham,
-//           tongSoLuongTon,
-//           tongGiaTriTonKho: Math.round(tongGiaTriTonKho),
-//           trungBinhTonKho: tongSoSanPham > 0 ? Math.round(tongSoLuongTon / tongSoSanPham) : 0
-//         },
-//         phanLoaiTonKho: {
-//           sapHetHang: {
-//             soLuong: sanPhamSapHet.length,
-//             tyLe: tongSoSanPham > 0 ? Math.round((sanPhamSapHet.length / tongSoSanPham) * 100) : 0
-//           },
-//           hetHang: {
-//             soLuong: sanPhamHetHang.length,
-//             tyLe: tongSoSanPham > 0 ? Math.round((sanPhamHetHang.length / tongSoSanPham) * 100) : 0
-//           },
-//           conNhieu: {
-//             soLuong: sanPhamConNhieu.length,
-//             tyLe: tongSoSanPham > 0 ? Math.round((sanPhamConNhieu.length / tongSoSanPham) * 100) : 0
-//           }
-//         },
-//         topSanPham: {
-//           tonKhoNhieuNhat: topTonKhoNhieu.map(p => ({
-//             MaSP: p.MaSP,
-//             TenSP: p.TenSP,
-//             SLTon: p.SLTon,
-//             GiaBan: p.GiaBan,
-//             GiaTriTonKho: (p.SLTon || 0) * parseFloat(p.GiaBan || 0)
-//           })),
-//           sapHetHang: topSapHetHang.map(p => ({
-//             MaSP: p.MaSP,
-//             TenSP: p.TenSP,
-//             SLTon: p.SLTon,
-//             GiaBan: p.GiaBan,
-//             CanNhapThem: 50 - (p.SLTon || 0)
-//           }))
-//         },
-//         chiTietSanPham: products.map(p => ({
-//           MaSP: p.MaSP,
-//           TenSP: p.TenSP,
-//           SLTon: p.SLTon,
-//           GiaBan: p.GiaBan,
-//           DVT: p.DVT,
-//           TrangThai: p.TrangThai,
-//           GiaTriTonKho: (p.SLTon || 0) * parseFloat(p.GiaBan || 0),
-//           MucDoCanhBao: p.SLTon === 0 ? 'Hết hàng' :
-//                         p.SLTon <= 10 ? 'Sắp hết' : 'Đủ hàng'
-//         }))
-//       }
-//     });
+    // 🟢 PHÂN LOẠI SẢN PHẨM
+    const sanPhamSapHet = products.filter((p) => p.SLTon > 0 && p.SLTon <= 10);
+    const sanPhamHetHang = products.filter((p) => p.SLTon === 0);
+    const sanPhamConNhieu = products.filter((p) => p.SLTon > 10);
 
-//   } catch (err) {
-//     console.error("❌ Error getting inventory stats:", err.message);
-//     res.status(500).json({
-//       message: "Lỗi khi thống kê tồn kho",
-//       error: err.message,
-//     });
-//   }
-// };
+    res.json({
+      success: true,
+      message: "Thống kê tồn kho thành công",
+      data: {
+        thongTinCuaHang: {
+          MaCH: cuaHangInfo.MaCH,
+          TenCH: cuaHangInfo.TenCH,
+        },
+        tongQuan: {
+          tongSoSanPham,
+          tongSoLuongTon,
+          tongGiaTriTonKho: Math.round(tongGiaTriTonKho),
+          trungBinhTonKho:
+            tongSoSanPham > 0 ? Math.round(tongSoLuongTon / tongSoSanPham) : 0,
+        },
+        phanLoaiTonKho: {
+          sapHetHang: { soLuong: sanPhamSapHet.length },
+          hetHang: { soLuong: sanPhamHetHang.length },
+          conNhieu: { soLuong: sanPhamConNhieu.length },
+        },
+        chiTietSanPham: products,
+      },
+    });
+  } catch (err) {
+    console.error("❌ Lỗi thống kê tồn kho:", err.message);
+    res.status(500).json({
+      success: false,
+      message: "Lỗi khi thống kê tồn kho",
+      error: err.message,
+    });
+  }
+};
 
-// 🟢 Thống kê tồn kho với bộ lọc - CHỦ CỬA HÀNG
+// 📊 THỐNG KÊ TỒN KHO VỚI BỘ LỌC - CHỦ CỬA HÀNG
 export const getThongKeTonKhoFilter = async (req, res) => {
   try {
     const user = req.user;
     if (!user) {
-      return res.status(401).json({ message: "Chưa đăng nhập" });
+      return res.status(401).json({
+        success: false,
+        message: "Chưa đăng nhập",
+      });
     }
 
     const { minStock, maxStock, trangThai } = req.query;
 
-    // Tìm cửa hàng của user
+    // 🟢 TÌM CỬA HÀNG CỦA USER
     const cuaHang = await cuahang.findOne({
       where: { MaTK: user.MaTK },
     });
 
     if (!cuaHang) {
-      return res.status(404).json({ message: "Bạn không có cửa hàng" });
+      return res.status(404).json({
+        success: false,
+        message: "Bạn không có cửa hàng",
+      });
     }
 
-    const { Op } = await import("sequelize");
-
-    // Xây dựng điều kiện filter
+    // 🟢 XÂY DỰNG ĐIỀU KIỆN FILTER
     let whereCondition = { MaCH: cuaHang.MaCH };
 
     if (minStock !== undefined || maxStock !== undefined) {
@@ -516,158 +713,18 @@ export const getThongKeTonKhoFilter = async (req, res) => {
     });
 
     res.json({
+      success: true,
       message: "Thống kê tồn kho với bộ lọc thành công",
       data: {
-        filters: {
-          minStock,
-          maxStock,
-          trangThai,
-        },
+        filters: { minStock, maxStock, trangThai },
         tongSoSanPham: products.length,
         sanPham: products,
       },
     });
   } catch (err) {
-    console.error("❌ Error getting filtered inventory:", err.message);
+    console.error("❌ Lỗi thống kê tồn kho có lọc:", err.message);
     res.status(500).json({
-      message: "Lỗi khi thống kê tồn kho",
-      error: err.message,
-    });
-  }
-};
-
-// 🟢 Thống kê sản phẩm tồn kho của cửa hàng - KHÔNG CẦN AUTH (TEST)
-export const getThongKeTonKho = async (req, res) => {
-  try {
-    // 🟢 NHẬN MaCH TỪ PARAMS (cho route public) HOẶC TỪ USER (cho route protected)
-    let MaCH;
-
-    if (req.params.MaCH) {
-      // Route public: /api/cuahang/CH004/thong-ke-ton-kho
-      MaCH = req.params.MaCH;
-    } else {
-      // Route protected: /api/cuahang/my/store/thong-ke-ton-kho
-      const user = req.user;
-      if (!user) {
-        return res.status(401).json({ message: "Chưa đăng nhập" });
-      }
-
-      const cuaHang = await cuahang.findOne({
-        where: { MaTK: user.MaTK },
-      });
-
-      if (!cuaHang) {
-        return res.status(404).json({ message: "Bạn không có cửa hàng" });
-      }
-
-      MaCH = cuaHang.MaCH;
-    }
-
-    console.log(`📊 [THONGKE] Getting inventory stats for store: ${MaCH}`);
-
-    // Kiểm tra cửa hàng tồn tại
-    const cuaHangInfo = await cuahang.findByPk(MaCH);
-    if (!cuaHangInfo) {
-      return res.status(404).json({ message: "Không tìm thấy cửa hàng" });
-    }
-
-    // Lấy tất cả sản phẩm của cửa hàng
-    const products = await sanpham.findAll({
-      where: { MaCH: MaCH },
-      attributes: ["MaSP", "TenSP", "SLTon", "GiaBan", "TrangThai", "DVT"],
-      order: [["SLTon", "DESC"]],
-    });
-
-    // Tính toán thống kê
-    const tongSoSanPham = products.length;
-    const tongSoLuongTon = products.reduce(
-      (sum, product) => sum + (product.SLTon || 0),
-      0
-    );
-    const tongGiaTriTonKho = products.reduce((sum, product) => {
-      return sum + (product.SLTon || 0) * parseFloat(product.GiaBan || 0);
-    }, 0);
-
-    // Phân loại sản phẩm
-    const sanPhamSapHet = products.filter((p) => p.SLTon > 0 && p.SLTon <= 10);
-    const sanPhamHetHang = products.filter((p) => p.SLTon === 0);
-    const sanPhamConNhieu = products.filter((p) => p.SLTon > 10);
-
-    // Top sản phẩm
-    const topTonKhoNhieu = products.slice(0, 5);
-    const topSapHetHang = [...sanPhamSapHet]
-      .sort((a, b) => a.SLTon - b.SLTon)
-      .slice(0, 5);
-
-    res.json({
-      message: "Thống kê tồn kho thành công",
-      data: {
-        thongTinCuaHang: {
-          MaCH: cuaHangInfo.MaCH,
-          TenCH: cuaHangInfo.TenCH,
-        },
-        tongQuan: {
-          tongSoSanPham,
-          tongSoLuongTon,
-          tongGiaTriTonKho: Math.round(tongGiaTriTonKho),
-          trungBinhTonKho:
-            tongSoSanPham > 0 ? Math.round(tongSoLuongTon / tongSoSanPham) : 0,
-        },
-        phanLoaiTonKho: {
-          sapHetHang: {
-            soLuong: sanPhamSapHet.length,
-            tyLe:
-              tongSoSanPham > 0
-                ? Math.round((sanPhamSapHet.length / tongSoSanPham) * 100)
-                : 0,
-          },
-          hetHang: {
-            soLuong: sanPhamHetHang.length,
-            tyLe:
-              tongSoSanPham > 0
-                ? Math.round((sanPhamHetHang.length / tongSoSanPham) * 100)
-                : 0,
-          },
-          conNhieu: {
-            soLuong: sanPhamConNhieu.length,
-            tyLe:
-              tongSoSanPham > 0
-                ? Math.round((sanPhamConNhieu.length / tongSoSanPham) * 100)
-                : 0,
-          },
-        },
-        topSanPham: {
-          tonKhoNhieuNhat: topTonKhoNhieu.map((p) => ({
-            MaSP: p.MaSP,
-            TenSP: p.TenSP,
-            SLTon: p.SLTon,
-            GiaBan: p.GiaBan,
-            GiaTriTonKho: (p.SLTon || 0) * parseFloat(p.GiaBan || 0),
-          })),
-          sapHetHang: topSapHetHang.map((p) => ({
-            MaSP: p.MaSP,
-            TenSP: p.TenSP,
-            SLTon: p.SLTon,
-            GiaBan: p.GiaBan,
-            CanNhapThem: 50 - (p.SLTon || 0),
-          })),
-        },
-        chiTietSanPham: products.map((p) => ({
-          MaSP: p.MaSP,
-          TenSP: p.TenSP,
-          SLTon: p.SLTon,
-          GiaBan: p.GiaBan,
-          DVT: p.DVT,
-          TrangThai: p.TrangThai,
-          GiaTriTonKho: (p.SLTon || 0) * parseFloat(p.GiaBan || 0),
-          MucDoCanhBao:
-            p.SLTon === 0 ? "Hết hàng" : p.SLTon <= 10 ? "Sắp hết" : "Đủ hàng",
-        })),
-      },
-    });
-  } catch (err) {
-    console.error("❌ Error getting inventory stats:", err.message);
-    res.status(500).json({
+      success: false,
       message: "Lỗi khi thống kê tồn kho",
       error: err.message,
     });
