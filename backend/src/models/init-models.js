@@ -1,3 +1,4 @@
+// models/init-models.js
 import { DataTypes } from "sequelize";
 import _chitiet_donhang from "./chitiet_donhang.js";
 import _chitietchapnhan from "./chitietchapnhan.js";
@@ -26,13 +27,11 @@ import _yeucaudathang from "./yeucaudathang.js";
 import _giohang from "./giohang.js";
 import _ctgh from "./ctgh.js";
 import _lichsu_trangthai from "./lichsu_trangthai.js";
-import _khuyenmai from "./khuyenmai.js";
-import _donhang_khuyenmai from "./donhang_khuyenmai.js";
-import _khuyenmai_taikhoan from "./khuyenmai_taikhoan.js";
-import _thanhtoan from "./thanhtoan.js";
-import _giaohang from "./giaohang.js";
+import _danhgiasanpham from "./danhgiasanpham.js"; // 🆕 THÊM MODEL ĐÁNH GIÁ SẢN PHẨM
+import _danhgiacuahang from "./danhgiacuahang.js"; // 🆕 THÊM MODEL ĐÁNH GIÁ CỬA HÀNG
 
 function initModels(sequelize) {
+  // 🟢 KHAI BÁO CÁC MODEL
   var chitiet_donhang = _chitiet_donhang(sequelize, DataTypes);
   var chitietchapnhan = _chitietchapnhan(sequelize, DataTypes);
   var chucvu = _chucvu(sequelize, DataTypes);
@@ -60,117 +59,409 @@ function initModels(sequelize) {
   var giohang = _giohang(sequelize, DataTypes);
   var ctgh = _ctgh(sequelize, DataTypes);
   var lichsu_trangthai = _lichsu_trangthai(sequelize, DataTypes);
-  var khuyenmai = _khuyenmai(sequelize, DataTypes);
-  var donhang_khuyenmai = _donhang_khuyenmai(sequelize, DataTypes);
-  var khuyenmai_taikhoan = _khuyenmai_taikhoan(sequelize, DataTypes);
-  var thanhtoan = _thanhtoan(sequelize, DataTypes);
-  var giaohang = _giaohang(sequelize, DataTypes);
+  var danhgiasanpham = _danhgiasanpham(sequelize, DataTypes); // 🆕 MODEL ĐÁNH GIÁ SẢN PHẨM
+  var danhgiacuahang = _danhgiacuahang(sequelize, DataTypes); // 🆕 MODEL ĐÁNH GIÁ CỬA HÀNG
 
-  // Thiết lập các quan hệ giữa các bảng (associations) ở đây
+  // 🟢 THIẾT LẬP QUAN HỆ GIỮA CÁC BẢNG
 
-  danhmuc.belongsToMany(sanpham, { as: 'MaSP_sanpham_sanpham_danhmucs', through: sanpham_danhmuc, foreignKey: "MaDM", otherKey: "MaSP" });
-  donhang.belongsToMany(sanpham, { as: 'MaSP_sanphams', through: chitiet_donhang, foreignKey: "MaDH", otherKey: "MaSP" });
-  hinhanh.belongsToMany(sanpham, { as: 'MaSP_sanpham_sanpham_hinhanhs', through: sanpham_hinhanh, foreignKey: "MaHA", otherKey: "MaSP" });
-  sanpham.belongsToMany(danhmuc, { as: 'MaDM_danhmucs', through: sanpham_danhmuc, foreignKey: "MaSP", otherKey: "MaDM" });
-  sanpham.belongsToMany(donhang, { as: 'MaDH_donhangs', through: chitiet_donhang, foreignKey: "MaSP", otherKey: "MaDH" });
-  sanpham.belongsToMany(hinhanh, { as: 'MaHA_hinhanhs', through: sanpham_hinhanh, foreignKey: "MaSP", otherKey: "MaHA" });
-  sanpham.belongsToMany(xuatnhapton, { as: 'MaXNT_xuatnhaptons', through: xuatnhapton_sanpham, foreignKey: "MaSP", otherKey: "MaXNT" });
-  xuatnhapton.belongsToMany(sanpham, { as: 'MaSP_sanpham_xuatnhapton_sanphams', through: xuatnhapton_sanpham, foreignKey: "MaXNT", otherKey: "MaSP" });
-  nhanvien.belongsTo(chucvu, { as: "MaCV_chucvu", foreignKey: "MaCV"});
-  chucvu.hasMany(nhanvien, { as: "nhanviens", foreignKey: "MaCV"});
-  sanpham.belongsTo(cuahang, { as: "MaCH_cuahang", foreignKey: "MaCH"});
-  cuahang.hasMany(sanpham, { as: "sanphams", foreignKey: "MaCH"});
-  sanpham_danhmuc.belongsTo(danhmuc, { as: "MaDM_danhmuc", foreignKey: "MaDM"});
-  danhmuc.hasMany(sanpham_danhmuc, { as: "sanpham_danhmucs", foreignKey: "MaDM"});
-  yeucaudathang.belongsTo(danhmuc, { as: "MaDM_danhmuc", foreignKey: "MaDM"});
-  danhmuc.hasMany(yeucaudathang, { as: "yeucaudathangs", foreignKey: "MaDM"});
-  chitietchapnhan.belongsTo(denghicungcap, { as: "MaDNCC_denghicungcap", foreignKey: "MaDNCC"});
-  denghicungcap.hasMany(chitietchapnhan, { as: "chitietchapnhans", foreignKey: "MaDNCC"});
-  chitiet_donhang.belongsTo(donhang, { as: "MaDH_donhang", foreignKey: "MaDH"});
-  donhang.hasMany(chitiet_donhang, { as: "chitiet_donhangs", foreignKey: "MaDH"});
-  chitietchapnhan.belongsTo(donhang, { as: "MaDH_donhang", foreignKey: "MaDH"});
-  donhang.hasMany(chitietchapnhan, { as: "chitietchapnhans", foreignKey: "MaDH"});
-  cuahang.belongsTo(hinhanh, { as: "MaHA_CuaHang_hinhanh", foreignKey: "MaHA_CuaHang"});
-  hinhanh.hasMany(cuahang, { as: "cuahangs", foreignKey: "MaHA_CuaHang"});
-  danhmuc.belongsTo(hinhanh, { as: "MaHA_DanhMuc_hinhanh", foreignKey: "MaHA_DanhMuc"});
-  hinhanh.hasMany(danhmuc, { as: "danhmucs", foreignKey: "MaHA_DanhMuc"});
-  nhanvien.belongsTo(hinhanh, { as: "MaHA_Avatar_hinhanh", foreignKey: "MaHA_Avatar"});
-  hinhanh.hasMany(nhanvien, { as: "nhanviens", foreignKey: "MaHA_Avatar"});
-  sanpham_hinhanh.belongsTo(hinhanh, { as: "MaHA_hinhanh", foreignKey: "MaHA"});
-  hinhanh.hasMany(sanpham_hinhanh, { as: "sanpham_hinhanhs", foreignKey: "MaHA"});
-  taikhoan.belongsTo(hinhanh, { as: "MaHA_Avatar_hinhanh", foreignKey: "MaHA_Avatar"});
-  hinhanh.hasMany(taikhoan, { as: "taikhoans", foreignKey: "MaHA_Avatar"});
-  xuatnhapton.belongsTo(kho, { as: "MaKho_kho", foreignKey: "MaKho"});
-  kho.hasMany(xuatnhapton, { as: "xuatnhaptons", foreignKey: "MaKho"});
-  xuatnhapton.belongsTo(nhanvien, { as: "MaNV_nhanvien", foreignKey: "MaNV"});
-  nhanvien.hasMany(xuatnhapton, { as: "xuatnhaptons", foreignKey: "MaNV"});
-  nhanvien.belongsTo(phongban, { as: "MaPB_phongban", foreignKey: "MaPB"});
-  phongban.hasMany(nhanvien, { as: "nhanviens", foreignKey: "MaPB"});
-  donhang.belongsTo(pttt, { as: "MaPTTT_pttt", foreignKey: "MaPTTT"});
-  pttt.hasMany(donhang, { as: "donhangs", foreignKey: "MaPTTT"});
-  donhang.belongsTo(ptvc, { as: "MaPTVC_ptvc", foreignKey: "MaPTVC"});
-  ptvc.hasMany(donhang, { as: "donhangs", foreignKey: "MaPTVC"});
-  chitiet_donhang.belongsTo(sanpham, { as: "MaSP_sanpham", foreignKey: "MaSP"});
-  sanpham.hasMany(chitiet_donhang, { as: "chitiet_donhangs", foreignKey: "MaSP"});
-  denghicungcap.belongsTo(sanpham, { as: "MaSP_sanpham", foreignKey: "MaSP"});
-  sanpham.hasMany(denghicungcap, { as: "denghicungcaps", foreignKey: "MaSP"});
-  sanpham_danhmuc.belongsTo(sanpham, { as: "MaSP_sanpham", foreignKey: "MaSP"});
-  sanpham.hasMany(sanpham_danhmuc, { as: "sanpham_danhmucs", foreignKey: "MaSP"});
-  sanpham_hinhanh.belongsTo(sanpham, { as: "MaSP_sanpham", foreignKey: "MaSP"});
-  sanpham.hasMany(sanpham_hinhanh, { as: "sanpham_hinhanhs", foreignKey: "MaSP"});
-  xuatnhapton_sanpham.belongsTo(sanpham, { as: "MaSP_sanpham", foreignKey: "MaSP"});
-  sanpham.hasMany(xuatnhapton_sanpham, { as: "xuatnhapton_sanphams", foreignKey: "MaSP"});
-  yeucaudathang.belongsTo(sanpham, { as: "MaSP_sanpham", foreignKey: "MaSP"});
-  sanpham.hasMany(yeucaudathang, { as: "yeucaudathangs", foreignKey: "MaSP"});
-  cuahang.belongsTo(taikhoan, { as: "MaTK_taikhoan", foreignKey: "MaTK"});
-  taikhoan.hasMany(cuahang, { as: "cuahangs", foreignKey: "MaTK"});
-  denghicungcap.belongsTo(taikhoan, { as: "MaTK_Seller_taikhoan", foreignKey: "MaTK_Seller"});
-  taikhoan.hasMany(denghicungcap, { as: "denghicungcaps", foreignKey: "MaTK_Seller"});
-  donhang.belongsTo(taikhoan, { as: "MaTK_taikhoan", foreignKey: "MaTK"});
-  taikhoan.hasMany(donhang, { as: "donhangs", foreignKey: "MaTK"});
-  hdbanhang.belongsTo(taikhoan, { as: "MaTK_taikhoan", foreignKey: "MaTK"});
-  taikhoan.hasMany(hdbanhang, { as: "hdbanhangs", foreignKey: "MaTK"});
-  yeucaudathang.belongsTo(taikhoan, { as: "MaTK_Buyer_taikhoan", foreignKey: "MaTK_Buyer"});
-  taikhoan.hasMany(yeucaudathang, { as: "yeucaudathangs", foreignKey: "MaTK_Buyer"});
-  xuatnhapton_sanpham.belongsTo(xuatnhapton, { as: "MaXNT_xuatnhapton", foreignKey: "MaXNT"});
-  xuatnhapton.hasMany(xuatnhapton_sanpham, { as: "xuatnhapton_sanphams", foreignKey: "MaXNT"});
-  denghicungcap.belongsTo(yeucaudathang, { as: "MaYCDH_yeucaudathang", foreignKey: "MaYCDH"});
-  yeucaudathang.hasMany(denghicungcap, { as: "denghicungcaps", foreignKey: "MaYCDH"});
-  // taikhoan.belongsToMany(vaitro, { through: taikhoan_vaitro, foreignKey: "MaTK", otherKey: "MaVT" });
-  // vaitro.belongsToMany(taikhoan, { through: taikhoan_vaitro, foreignKey: "MaVT", otherKey: "MaTK" });
-  taikhoan.hasMany(taikhoan_vaitro, { as: "taikhoan_vaitros", foreignKey: "MaTK" });
-  taikhoan_vaitro.belongsTo(taikhoan, { as: "taikhoan", foreignKey: "MaTK" });
-  vaitro.hasMany(taikhoan_vaitro, { as: "taikhoan_vaitros", foreignKey: "MaVT" });
-  taikhoan_vaitro.belongsTo(vaitro, { as: "vaitro", foreignKey: "MaVT" });
-  password_reset_token.belongsTo(taikhoan, { as: "MaTK_taikhoan", foreignKey: "MaTK"});
-  taikhoan.hasMany(password_reset_token, { as: "password_reset_tokens", foreignKey: "MaTK" });
-  giohang.belongsTo(taikhoan, { as: "MaTK_taikhoan", foreignKey: "MaTK"});
-  ctgh.belongsTo(giohang, { as: "MaGH_giohang", foreignKey: "MaGH"});
-  ctgh.belongsTo(sanpham, { as: "MaSP_sanpham", foreignKey: "MaSP"});
-  giohang.hasMany(ctgh, { as: "ctghs", foreignKey: "MaGH"});
-  sanpham.hasMany(ctgh, { as: "ctghs", foreignKey: "MaSP"});
-  lichsu_trangthai.belongsTo(donhang, { as: "MaDH_donhang", foreignKey: "MaDH" });
-  lichsu_trangthai.belongsTo(taikhoan, { as: "NguoiCapNhat_taikhoan", foreignKey: "NguoiCapNhat" });
-  donhang.hasMany(lichsu_trangthai, { as: "lichsu_trangthais", foreignKey: "MaDH" });
-  taikhoan.hasMany(lichsu_trangthai, { as: "lichsu_trangthais", foreignKey: "NguoiCapNhat" });
-  donhang.belongsToMany(khuyenmai, { as: 'MaKM_khuyenmais', through: donhang_khuyenmai, foreignKey: "MaDH", otherKey: "MaKM" });
-  khuyenmai.belongsToMany(donhang, { as: 'MaDH_donhangs', through: donhang_khuyenmai, foreignKey: "MaKM", otherKey: "MaDH" });
-  taikhoan.belongsToMany(khuyenmai, { as: 'MaKM_khuyenmais', through: khuyenmai_taikhoan, foreignKey: "MaTK", otherKey: "MaKM" });
-  khuyenmai.belongsToMany(taikhoan, { as: 'MaTK_taikhoans', through: khuyenmai_taikhoan, foreignKey: "MaKM", otherKey: "MaTK" });
-  // donhang 1 - 1 thanhtoan
-donhang.hasOne(thanhtoan, { as: "thanhtoan", foreignKey: "MaDH" });
-thanhtoan.belongsTo(donhang, { as: "MaDH_donhang", foreignKey: "MaDH" });
+  // ======================================
+  // 🔄 QUAN HỆ MANY-TO-MANY
+  // ======================================
+  danhmuc.belongsToMany(sanpham, {
+    as: "MaSP_sanpham_sanpham_danhmucs",
+    through: sanpham_danhmuc,
+    foreignKey: "MaDM",
+    otherKey: "MaSP",
+  });
 
-// donhang 1 - 1 giaohang (1 đơn có thể có nhiều bản ghi giao? nếu muốn 1:1 thì hasOne)
-donhang.hasMany(giaohang, { as: "giaohangs", foreignKey: "MaDH" });
-giaohang.belongsTo(donhang, { as: "MaDH_donhang", foreignKey: "MaDH" });
+  donhang.belongsToMany(sanpham, {
+    as: "MaSP_sanphams",
+    through: chitiet_donhang,
+    foreignKey: "MaDH",
+    otherKey: "MaSP",
+  });
 
-// shipper (taikhoan) có thể nhận nhiều giao hàng
-taikhoan.hasMany(giaohang, { as: "giaohangs", foreignKey: "MaShipper" });
-giaohang.belongsTo(taikhoan, { as: "MaShipper_taikhoan", foreignKey: "MaShipper" });
+  hinhanh.belongsToMany(sanpham, {
+    as: "MaSP_sanpham_sanpham_hinhanhs",
+    through: sanpham_hinhanh,
+    foreignKey: "MaHA",
+    otherKey: "MaSP",
+  });
 
+  sanpham.belongsToMany(danhmuc, {
+    as: "MaDM_danhmucs",
+    through: sanpham_danhmuc,
+    foreignKey: "MaSP",
+    otherKey: "MaDM",
+  });
 
+  sanpham.belongsToMany(donhang, {
+    as: "MaDH_donhangs",
+    through: chitiet_donhang,
+    foreignKey: "MaSP",
+    otherKey: "MaDH",
+  });
 
+  sanpham.belongsToMany(hinhanh, {
+    as: "MaHA_hinhanhs",
+    through: sanpham_hinhanh,
+    foreignKey: "MaSP",
+    otherKey: "MaHA",
+  });
+
+  sanpham.belongsToMany(xuatnhapton, {
+    as: "MaXNT_xuatnhaptons",
+    through: xuatnhapton_sanpham,
+    foreignKey: "MaSP",
+    otherKey: "MaXNT",
+  });
+
+  xuatnhapton.belongsToMany(sanpham, {
+    as: "MaSP_sanpham_xuatnhapton_sanphams",
+    through: xuatnhapton_sanpham,
+    foreignKey: "MaXNT",
+    otherKey: "MaSP",
+  });
+
+  taikhoan.belongsToMany(vaitro, {
+    through: taikhoan_vaitro,
+    foreignKey: "MaTK",
+    otherKey: "MaVT",
+  });
+
+  vaitro.belongsToMany(taikhoan, {
+    through: taikhoan_vaitro,
+    foreignKey: "MaVT",
+    otherKey: "MaTK",
+  });
+
+  // ======================================
+  // 🔗 QUAN HỆ ONE-TO-MANY & MANY-TO-ONE
+  // ======================================
+
+  // 🏪 QUAN HỆ CỬA HÀNG
+  sanpham.belongsTo(cuahang, {
+    as: "MaCH_cuahang",
+    foreignKey: "MaCH",
+  });
+  cuahang.hasMany(sanpham, {
+    as: "sanphams",
+    foreignKey: "MaCH",
+  });
+
+  cuahang.belongsTo(taikhoan, {
+    as: "MaTK_taikhoan",
+    foreignKey: "MaTK",
+  });
+  taikhoan.hasMany(cuahang, {
+    as: "cuahangs",
+    foreignKey: "MaTK",
+  });
+
+  cuahang.belongsTo(hinhanh, {
+    as: "MaHA_CuaHang_hinhanh",
+    foreignKey: "MaHA_CuaHang",
+  });
+  hinhanh.hasMany(cuahang, {
+    as: "cuahangs",
+    foreignKey: "MaHA_CuaHang",
+  });
+
+  // 📦 QUAN HỆ SẢN PHẨM
+  sanpham_danhmuc.belongsTo(sanpham, {
+    as: "MaSP_sanpham",
+    foreignKey: "MaSP",
+  });
+  sanpham.hasMany(sanpham_danhmuc, {
+    as: "sanpham_danhmucs",
+    foreignKey: "MaSP",
+  });
+
+  sanpham_danhmuc.belongsTo(danhmuc, {
+    as: "MaDM_danhmuc",
+    foreignKey: "MaDM",
+  });
+  danhmuc.hasMany(sanpham_danhmuc, {
+    as: "sanpham_danhmucs",
+    foreignKey: "MaDM",
+  });
+
+  sanpham_hinhanh.belongsTo(sanpham, {
+    as: "MaSP_sanpham",
+    foreignKey: "MaSP",
+  });
+  sanpham.hasMany(sanpham_hinhanh, {
+    as: "sanpham_hinhanhs",
+    foreignKey: "MaSP",
+  });
+
+  sanpham_hinhanh.belongsTo(hinhanh, {
+    as: "MaHA_hinhanh",
+    foreignKey: "MaHA",
+  });
+  hinhanh.hasMany(sanpham_hinhanh, {
+    as: "sanpham_hinhanhs",
+    foreignKey: "MaHA",
+  });
+
+  // 🧾 QUAN HỆ ĐƠN HÀNG
+  chitiet_donhang.belongsTo(donhang, {
+    as: "MaDH_donhang",
+    foreignKey: "MaDH",
+  });
+  donhang.hasMany(chitiet_donhang, {
+    as: "chitiet_donhangs",
+    foreignKey: "MaDH",
+  });
+
+  chitiet_donhang.belongsTo(sanpham, {
+    as: "MaSP_sanpham",
+    foreignKey: "MaSP",
+  });
+  sanpham.hasMany(chitiet_donhang, {
+    as: "chitiet_donhangs",
+    foreignKey: "MaSP",
+  });
+
+  donhang.belongsTo(taikhoan, {
+    as: "MaTK_taikhoan",
+    foreignKey: "MaTK",
+  });
+  taikhoan.hasMany(donhang, {
+    as: "donhangs",
+    foreignKey: "MaTK",
+  });
+
+  donhang.belongsTo(pttt, {
+    as: "MaPTTT_pttt",
+    foreignKey: "MaPTTT",
+  });
+  pttt.hasMany(donhang, {
+    as: "donhangs",
+    foreignKey: "MaPTTT",
+  });
+
+  donhang.belongsTo(ptvc, {
+    as: "MaPTVC_ptvc",
+    foreignKey: "MaPTVC",
+  });
+  ptvc.hasMany(donhang, {
+    as: "donhangs",
+    foreignKey: "MaPTVC",
+  });
+
+  // 👤 QUAN HỆ TÀI KHOẢN
+  taikhoan.belongsTo(hinhanh, {
+    as: "MaHA_Avatar_hinhanh",
+    foreignKey: "MaHA_Avatar",
+  });
+  hinhanh.hasMany(taikhoan, {
+    as: "taikhoans",
+    foreignKey: "MaHA_Avatar",
+  });
+
+  password_reset_token.belongsTo(taikhoan, {
+    as: "MaTK_taikhoan",
+    foreignKey: "MaTK",
+  });
+  taikhoan.hasMany(password_reset_token, {
+    as: "password_reset_tokens",
+    foreignKey: "MaTK",
+  });
+
+  // 🛒 QUAN HỆ GIỎ HÀNG
+  giohang.belongsTo(taikhoan, {
+    as: "MaTK_taikhoan",
+    foreignKey: "MaTK",
+  });
+  taikhoan.hasMany(giohang, {
+    as: "giohangs",
+    foreignKey: "MaTK",
+  });
+
+  ctgh.belongsTo(giohang, {
+    as: "MaGH_giohang",
+    foreignKey: "MaGH",
+  });
+  giohang.hasMany(ctgh, {
+    as: "ctghs",
+    foreignKey: "MaGH",
+  });
+
+  ctgh.belongsTo(sanpham, {
+    as: "MaSP_sanpham",
+    foreignKey: "MaSP",
+  });
+  sanpham.hasMany(ctgh, {
+    as: "ctghs",
+    foreignKey: "MaSP",
+  });
+
+  // 📋 QUAN HỆ LỊCH SỬ TRẠNG THÁI
+  lichsu_trangthai.belongsTo(donhang, {
+    as: "MaDH_donhang",
+    foreignKey: "MaDH",
+  });
+  donhang.hasMany(lichsu_trangthai, {
+    as: "lichsu_trangthais",
+    foreignKey: "MaDH",
+  });
+
+  lichsu_trangthai.belongsTo(taikhoan, {
+    as: "NguoiCapNhat_taikhoan",
+    foreignKey: "NguoiCapNhat",
+  });
+  taikhoan.hasMany(lichsu_trangthai, {
+    as: "lichsu_trangthais",
+    foreignKey: "NguoiCapNhat",
+  });
+
+  // ======================================
+  // ⭐ QUAN HỆ ĐÁNH GIÁ MỚI
+  // ======================================
+
+  // 🟢 ĐÁNH GIÁ SẢN PHẨM
+  danhgiasanpham.belongsTo(sanpham, {
+    as: "MaSP_sanpham",
+    foreignKey: "MaSP",
+  });
+  sanpham.hasMany(danhgiasanpham, {
+    as: "danhgia",
+    foreignKey: "MaSP",
+  });
+
+  danhgiasanpham.belongsTo(taikhoan, {
+    as: "MaTK_taikhoan",
+    foreignKey: "MaTK",
+  });
+  taikhoan.hasMany(danhgiasanpham, {
+    as: "danhgia_sanpham",
+    foreignKey: "MaTK",
+  });
+
+  // 🟢 ĐÁNH GIÁ CỬA HÀNG
+  danhgiacuahang.belongsTo(cuahang, {
+    as: "MaCH_cuahang",
+    foreignKey: "MaCH",
+  });
+  cuahang.hasMany(danhgiacuahang, {
+    as: "danhgia",
+    foreignKey: "MaCH",
+  });
+
+  danhgiacuahang.belongsTo(taikhoan, {
+    as: "MaTK_taikhoan",
+    foreignKey: "MaTK",
+  });
+  taikhoan.hasMany(danhgiacuahang, {
+    as: "danhgia_cuahang",
+    foreignKey: "MaTK",
+  });
+
+  // ======================================
+  // 🔄 CÁC QUAN HỆ KHÁC
+  // ======================================
+
+  // Nhân viên & Chức vụ
+  nhanvien.belongsTo(chucvu, {
+    as: "MaCV_chucvu",
+    foreignKey: "MaCV",
+  });
+  chucvu.hasMany(nhanvien, {
+    as: "nhanviens",
+    foreignKey: "MaCV",
+  });
+
+  // Nhân viên & Phòng ban
+  nhanvien.belongsTo(phongban, {
+    as: "MaPB_phongban",
+    foreignKey: "MaPB",
+  });
+  phongban.hasMany(nhanvien, {
+    as: "nhanviens",
+    foreignKey: "MaPB",
+  });
+
+  // Nhân viên & Hình ảnh
+  nhanvien.belongsTo(hinhanh, {
+    as: "MaHA_Avatar_hinhanh",
+    foreignKey: "MaHA_Avatar",
+  });
+  hinhanh.hasMany(nhanvien, {
+    as: "nhanviens",
+    foreignKey: "MaHA_Avatar",
+  });
+
+  // Danh mục & Hình ảnh
+  danhmuc.belongsTo(hinhanh, {
+    as: "MaHA_DanhMuc_hinhanh",
+    foreignKey: "MaHA_DanhMuc",
+  });
+  hinhanh.hasMany(danhmuc, {
+    as: "danhmucs",
+    foreignKey: "MaHA_DanhMuc",
+  });
+
+  // Xuất nhập tồn
+  xuatnhapton.belongsTo(kho, {
+    as: "MaKho_kho",
+    foreignKey: "MaKho",
+  });
+  kho.hasMany(xuatnhapton, {
+    as: "xuatnhaptons",
+    foreignKey: "MaKho",
+  });
+
+  xuatnhapton.belongsTo(nhanvien, {
+    as: "MaNV_nhanvien",
+    foreignKey: "MaNV",
+  });
+  nhanvien.hasMany(xuatnhapton, {
+    as: "xuatnhaptons",
+    foreignKey: "MaNV",
+  });
+
+  xuatnhapton_sanpham.belongsTo(xuatnhapton, {
+    as: "MaXNT_xuatnhapton",
+    foreignKey: "MaXNT",
+  });
+  xuatnhapton.hasMany(xuatnhapton_sanpham, {
+    as: "xuatnhapton_sanphams",
+    foreignKey: "MaXNT",
+  });
+
+  xuatnhapton_sanpham.belongsTo(sanpham, {
+    as: "MaSP_sanpham",
+    foreignKey: "MaSP",
+  });
+  sanpham.hasMany(xuatnhapton_sanpham, {
+    as: "xuatnhapton_sanphams",
+    foreignKey: "MaSP",
+  });
+
+  // Hợp đồng bán hàng
+  hdbanhang.belongsTo(taikhoan, {
+    as: "MaTK_taikhoan",
+    foreignKey: "MaTK",
+  });
+  taikhoan.hasMany(hdbanhang, {
+    as: "hdbanhangs",
+    foreignKey: "MaTK",
+  });
+
+  // Cửa hàng - Hợp đồng (nếu có quan hệ)
+  cuahang.belongsTo(hdbanhang, {
+    as: "MaHD_hdbanhang",
+    foreignKey: "MaHD",
+  });
+  hdbanhang.hasMany(cuahang, {
+    as: "cuahangs",
+    foreignKey: "MaHD",
+  });
+
+  // ======================================
+  // 📤 RETURN TẤT CẢ MODELS
+  // ======================================
   return {
     chitiet_donhang,
     chitietchapnhan,
@@ -199,12 +490,11 @@ giaohang.belongsTo(taikhoan, { as: "MaShipper_taikhoan", foreignKey: "MaShipper"
     giohang,
     ctgh,
     lichsu_trangthai,
-    khuyenmai,
-    donhang_khuyenmai,
-    khuyenmai_taikhoan,
-    thanhtoan,
-    giaohang,
+
+    danhgiasanpham, // 🆕 THÊM VÀO RETURN
+    danhgiacuahang, // 🆕 THÊM VÀO RETURN
   };
 }
 
 export { initModels };
+export default initModels;
