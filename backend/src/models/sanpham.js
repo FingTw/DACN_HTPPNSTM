@@ -1,3 +1,4 @@
+// models/sanpham.js - MODEL ĐÃ CẬP NHẬT
 export default function (sequelize, DataTypes) {
   return sequelize.define(
     "sanpham",
@@ -47,6 +48,17 @@ export default function (sequelize, DataTypes) {
         type: DataTypes.INTEGER,
         allowNull: true,
       },
+      // 🆕 THÊM CÁC CỘT ĐÁNH GIÁ
+      DiemDG_SP: {
+        type: DataTypes.FLOAT,
+        allowNull: true,
+        defaultValue: 0,
+      },
+      SoLuongDanhGia_SP: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        defaultValue: 0,
+      },
     },
     {
       sequelize,
@@ -68,6 +80,17 @@ export default function (sequelize, DataTypes) {
           name: "idx_sanpham_mach",
           using: "BTREE",
           fields: [{ name: "MaCH" }],
+        },
+        // 🆕 THÊM INDEX CHO ĐÁNH GIÁ
+        {
+          name: "idx_sanpham_diemdg",
+          using: "BTREE",
+          fields: [{ name: "DiemDG_SP" }],
+        },
+        {
+          name: "idx_sanpham_soluongdanhgia",
+          using: "BTREE",
+          fields: [{ name: "SoLuongDanhGia_SP" }],
         },
       ],
     }
