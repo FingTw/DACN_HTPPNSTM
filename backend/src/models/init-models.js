@@ -490,6 +490,7 @@ function initModels(sequelize) {
     giohang,
     ctgh,
     lichsu_trangthai,
+
     danhgiasanpham, // 🆕 THÊM VÀO RETURN
     danhgiacuahang, // 🆕 THÊM VÀO RETURN
   };

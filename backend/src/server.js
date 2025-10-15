@@ -15,6 +15,7 @@ import authRoutes from "./routes/authRoutes.js";
 import cartRoutes from "./routes/cartRoutes.js";
 import orderRoutes from "./routes/orderRoutes.js";
 import sanphamRoutes from "./routes/sanphamRoutes.js";
+
 import danhGiaSanPhamRoutes from "./routes/danhGiaSanPhamRoutes.js";
 import danhGiaCuaHangRoutes from "./routes/danhGiaCuaHangRoutes.js"; // 🆕 THÊM ROUTE ĐÁNH GIÁ CỬA HÀNG
 
@@ -225,6 +226,7 @@ async function startServer() {
           "/api/auth",
           "/api/cart",
           "/api/order",
+
           "/api/danh-gia-san-pham",
           "/api/danh-gia-cua-hang",
           "/api/docs",
@@ -324,6 +326,7 @@ async function startServer() {
       console.log(`🔐 Auth API: http://localhost:${PORT}/api/auth`);
       console.log(`🛒 Cart API: http://localhost:${PORT}/api/cart`);
       console.log(`🧾 Order API: http://localhost:${PORT}/api/order`);
+
       console.log(
         `⭐ Product Reviews: http://localhost:${PORT}/api/danh-gia-san-pham`
       ); // 🆕

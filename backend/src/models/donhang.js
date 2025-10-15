@@ -14,6 +14,10 @@ export default function(sequelize, DataTypes) {
       type: DataTypes.DECIMAL(10,2),
       allowNull: true
     },
+    GiamGia: {
+      type: DataTypes.DECIMAL(10,2),
+      allowNull: true
+    },
     TrangThai: {
       type: DataTypes.STRING(20),
       allowNull: true
