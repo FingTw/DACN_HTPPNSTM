@@ -10,6 +10,8 @@ import authRoutes from "./routes/authRoutes.js"; // 🟢 Import router auth
 import cartRoutes from "./routes/cartRoutes.js"; // 🟢 Import router giỏ hàng
 import orderRoutes from "./routes/orderRoutes.js"; // 🟢 Import router đơn hàng
 import sanphamRoutes from "./routes/sanphamRoutes.js";
+import khuyenmaiRoutes from "./routes/khuyenmaiRoutes.js";
+import deliveryRoutes from "./routes/deliveryRoutes.js";
 
 const app = express();
 
@@ -29,6 +31,8 @@ app.get("/", (req, res) => {
       auth: "/api/auth",
       cart: "/api/cart",
       order: "/api/order",
+      discount: "/api/khuyenmai",
+      delivery: "/api/delivery",
       docs: "Check API documentation for available endpoints",
     },
   });
@@ -63,7 +67,8 @@ async function startServer() {
     app.use("/api/cart", cartRoutes);
     app.use("/api/order", orderRoutes);
     app.use("/api/sanpham", sanphamRoutes);
-
+    app.use("/api/khuyenmai", khuyenmaiRoutes);
+    app.use("/api/delivery", deliveryRoutes);
     console.log("✅ Đăng ký routes thành công");
 
     // 5️⃣ XỬ LÝ ROUTE KHÔNG TỒN TẠI
@@ -76,6 +81,8 @@ async function startServer() {
           "/api/auth",
           "/api/cart",
           "/api/order",
+          "/api/khuyenmai",
+          "/api/delivery",
           "/",
         ],
       });
@@ -104,6 +111,8 @@ async function startServer() {
       console.log(`🔐 Auth API: http://localhost:${PORT}/api/auth`);
       console.log(`🛒 Cart API: http://localhost:${PORT}/api/cart`);
       console.log(`🧾 Order API: http://localhost:${PORT}/api/order`);
+      console.log(`🏷️ Discount API: http://localhost:${PORT}/api/khuyenmai`);
+      console.log(`🚚 Delivery API: http://localhost:${PORT}/api/delivery`);
       console.log(`🏠 Test route: http://localhost:${PORT}/`);
     });
   } catch (err) {

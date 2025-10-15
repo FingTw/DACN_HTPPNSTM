@@ -1,12 +1,8 @@
 // src/routes/storeRegistrationRoutes.js
 import express from "express";
 import storeRegistrationController from "../controllers/storeRegistrationController.js";
-import { authenticateToken } from "../middleware/auth.js";
 
 const router = express.Router();
-
-// 🛡️ TẤT CẢ ROUTES ĐỀU CẦN XÁC THỰC JWT
-router.use(authenticateToken);
 
 // 🏪 ĐĂNG KÝ GIAN HÀNG MỚI
 router.post("/register", storeRegistrationController.registerStore);

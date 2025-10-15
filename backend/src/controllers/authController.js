@@ -166,43 +166,81 @@ const authController = {
 
   // Đăng nhập
   login: async (req, res) => {
-  try {
-    const { TenDangNhap, MatKhau } = req.body;
+    try {
+      const { TenDangNhap, MatKhau } = req.body;
 
-    if (!TenDangNhap || !MatKhau)
-      return res.status(400).json({ message: "Thiếu tên đăng nhập hoặc mật khẩu" });
-
-    const user = await taikhoan.findOne({
-      where: {
-        [Op.or]: [
-          { TenDangNhap: TenDangNhap },
-          { Email: TenDangNhap }
-        ]
+      // ✅ Kiểm tra dữ liệu đầu vào
+      if (!TenDangNhap || !MatKhau) {
+        return res.status(400).json({ message: "Thiếu tên đăng nhập hoặc mật khẩu" });
       }
-    });
 
-    if (!user)
-      return res.status(401).json({ message: "Sai tên đăng nhập hoặc mật khẩu" });
+      // 🔍 Tìm user theo TenDangNhap hoặc Email, kèm vai trò
+      const user = await taikhoan.findOne({
+        where: {
+          [Op.or]: [
+            { TenDangNhap: TenDangNhap },
+            { Email: TenDangNhap }
+          ]
+        },
+        include: [
+          {
+            model: taikhoan_vaitro,
+            as: "taikhoan_vaitros", 
+            include: [
+              {
+                model: vaitro,
+                as: "vaitro", 
+                attributes: ["MaVT", "TenVT"]
+              }
+            ]
+          }
+        ]
+      });
 
-    const isMatch = await bcrypt.compare(MatKhau, user.MatKhau);
-    // const isMatch = MatKhau === user.MatKhau;
-    if (!isMatch)
-      return res.status(401).json({ message: "Sai tên đăng nhập hoặc mật khẩu" });
+      if (!user) {
+        return res.status(401).json({ message: "Sai tên đăng nhập hoặc mật khẩu" });
+      }
 
-    const token = jwt.sign(
-      { MaTK: user.MaTK, TenDangNhap: user.TenDangNhap },
-      process.env.JWT_SECRET,
-      { expiresIn: "1h" }
-    );
+      // 🔐 Kiểm tra mật khẩu
+      const isMatch = await bcrypt.compare(MatKhau, user.MatKhau);
+      // const isMatch = MatKhau === user.MatKhau; // (nếu chưa hash)
+      if (!isMatch) {
+        return res.status(401).json({ message: "Sai tên đăng nhập hoặc mật khẩu" });
+      }
 
-    return res.json({ message: "Đăng nhập thành công", token });
-  } catch (err) {
-    console.error("Lỗi login:", err);
-    return res.status(500).json({ message: err.message });
-  }
-}
-,
+      // 📝 Lấy vai trò từ bảng liên kết
+      let roleName = null;
+      if (user.taikhoan_vaitros && user.taikhoan_vaitros.length > 0) {
+        // Giả sử 1 tài khoản có 1 vai trò chính
+        roleName = user.taikhoan_vaitros[0].vaitro.TenVT;
+      }
 
+      // 🧠 Ký JWT
+      const token = jwt.sign(
+        {
+          MaTK: user.MaTK,
+          TenDangNhap: user.TenDangNhap,
+          role: roleName
+        },
+        process.env.JWT_SECRET,
+        { expiresIn: "1h" }
+      );
+
+      // ✅ Trả về kết quả
+      return res.json({
+        message: "Đăng nhập thành công",
+        token,
+        user: {
+          MaTK: user.MaTK,
+          TenDangNhap: user.TenDangNhap,
+          role: roleName
+        }
+      });
+    } catch (err) {
+      console.error("Lỗi login:", err);
+      return res.status(500).json({ message: err.message });
+    }
+  },
 
   // Đăng xuất
   logout: async (req, res) => {

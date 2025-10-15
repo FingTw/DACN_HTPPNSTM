@@ -155,9 +155,9 @@ export const createCuahang = async (req, res) => {
       { transaction }
     );
 
-    // 🟢 CẬP NHẬT VAI TRÒ THÀNH CHỦ CỬA HÀNG
+    // 🟢 CẬP NHẬT VAI TRÒ THÀNH CỬA HÀNG
     const sellerRole = await vaitro.findOne({
-      where: { TenVT: "Chủ Cửa Hàng" },
+      where: { TenVT: "Cửa Hàng" },
       transaction,
     });
 
@@ -168,7 +168,7 @@ export const createCuahang = async (req, res) => {
         transaction,
       });
 
-      // Thêm role chủ cửa hàng
+      // Thêm role cửa hàng
       await taikhoan_vaitro.create(
         {
           MaTK: user.MaTK,

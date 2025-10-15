@@ -26,6 +26,11 @@ import _yeucaudathang from "./yeucaudathang.js";
 import _giohang from "./giohang.js";
 import _ctgh from "./ctgh.js";
 import _lichsu_trangthai from "./lichsu_trangthai.js";
+import _khuyenmai from "./khuyenmai.js";
+import _donhang_khuyenmai from "./donhang_khuyenmai.js";
+import _khuyenmai_taikhoan from "./khuyenmai_taikhoan.js";
+import _thanhtoan from "./thanhtoan.js";
+import _giaohang from "./giaohang.js";
 
 function initModels(sequelize) {
   var chitiet_donhang = _chitiet_donhang(sequelize, DataTypes);
@@ -55,6 +60,11 @@ function initModels(sequelize) {
   var giohang = _giohang(sequelize, DataTypes);
   var ctgh = _ctgh(sequelize, DataTypes);
   var lichsu_trangthai = _lichsu_trangthai(sequelize, DataTypes);
+  var khuyenmai = _khuyenmai(sequelize, DataTypes);
+  var donhang_khuyenmai = _donhang_khuyenmai(sequelize, DataTypes);
+  var khuyenmai_taikhoan = _khuyenmai_taikhoan(sequelize, DataTypes);
+  var thanhtoan = _thanhtoan(sequelize, DataTypes);
+  var giaohang = _giaohang(sequelize, DataTypes);
 
   // Thiết lập các quan hệ giữa các bảng (associations) ở đây
 
@@ -126,8 +136,12 @@ function initModels(sequelize) {
   xuatnhapton.hasMany(xuatnhapton_sanpham, { as: "xuatnhapton_sanphams", foreignKey: "MaXNT"});
   denghicungcap.belongsTo(yeucaudathang, { as: "MaYCDH_yeucaudathang", foreignKey: "MaYCDH"});
   yeucaudathang.hasMany(denghicungcap, { as: "denghicungcaps", foreignKey: "MaYCDH"});
-  taikhoan.belongsToMany(vaitro, { through: taikhoan_vaitro, foreignKey: "MaTK", otherKey: "MaVT" });
-  vaitro.belongsToMany(taikhoan, { through: taikhoan_vaitro, foreignKey: "MaVT", otherKey: "MaTK" });
+  // taikhoan.belongsToMany(vaitro, { through: taikhoan_vaitro, foreignKey: "MaTK", otherKey: "MaVT" });
+  // vaitro.belongsToMany(taikhoan, { through: taikhoan_vaitro, foreignKey: "MaVT", otherKey: "MaTK" });
+  taikhoan.hasMany(taikhoan_vaitro, { as: "taikhoan_vaitros", foreignKey: "MaTK" });
+  taikhoan_vaitro.belongsTo(taikhoan, { as: "taikhoan", foreignKey: "MaTK" });
+  vaitro.hasMany(taikhoan_vaitro, { as: "taikhoan_vaitros", foreignKey: "MaVT" });
+  taikhoan_vaitro.belongsTo(vaitro, { as: "vaitro", foreignKey: "MaVT" });
   password_reset_token.belongsTo(taikhoan, { as: "MaTK_taikhoan", foreignKey: "MaTK"});
   taikhoan.hasMany(password_reset_token, { as: "password_reset_tokens", foreignKey: "MaTK" });
   giohang.belongsTo(taikhoan, { as: "MaTK_taikhoan", foreignKey: "MaTK"});
@@ -139,6 +153,22 @@ function initModels(sequelize) {
   lichsu_trangthai.belongsTo(taikhoan, { as: "NguoiCapNhat_taikhoan", foreignKey: "NguoiCapNhat" });
   donhang.hasMany(lichsu_trangthai, { as: "lichsu_trangthais", foreignKey: "MaDH" });
   taikhoan.hasMany(lichsu_trangthai, { as: "lichsu_trangthais", foreignKey: "NguoiCapNhat" });
+  donhang.belongsToMany(khuyenmai, { as: 'MaKM_khuyenmais', through: donhang_khuyenmai, foreignKey: "MaDH", otherKey: "MaKM" });
+  khuyenmai.belongsToMany(donhang, { as: 'MaDH_donhangs', through: donhang_khuyenmai, foreignKey: "MaKM", otherKey: "MaDH" });
+  taikhoan.belongsToMany(khuyenmai, { as: 'MaKM_khuyenmais', through: khuyenmai_taikhoan, foreignKey: "MaTK", otherKey: "MaKM" });
+  khuyenmai.belongsToMany(taikhoan, { as: 'MaTK_taikhoans', through: khuyenmai_taikhoan, foreignKey: "MaKM", otherKey: "MaTK" });
+  // donhang 1 - 1 thanhtoan
+donhang.hasOne(thanhtoan, { as: "thanhtoan", foreignKey: "MaDH" });
+thanhtoan.belongsTo(donhang, { as: "MaDH_donhang", foreignKey: "MaDH" });
+
+// donhang 1 - 1 giaohang (1 đơn có thể có nhiều bản ghi giao? nếu muốn 1:1 thì hasOne)
+donhang.hasMany(giaohang, { as: "giaohangs", foreignKey: "MaDH" });
+giaohang.belongsTo(donhang, { as: "MaDH_donhang", foreignKey: "MaDH" });
+
+// shipper (taikhoan) có thể nhận nhiều giao hàng
+taikhoan.hasMany(giaohang, { as: "giaohangs", foreignKey: "MaShipper" });
+giaohang.belongsTo(taikhoan, { as: "MaShipper_taikhoan", foreignKey: "MaShipper" });
+
 
 
   return {
@@ -169,6 +199,11 @@ function initModels(sequelize) {
     giohang,
     ctgh,
     lichsu_trangthai,
+    khuyenmai,
+    donhang_khuyenmai,
+    khuyenmai_taikhoan,
+    thanhtoan,
+    giaohang,
   };
 }
 
