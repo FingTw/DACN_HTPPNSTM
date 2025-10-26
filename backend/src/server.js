@@ -22,15 +22,26 @@ import danhGiaCuaHangRoutes from "./routes/danhGiaCuaHangRoutes.js"; // 🆕 TH�
 const app = express();
 
 // 🧩 MIDDLEWARE CẤU HÌNH
+// server.js - CORS configuration
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || [
-      "http://localhost:3000",
-      "http://localhost:3001",
-    ],
+    origin: function (origin, callback) {
+      // Cho phép tất cả origins trong development
+      if (!origin || process.env.NODE_ENV === 'development') {
+        callback(null, true);
+      } else {
+        // Trong production, chỉ cho phép domains cụ thể
+        const allowedOrigins = ['http://localhost:5173', 'http://localhost:3000'];
+        if (allowedOrigins.indexOf(origin) !== -1) {
+          callback(null, true);
+        } else {
+          callback(new Error('Not allowed by CORS'));
+        }
+      }
+    },
     credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
-    allowedHeaders: ["Content-Type", "Authorization"],
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept"],
   })
 );
 
@@ -153,9 +164,12 @@ app.get("/api/docs", (req, res) => {
 
       // AUTH
       auth: {
-        "POST /api/auth/dang-ky": "Đăng ký tài khoản",
-        "POST /api/auth/dang-nhap": "Đăng nhập",
-        "GET /api/auth/me": "Thông tin tôi (cần auth)",
+        "POST /api/auth/register": "Đăng ký tài khoản",
+        "POST /api/auth/login": "Đăng nhập",
+        "GET /api/auth/update-personal-info": "Thông tin tôi",
+        "POST /api/auth/logout": "Đăng xuất",
+        "POST /api/auth/forgot-password": "Quên mật khẩu",
+        "POST /api/auth/reset-password": "Đặt lại mật khẩu",
       },
 
       cart: "/api/cart",

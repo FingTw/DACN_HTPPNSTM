@@ -27,6 +27,11 @@ import _yeucaudathang from "./yeucaudathang.js";
 import _giohang from "./giohang.js";
 import _ctgh from "./ctgh.js";
 import _lichsu_trangthai from "./lichsu_trangthai.js";
+import _giaohang from "./giaohang.js";
+import _thanhtoan from "./thanhtoan.js";
+import _khuyenmai from "./khuyenmai.js";
+import _khuyenmai_taikhoan from "./khuyenmai_taikhoan.js";
+import _donhang_khuyenmai from "./donhang_khuyenmai.js";
 import _danhgiasanpham from "./danhgiasanpham.js"; // 🆕 THÊM MODEL ĐÁNH GIÁ SẢN PHẨM
 import _danhgiacuahang from "./danhgiacuahang.js"; // 🆕 THÊM MODEL ĐÁNH GIÁ CỬA HÀNG
 
@@ -58,6 +63,11 @@ function initModels(sequelize) {
   var password_reset_token = _password_reset_token(sequelize, DataTypes);
   var giohang = _giohang(sequelize, DataTypes);
   var ctgh = _ctgh(sequelize, DataTypes);
+  var giaohang = _giaohang(sequelize, DataTypes);
+  var thanhtoan = _thanhtoan(sequelize, DataTypes);
+  var khuyenmai = _khuyenmai(sequelize, DataTypes);
+  var donhang_khuyenmai = _donhang_khuyenmai(sequelize, DataTypes);
+  var khuyenmai_taikhoan = _khuyenmai_taikhoan(sequelize, DataTypes);
   var lichsu_trangthai = _lichsu_trangthai(sequelize, DataTypes);
   var danhgiasanpham = _danhgiasanpham(sequelize, DataTypes); // 🆕 MODEL ĐÁNH GIÁ SẢN PHẨM
   var danhgiacuahang = _danhgiacuahang(sequelize, DataTypes); // 🆕 MODEL ĐÁNH GIÁ CỬA HÀNG
@@ -123,18 +133,10 @@ function initModels(sequelize) {
     otherKey: "MaSP",
   });
 
-  taikhoan.belongsToMany(vaitro, {
-    through: taikhoan_vaitro,
-    foreignKey: "MaTK",
-    otherKey: "MaVT",
-  });
-
-  vaitro.belongsToMany(taikhoan, {
-    through: taikhoan_vaitro,
-    foreignKey: "MaVT",
-    otherKey: "MaTK",
-  });
-
+  taikhoan.hasMany(taikhoan_vaitro, { as: "taikhoan_vaitros", foreignKey: "MaTK" });
+  taikhoan_vaitro.belongsTo(taikhoan, { as: "taikhoan", foreignKey: "MaTK" });
+  vaitro.hasMany(taikhoan_vaitro, { as: "taikhoan_vaitros", foreignKey: "MaVT" });
+  taikhoan_vaitro.belongsTo(vaitro, { as: "vaitro", foreignKey: "MaVT" });
   // ======================================
   // 🔗 QUAN HỆ ONE-TO-MANY & MANY-TO-ONE
   // ======================================
@@ -459,6 +461,27 @@ function initModels(sequelize) {
     foreignKey: "MaHD",
   });
 
+  // ORDER - KHUYẾN MÃI
+  donhang.belongsToMany(khuyenmai, { as: 'MaKM_khuyenmais', through: donhang_khuyenmai, foreignKey: "MaDH", otherKey: "MaKM" });
+  khuyenmai.belongsToMany(donhang, { as: 'MaDH_donhangs', through: donhang_khuyenmai, foreignKey: "MaKM", otherKey: "MaDH" });
+  taikhoan.belongsToMany(khuyenmai, { as: 'MaKM_khuyenmais', through: khuyenmai_taikhoan, foreignKey: "MaTK", otherKey: "MaKM" });
+  khuyenmai.belongsToMany(taikhoan, { as: 'MaTK_taikhoans', through: khuyenmai_taikhoan, foreignKey: "MaKM", otherKey: "MaTK" });
+  // donhang 1 - 1 thanhtoan
+  donhang.hasOne(thanhtoan, { as: "thanhtoan", foreignKey: "MaDH" });
+  thanhtoan.belongsTo(donhang, { as: "MaDH_donhang", foreignKey: "MaDH" });
+
+  // donhang 1 - 1 giaohang (1 đơn có thể có nhiều bản ghi giao? nếu muốn 1:1 thì hasOne)
+  donhang.hasMany(giaohang, { as: "giaohangs", foreignKey: "MaDH" });
+  giaohang.belongsTo(donhang, { as: "MaDH_donhang", foreignKey: "MaDH" });
+
+  // shipper (taikhoan) có thể nhận nhiều giao hàng
+  taikhoan.hasMany(giaohang, { as: "giaohangs", foreignKey: "MaShipper" });
+  giaohang.belongsTo(taikhoan, { as: "MaShipper_taikhoan", foreignKey: "MaShipper" });
+  // KHUYẾN MÃI - TÀI KHOẢN (USER)
+  khuyenmai_taikhoan.belongsTo(khuyenmai, { as: "MaKM_khuyenmai", foreignKey: "MaKM" });
+  khuyenmai.hasMany(khuyenmai_taikhoan, { as: "khuyenmai_taikhoans", foreignKey: "MaKM" });
+  khuyenmai_taikhoan.belongsTo(taikhoan, { as: "MaTK_taikhoan", foreignKey: "MaTK" });
+  taikhoan.hasMany(khuyenmai_taikhoan, { as: "khuyenmai_taikhoans", foreignKey: "MaTK" });
   // ======================================
   // 📤 RETURN TẤT CẢ MODELS
   // ======================================
@@ -490,7 +513,11 @@ function initModels(sequelize) {
     giohang,
     ctgh,
     lichsu_trangthai,
-
+    giaohang,
+    thanhtoan,
+    khuyenmai,
+    khuyenmai_taikhoan,
+    donhang_khuyenmai,
     danhgiasanpham, // 🆕 THÊM VÀO RETURN
     danhgiacuahang, // 🆕 THÊM VÀO RETURN
   };
