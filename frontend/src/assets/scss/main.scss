@@ -1,0 +1,8 @@
+@import "bootstrap/scss/functions";
+@import "bootstrap/scss/variables";
+
+// Ghi đè biến sau khi load variables
+$primary: #81C408;
+$secondary: #FFB524;
+
+@import "bootstrap/scss/bootstrap";
