@@ -3,20 +3,21 @@ export const categories = [
   {
     title: "FARM & PEOPLE",
     items: [
-      "Farm Boxes |",
-      "Nông sản", 
+      "Sản Phẩm |",
+      "Nông sản",
       "Sữa & Trứng",
-      "Bánh mì & Ngũ cốc",
-      "Món ăn nhẹ", 
-      "Đồ uống",
-      "| Mới & Theo mùa"
-    ]
-  }
+      "Đặc sản vùng miền",
+      "Hoa quả & Hạt",
+      "rau cũa & Cây trồng",
+      "| Mới & Theo mùa",
+      "| Đặc Trước",
+    ],
+  },
 ];
 
 export const navigation = [
   "Giới thiệu",
-  "Nhà sản xuất", 
+  "Nhà sản xuất",
   "Trợ giúp",
   "Sự kiện",
   "Thẻ quà tặng",
@@ -29,13 +30,13 @@ export const fallbackProducts = [
     name: "Organic Farm Box",
     price: 45.99,
     image: "/images/farm-box.jpg",
-    category: "Farm Boxes"
+    category: "Farm Boxes",
   },
   {
-    id: 2, 
+    id: 2,
     name: "Fresh Vegetables",
     price: 12.99,
     image: "/images/vegetables.jpg",
-    category: "Produce"
-  }
+    category: "Produce",
+  },
 ];

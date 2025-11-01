@@ -1,124 +1,404 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
-import { navigation } from '../data/mockData';
+import React, { useState } from "react";
+import { Link } from "react-router-dom";
+import { navigation } from "../data/mockData";
+import { useAuth } from "@/context/AuthContext";
 
 export const Header: React.FC = () => {
+  const [cartCount] = useState(0);
+
+  const { user, logout } = useAuth();
+
+  const categories = [
+    "Sản Phẩm ",
+    "Nông sản",
+    "Sữa & Trứng",
+    "Đặc sản vùng miền",
+    "Hoa quả & Hạt",
+    "rau cũa & Cây trồng",
+    " Mới & Theo mùa",
+    " Đặc Trước",
+  ];
+
+  const benefits = [
+    {
+      icon: (
+        <svg
+          className="w-4 h-4"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M5 13l4 4L19 7"
+          />
+        </svg>
+      ),
+      text: "100% hàng hữu cơ",
+    },
+    {
+      icon: (
+        <svg
+          className="w-4 h-4"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
+          />
+        </svg>
+      ),
+      text: "Freeship đơn từ 45k",
+    },
+    {
+      icon: (
+        <svg
+          className="w-4 h-4"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"
+          />
+        </svg>
+      ),
+      text: "Hoàn 200% nếu hàng giả",
+    },
+    {
+      icon: (
+        <svg
+          className="w-4 h-4"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+          />
+        </svg>
+      ),
+      text: "Giao nhanh 2h",
+    },
+  ];
+
   return (
-    <>
-      {/* Main Header */}
-      <header className="bg-green-700 border-b border-green-800">
-        <div className="max-w-7xl mx-auto px-4">
-          <div className="flex justify-between items-center h-8">
-            
-            {/* Main Navigation */}
-            <nav className="hidden md:flex space-x-8">
-              {navigation.map((item) => (
-                <Link
-                  key={item}
-                  to={`/${item.toLowerCase()}`}
-                  className="text-white hover:text-green-200 px-1 py-2 text-sm font-medium transition-all duration-300 hover:scale-105"
+    <header className="w-full">
+      {/* Top Banner */}
+      <div className="bg-gradient-to-r from-green-50 to-emerald-50 ">
+        <div className="max-w-7xl mx-auto px-4 py-2">
+          <div className="flex items-center justify-between text-sm">
+            <div className="flex items-center gap-6">
+              {benefits.map((benefit, index) => (
+                <div
+                  key={index}
+                  className="flex items-center gap-2 text-green-700"
                 >
-                  {item}
-                </Link>
+                  {benefit.icon}
+                  <span className="font-medium">{benefit.text}</span>
+                </div>
               ))}
-            </nav>
-
-            {/* Auth Buttons */}
-            <div className="flex items-center space-x-2 ml-auto">
-              <Link 
-                to="/signin" 
-                className="flex items-center text-white hover:text-green-200 text-sm font-medium transition-all duration-300 px-2 py-1 hover:scale-105"
-              >
-                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                </svg>
-                Sign In
-              </Link>
-              <span className="text-white">|</span>
-              <Link 
-                to="/signup" 
-                className="flex items-center text-white hover:text-green-200 text-sm font-medium transition-all duration-300 px-2 py-1 hover:scale-105"
-              >
-                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-                </svg>
-                Sign Up
-              </Link>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* Category Navigation - Thêm sticky và thanh tìm kiếm + giỏ hàng */}
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4">
-          <div className="flex items-center justify-between py-2">
-            {/* Logo và Categories */}
-            <div className="flex items-center space-x-6">
-              {/* Logo */}
-              <div className="flex items-center">
-                <img 
-                  src="/logo.png" 
-                  alt="Farm Fresh Logo" 
-                  className="h-12 w-auto" 
-                />
-              </div>
-              
-              {/* Categories */}
-                <nav className="flex space-x-9">
-                {['Farm Boxes', 'Nông sản', 'Sữa & Trứng', 'Bánh mì & Ngũ cốc', 'Món ăn nhẹ', 'Đồ uống', 'Mới & Theo mùa'].map((item, index) => (
-                    <div key={index} className="flex items-center">
-                    <Link
-                        to={`/category/${item.toLowerCase().replace(/&/g, 'and').replace(/\s+/g, '-')}`}
-                        className="text-gray-800 hover:text-green-600 text-sm font-medium whitespace-nowrap transition-all duration-300 hover:scale-105"
-                    >
-                        {item}
-                    </Link>
-                    {/* Thêm dấu | sau Farm Boxes và trước Mới & Theo mùa */}
-                    {index === 0 && ( // Sau Farm Boxes (index 0)
-                        <span className="text-gray-400 mx-2">|</span>
-                    )}
-                    {index === 5 && ( // Trước Mới & Theo mùa (sau Đồ uống - index 5)
-                        <span className="text-gray-400 mx-2">|</span>
-                    )}
-                    </div>
-                ))}
-                </nav>
             </div>
 
-            {/* Thanh tìm kiếm và Giỏ hàng */}
-            <div className="flex items-center space-x-4">
-              {/* Thanh tìm kiếm */}
-              <div className="relative">
-                <input
-                  type="text"
-                  placeholder="Tìm kiếm sản phẩm..."
-                  className="w-64 px-4 py-1.5 border border-gray-300 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                />
-                <button className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-green-600">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
-                </button>
-              </div>
-
-              {/* Icon giỏ hàng */}
-              <Link 
-                to="/cart" 
-                className="relative p-2 text-gray-700 hover:text-green-600 transition-all duration-300 hover:scale-110"
+            {/* User Actions - Thay thế phần Đăng nhập/Đăng ký cũ */}
+            <div className="flex items-center gap-4">
+              {/* Nút Cửa hàng */}
+              <Link
+                to="/viewshop"
+                className="flex items-center gap-1 text-green-700 hover:text-green-900 font-medium transition-colors"
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4m0 0L7 13m0 0l-2.5 5.5M7 13l2.5 5.5m0 0L17 21m-7.5-2.5h7.5" />
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                  />
                 </svg>
-                {/* Badge số lượng sản phẩm trong giỏ */}
-                <span className="absolute -top-1 -right-1 bg-green-600 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">
-                  0
-                </span>
+                <span>Cửa hàng</span>
+              </Link>
+
+              <span className="text-green-300">|</span>
+
+              {/* Nút Đăng ký bán hàng */}
+              <Link
+                to="/signupshop"
+                className="flex items-center gap-1 text-green-700 hover:text-green-900 font-medium transition-colors"
+              >
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
+                  />
+                </svg>
+                <span>Đăng ký bán hàng</span>
               </Link>
             </div>
           </div>
         </div>
       </div>
-    </>
+
+      {/* Main Header */}
+      <div className="bg-white border-gray-100 sticky top-0 z-50 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="flex items-center justify-between py-4">
+            {/* Logo */}
+            <Link to="/" className="flex items-center gap-2 group">
+              <img
+                src="/logo.png"
+                alt="SAP Logo"
+                className="h-20 w-auto group-hover:scale-105 transition-transform"
+              />
+
+              <div className="flex flex-col">
+                <span className="text-2xl font-bold text-green-700">SAP</span>
+                <span className="text-xs text-green-600">NÔNG SẢN vIỆT</span>
+              </div>
+            </Link>
+
+            {/* Search Bar */}
+            <div className="flex-1 max-w-2xl mx-8">
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Tìm kiếm sản phẩm nông sản tươi ngon..."
+                  // Điều chỉnh padding bên phải để chừa chỗ cho 2 nút (px-5 -> pr-24)
+                  className="w-full px-5 py-3 **pr-24** border-1 border-gray-100 rounded-full text-sm focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-200 transition-all"
+                />
+
+                {/* 1. NÚT UPLOAD HÌNH ẢNH (CAMERA ICON) */}
+                <button
+                  className="absolute right-15 top-1/2 -translate-y-1/2 text-gray-700 p-2 rounded-full transition-all duration-300"
+                  title="Tìm kiếm bằng hình ảnh"
+                >
+                  <svg
+                    className="w-6 h-6 transition-transform duration-500 hover:scale-150"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    {/* ICON CAMERA (Ví dụ từ Heroicons/SVG) */}
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.218A2 2 0 0110.456 4h3.09a2 2 0 011.664.89l.812 1.218A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
+                    />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"
+                    />
+                  </svg>
+                </button>
+
+                {/* 2. NÚT TÌM KIẾM GỐC */}
+                <button className="absolute right-2 top-1/2 -translate-y-1/2 bg-green-600 hover:bg-green-700 text-white p-2 rounded-full transition-colors">
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                    />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            {/* Right Actions */}
+            {/* Right Actions */}
+            <div className="flex items-center gap-4">
+              {/* Location */}
+              <Link
+                to="/location"
+                className="flex items-center gap-2 text-gray-700 hover:text-green-600 transition-colors group"
+              >
+                <svg
+                  className="w-5 h-5 group-hover:scale-110 transition-transform"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+                  />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+                  />
+                </svg>
+                <div className="flex flex-col">
+                  <span className="text-xs text-gray-500">Giao đến</span>
+                  <span className="text-sm font-medium">Q. Hoàn Kiếm, HN</span>
+                </div>
+              </Link>
+
+              {/* Cart */}
+              <Link
+                to="/cart"
+                className="relative p-3 bg-green-50 hover:bg-green-100 text-green-700 rounded-full transition-all hover:scale-120 group"
+              >
+                <svg
+                  className="w-6 h-6"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"
+                  />
+                </svg>
+                {cartCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
+                    {cartCount}
+                  </span>
+                )}
+              </Link>
+
+              {/* User Avatar - DI CHUYỂN VÀO ĐÂY */}
+              <div className="relative group  transition-transform duration-500 hover:scale-130">
+                {/* Nút chính - Thay đổi theo trạng thái đăng nhập */}
+                <button className="flex items-center gap-2 h-10 px-3 bg-white rounded-full transition-all duration-200">
+                  {user ? (
+                    // Khi đã đăng nhập: Hiển thị avatar + tên
+                    <>
+                      <div className="w-10 h-10 bg-gradient-to-br from-green-400 to-green-600 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-md ring-2 ring-white">
+                        {user.TenDangNhap.charAt(0).toUpperCase()}
+                      </div>
+                      <span className="hidden md:block text-green-600 font-medium pr-2">
+                        {user.TenDangNhap}
+                      </span>
+                    </>
+                  ) : (
+                    // Khi chưa đăng nhập: Hiển thị icon user
+                    <div className="w-10 h-10 bg-gradient-to-br from-green-400 to-green-600 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-md ring-2 ring-white">
+                      <svg
+                        className="w-9 h-9 text-white"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                        />
+                      </svg>
+                    </div>
+                  )}
+                </button>
+                {/* Dropdown - Hiện khi hover */}
+                <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 border">
+                  <div className="py-2">
+                    {user ? (
+                      <>
+                        <Link
+                          to="/profile"
+                          className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        >
+                          Hồ sơ cá nhân
+                        </Link>
+                        <Link
+                          to="/orders"
+                          className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        >
+                          Đơn hàng của tôi
+                        </Link>
+                        <hr className="my-1" />
+                        <button
+                          onClick={logout}
+                          className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                        >
+                          Đăng xuất
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <Link
+                          to="/signin"
+                          className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        >
+                          Đăng nhập
+                        </Link>
+                        <Link
+                          to="/signup"
+                          className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        >
+                          Đăng ký
+                        </Link>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Categories Navigation */}
+      <div className="bg-gray-50">
+        <div className="max-w-7xl mx-auto px-4">
+          <nav className="flex items-center gap-1 py-3 overflow-x-auto">
+            {categories.map((item, index) => (
+              <React.Fragment key={index}>
+                <Link
+                  to={`/category/${item
+                    .toLowerCase()
+                    .replace(/&/g, "and")
+                    .replace(/\s+/g, "-")}`}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-green-600 hover:bg-green-50 rounded-lg whitespace-nowrap transition-all"
+                >
+                  {item}
+                </Link>
+                {(index === 0 || index === 5) && (
+                  <span className="text-gray-300 mx-1">|</span>
+                )}
+              </React.Fragment>
+            ))}
+          </nav>
+        </div>
+      </div>
+    </header>
   );
 };

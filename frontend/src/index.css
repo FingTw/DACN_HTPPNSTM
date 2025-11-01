@@ -1,4 +1,7 @@
 @import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 :root {
   --radius: 0.625rem;
@@ -70,23 +73,57 @@
 }
 
 /* CSS Variables cho các utility classes */
-.bg-background { background-color: oklch(var(--background)); }
-.text-foreground { color: oklch(var(--foreground)); }
-.bg-card { background-color: oklch(var(--card)); }
-.text-card-foreground { color: oklch(var(--card-foreground)); }
-.bg-popover { background-color: oklch(var(--popover)); }
-.text-popover-foreground { color: oklch(var(--popover-foreground)); }
-.bg-primary { background-color: oklch(var(--primary)); }
-.text-primary-foreground { color: oklch(var(--primary-foreground)); }
-.bg-secondary { background-color: oklch(var(--secondary)); }
-.text-secondary-foreground { color: oklch(var(--secondary-foreground)); }
-.bg-muted { background-color: oklch(var(--muted)); }
-.text-muted-foreground { color: oklch(var(--muted-foreground)); }
-.bg-accent { background-color: oklch(var(--accent)); }
-.text-accent-foreground { color: oklch(var(--accent-foreground)); }
-.bg-destructive { background-color: oklch(var(--destructive)); }
-.border-border { border-color: oklch(var(--border)); }
-.border-input { border-color: oklch(var(--input)); }
+.bg-background {
+  background-color: oklch(var(--background));
+}
+.text-foreground {
+  color: oklch(var(--foreground));
+}
+.bg-card {
+  background-color: oklch(var(--card));
+}
+.text-card-foreground {
+  color: oklch(var(--card-foreground));
+}
+.bg-popover {
+  background-color: oklch(var(--popover));
+}
+.text-popover-foreground {
+  color: oklch(var(--popover-foreground));
+}
+.bg-primary {
+  background-color: oklch(var(--primary));
+}
+.text-primary-foreground {
+  color: oklch(var(--primary-foreground));
+}
+.bg-secondary {
+  background-color: oklch(var(--secondary));
+}
+.text-secondary-foreground {
+  color: oklch(var(--secondary-foreground));
+}
+.bg-muted {
+  background-color: oklch(var(--muted));
+}
+.text-muted-foreground {
+  color: oklch(var(--muted-foreground));
+}
+.bg-accent {
+  background-color: oklch(var(--accent));
+}
+.text-accent-foreground {
+  color: oklch(var(--accent-foreground));
+}
+.bg-destructive {
+  background-color: oklch(var(--destructive));
+}
+.border-border {
+  border-color: oklch(var(--border));
+}
+.border-input {
+  border-color: oklch(var(--input));
+}
 
 /* Base styles */
 * {
