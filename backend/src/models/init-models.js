@@ -92,7 +92,7 @@ function initModels(sequelize) {
   });
 
   hinhanh.belongsToMany(sanpham, {
-    as: "MaSP_sanpham_sanpham_hinhanhs",
+    as: "sanphams", // ← ĐỔI THÀNH: sanphams
     through: sanpham_hinhanh,
     foreignKey: "MaHA",
     otherKey: "MaSP",
@@ -113,7 +113,7 @@ function initModels(sequelize) {
   });
 
   sanpham.belongsToMany(hinhanh, {
-    as: "MaHA_hinhanhs",
+    as: "hinhanhs", // ← ĐỔI THÀNH: hinhanhs (ngắn gọn)
     through: sanpham_hinhanh,
     foreignKey: "MaSP",
     otherKey: "MaHA",
@@ -133,9 +133,15 @@ function initModels(sequelize) {
     otherKey: "MaSP",
   });
 
-  taikhoan.hasMany(taikhoan_vaitro, { as: "taikhoan_vaitros", foreignKey: "MaTK" });
+  taikhoan.hasMany(taikhoan_vaitro, {
+    as: "taikhoan_vaitros",
+    foreignKey: "MaTK",
+  });
   taikhoan_vaitro.belongsTo(taikhoan, { as: "taikhoan", foreignKey: "MaTK" });
-  vaitro.hasMany(taikhoan_vaitro, { as: "taikhoan_vaitros", foreignKey: "MaVT" });
+  vaitro.hasMany(taikhoan_vaitro, {
+    as: "taikhoan_vaitros",
+    foreignKey: "MaVT",
+  });
   taikhoan_vaitro.belongsTo(vaitro, { as: "vaitro", foreignKey: "MaVT" });
   // ======================================
   // 🔗 QUAN HỆ ONE-TO-MANY & MANY-TO-ONE
@@ -143,7 +149,7 @@ function initModels(sequelize) {
 
   // 🏪 QUAN HỆ CỬA HÀNG
   sanpham.belongsTo(cuahang, {
-    as: "MaCH_cuahang",
+    as: "cuahang",
     foreignKey: "MaCH",
   });
   cuahang.hasMany(sanpham, {
@@ -324,20 +330,20 @@ function initModels(sequelize) {
 
   // 🟢 ĐÁNH GIÁ SẢN PHẨM
   danhgiasanpham.belongsTo(sanpham, {
-    as: "MaSP_sanpham",
+    as: "sanpham", // ← số ít, rõ ràng
     foreignKey: "MaSP",
   });
   sanpham.hasMany(danhgiasanpham, {
-    as: "danhgia",
+    as: "danhgias", // ← ĐỔI THÀNH: danhgias (số nhiều)
     foreignKey: "MaSP",
   });
 
   danhgiasanpham.belongsTo(taikhoan, {
-    as: "MaTK_taikhoan",
+    as: "nguoidanhgia",
     foreignKey: "MaTK",
   });
   taikhoan.hasMany(danhgiasanpham, {
-    as: "danhgia_sanpham",
+    as: "danhgias_sanpham",
     foreignKey: "MaTK",
   });
 
@@ -462,10 +468,30 @@ function initModels(sequelize) {
   });
 
   // ORDER - KHUYẾN MÃI
-  donhang.belongsToMany(khuyenmai, { as: 'MaKM_khuyenmais', through: donhang_khuyenmai, foreignKey: "MaDH", otherKey: "MaKM" });
-  khuyenmai.belongsToMany(donhang, { as: 'MaDH_donhangs', through: donhang_khuyenmai, foreignKey: "MaKM", otherKey: "MaDH" });
-  taikhoan.belongsToMany(khuyenmai, { as: 'MaKM_khuyenmais', through: khuyenmai_taikhoan, foreignKey: "MaTK", otherKey: "MaKM" });
-  khuyenmai.belongsToMany(taikhoan, { as: 'MaTK_taikhoans', through: khuyenmai_taikhoan, foreignKey: "MaKM", otherKey: "MaTK" });
+  donhang.belongsToMany(khuyenmai, {
+    as: "MaKM_khuyenmais",
+    through: donhang_khuyenmai,
+    foreignKey: "MaDH",
+    otherKey: "MaKM",
+  });
+  khuyenmai.belongsToMany(donhang, {
+    as: "MaDH_donhangs",
+    through: donhang_khuyenmai,
+    foreignKey: "MaKM",
+    otherKey: "MaDH",
+  });
+  taikhoan.belongsToMany(khuyenmai, {
+    as: "MaKM_khuyenmais",
+    through: khuyenmai_taikhoan,
+    foreignKey: "MaTK",
+    otherKey: "MaKM",
+  });
+  khuyenmai.belongsToMany(taikhoan, {
+    as: "MaTK_taikhoans",
+    through: khuyenmai_taikhoan,
+    foreignKey: "MaKM",
+    otherKey: "MaTK",
+  });
   // donhang 1 - 1 thanhtoan
   donhang.hasOne(thanhtoan, { as: "thanhtoan", foreignKey: "MaDH" });
   thanhtoan.belongsTo(donhang, { as: "MaDH_donhang", foreignKey: "MaDH" });
@@ -476,12 +502,27 @@ function initModels(sequelize) {
 
   // shipper (taikhoan) có thể nhận nhiều giao hàng
   taikhoan.hasMany(giaohang, { as: "giaohangs", foreignKey: "MaShipper" });
-  giaohang.belongsTo(taikhoan, { as: "MaShipper_taikhoan", foreignKey: "MaShipper" });
+  giaohang.belongsTo(taikhoan, {
+    as: "MaShipper_taikhoan",
+    foreignKey: "MaShipper",
+  });
   // KHUYẾN MÃI - TÀI KHOẢN (USER)
-  khuyenmai_taikhoan.belongsTo(khuyenmai, { as: "MaKM_khuyenmai", foreignKey: "MaKM" });
-  khuyenmai.hasMany(khuyenmai_taikhoan, { as: "khuyenmai_taikhoans", foreignKey: "MaKM" });
-  khuyenmai_taikhoan.belongsTo(taikhoan, { as: "MaTK_taikhoan", foreignKey: "MaTK" });
-  taikhoan.hasMany(khuyenmai_taikhoan, { as: "khuyenmai_taikhoans", foreignKey: "MaTK" });
+  khuyenmai_taikhoan.belongsTo(khuyenmai, {
+    as: "MaKM_khuyenmai",
+    foreignKey: "MaKM",
+  });
+  khuyenmai.hasMany(khuyenmai_taikhoan, {
+    as: "khuyenmai_taikhoans",
+    foreignKey: "MaKM",
+  });
+  khuyenmai_taikhoan.belongsTo(taikhoan, {
+    as: "MaTK_taikhoan",
+    foreignKey: "MaTK",
+  });
+  taikhoan.hasMany(khuyenmai_taikhoan, {
+    as: "khuyenmai_taikhoans",
+    foreignKey: "MaTK",
+  });
   // ======================================
   // 📤 RETURN TẤT CẢ MODELS
   // ======================================

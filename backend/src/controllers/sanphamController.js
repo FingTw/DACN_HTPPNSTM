@@ -103,34 +103,46 @@ export const getAllSanpham = async (req, res) => {
       if (includes.includes("cuahang")) {
         includeOptions.push({
           model: cuahang,
+          as: "cuahang",
           attributes: ["MaCH", "TenCH", "DiemDG", "SLTheoDoi"],
         });
       }
 
       if (includes.includes("hinhanh")) {
         includeOptions.push({
-          model: sanpham_hinhanh,
-          include: [
-            {
-              model: hinhanh,
-              attributes: ["MaHA", "URL", "MoTa"],
-            },
-          ],
+          model: hinhanh,
+          as: "hinhanhs", // ← PHẢI KHỚP VỚI as trong init-models
+          attributes: ["MaHA", "URL", "MoTa"],
+          through: { attributes: [] },
+        });
+      }
+
+      if (includes.includes("danhmuc")) {
+        includeOptions.push({
+          model: danhmuc,
+          as: "sanpham_danhmucs", // ← FIX TƯƠNG TỰ, KHỚP AS
+          attributes: ["MaDM", "TenDM"],
+          through: { attributes: [] },
         });
       }
 
       if (includes.includes("danhgia")) {
         includeOptions.push({
           model: danhgiasanpham,
-          as: "danhgia",
-          where: { HieuLuc: true },
-          required: false,
-          limit: 5,
-          order: [["NgayDG", "DESC"]],
+          as: "danhgias", // ← FIX: THÊM AS NẾU LÀ HASMANY
+          attributes: ["MaDG", "Diem", "NoiDung", "NgayDG", "HieuLuc"],
+          include: [
+            {
+              model: taikhoan,
+              as: "nguoidanhgia",
+              attributes: ["MaTK", "TenDangNhap"],
+            },
+          ],
+          where: { HieuLuc: true }, // Optional: Lọc đánh giá hợp lệ
+          required: false, // Không bắt buộc nếu sản phẩm chưa có đánh giá
         });
       }
     }
-
     const { count, rows: data } = await sanpham.findAndCountAll({
       where: whereCondition,
       include: includeOptions,
@@ -161,7 +173,6 @@ export const getAllSanpham = async (req, res) => {
   }
 };
 
-// 🟢 Lấy sản phẩm theo mã - CÓ INCLUDE
 export const getSanphamById = async (req, res) => {
   try {
     const { MaSP } = req.params;
@@ -170,6 +181,7 @@ export const getSanphamById = async (req, res) => {
     let includeOptions = [
       {
         model: cuahang,
+        as: "cuahang",
         attributes: ["MaCH", "TenCH", "DiemDG", "SLTheoDoi"],
       },
     ];
@@ -179,19 +191,17 @@ export const getSanphamById = async (req, res) => {
 
       if (includes.includes("hinhanh")) {
         includeOptions.push({
-          model: sanpham_hinhanh,
-          include: [
-            {
-              model: hinhanh,
-              attributes: ["MaHA", "URL", "MoTa"],
-            },
-          ],
+          model: hinhanh,
+          as: "hinhanhs", // ← CŨNG PHẢI KHỚP
+          attributes: ["MaHA", "URL", "MoTa"],
+          through: { attributes: [] },
         });
       }
 
       if (includes.includes("danhmuc")) {
         includeOptions.push({
           model: sanpham_danhmuc,
+          as: "sanpham_danhmucs",
           include: [
             {
               model: danhmuc,
@@ -201,19 +211,20 @@ export const getSanphamById = async (req, res) => {
         });
       }
 
+      // ĐÁNH GIÁ SẢN PHẨM
       if (includes.includes("danhgia")) {
         includeOptions.push({
           model: danhgiasanpham,
-          as: "danhgia",
-          where: { HieuLuc: true },
-          required: false,
+          as: "danhgias",
+          attributes: ["MaDG", "Diem", "NoiDung", "NgayDG", "HieuLuc"],
           include: [
             {
               model: taikhoan,
               attributes: ["MaTK", "TenDangNhap"],
             },
           ],
-          order: [["NgayDG", "DESC"]],
+          where: { HieuLuc: true }, // Optional
+          required: false, // Không bắt buộc nếu sản phẩm chưa có đánh giá
         });
       }
     }
