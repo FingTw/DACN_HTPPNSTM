@@ -9,6 +9,7 @@ import {
   Package,
 } from "lucide-react";
 import { productService, type Product } from "../../services/productService";
+import { CommentList, CommentForm } from "@/components/comments";
 
 interface ProductOverviewProps {
   productId?: string;
@@ -20,6 +21,10 @@ const ProductOverview: React.FC<ProductOverviewProps> = ({ productId }) => {
   const [error, setError] = useState<string | null>(null);
   const [isFavorite, setIsFavorite] = useState(false);
   const [selectedImage, setSelectedImage] = useState(0);
+
+  // State cho chức năng đánh giá
+  const [showCommentForm, setShowCommentForm] = useState(false);
+  const [refreshComments, setRefreshComments] = useState(0);
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -83,6 +88,17 @@ const ProductOverview: React.FC<ProductOverviewProps> = ({ productId }) => {
     setIsFavorite((prev) => !prev);
   };
 
+  const handleCommentAction = (action: string, data?: any) => {
+    console.log("Comment action:", action, data);
+    if (action === "deleted" || action === "created" || action === "updated") {
+      setRefreshComments((prev) => prev + 1);
+    }
+  };
+
+  const handleAddComment = () => {
+    setShowCommentForm(true);
+  };
+
   // Loading state
   if (loading) {
     return (
@@ -120,7 +136,6 @@ const ProductOverview: React.FC<ProductOverviewProps> = ({ productId }) => {
   const currentImage = hasImages
     ? product.hinhanhs?.[selectedImage]?.URL
     : "https://via.placeholder.com/600x600?text=No+Image";
-  const totalReviews = product.danhgias?.length ?? 0;
   const averageRating = product.DiemDG_SP ?? 0;
 
   return (
@@ -220,14 +235,6 @@ const ProductOverview: React.FC<ProductOverviewProps> = ({ productId }) => {
                 <p className="text-sm font-medium text-gray-500">
                   ({averageRating.toFixed(1)})
                 </p>
-                {totalReviews > 0 && (
-                  <a
-                    href="#reviews"
-                    className="text-sm font-medium text-emerald-700 underline hover:no-underline"
-                  >
-                    {totalReviews} Đánh giá
-                  </a>
-                )}
               </div>
             </div>
 
@@ -325,35 +332,31 @@ const ProductOverview: React.FC<ProductOverviewProps> = ({ productId }) => {
           </div>
         </div>
 
-        {/* Reviews Section */}
-        {product.danhgias?.length ? (
-          <div id="reviews" className="mt-12">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">
-              Đánh giá từ khách hàng
-            </h2>
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {product.danhgias.map((review) => (
-                <div
-                  key={review.MaDG}
-                  className="bg-white rounded-lg p-6 shadow-md hover:shadow-lg transition"
-                >
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="font-medium text-gray-900">
-                      {review.nguoidanhgia?.TenDangNhap || "Người dùng"}
-                    </span>
-                    <div className="flex items-center gap-1">
-                      {renderStars(review.Diem)}
-                    </div>
-                  </div>
-                  <p className="text-gray-700 text-sm mb-2">{review.NoiDung}</p>
-                  <p className="text-xs text-gray-500">
-                    {new Date(review.NgayDG).toLocaleDateString("vi-VN")}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
-        ) : null}
+        {/* Reviews Section - CHỈ DÙNG CommentList */}
+        <div id="reviews" className="mt-12">
+          <CommentList
+            productId={product.MaSP}
+            showStats={true}
+            showFilters={true}
+            showAddButton={true}
+            onCommentAction={handleCommentAction}
+            onAddComment={handleAddComment}
+            key={refreshComments}
+          />
+        </div>
+
+        {/* Comment Form Modal */}
+        {showCommentForm && (
+          <CommentForm
+            productId={product.MaSP}
+            productName={product.TenSP}
+            onSuccess={() => {
+              setShowCommentForm(false);
+              setRefreshComments((prev) => prev + 1);
+            }}
+            onCancel={() => setShowCommentForm(false)}
+          />
+        )}
       </div>
     </section>
   );
