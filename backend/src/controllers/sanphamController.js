@@ -189,42 +189,41 @@ export const getSanphamById = async (req, res) => {
     if (include) {
       const includes = include.split(",");
 
+      // 🟢 HÌNH ẢNH - ĐÚNG
       if (includes.includes("hinhanh")) {
         includeOptions.push({
           model: hinhanh,
-          as: "hinhanhs", // ← CŨNG PHẢI KHỚP
+          as: "hinhanhs",
           attributes: ["MaHA", "URL", "MoTa"],
           through: { attributes: [] },
         });
       }
 
+      // 🟢 DANH MỤC - SỬA LẠI
       if (includes.includes("danhmuc")) {
         includeOptions.push({
-          model: sanpham_danhmuc,
-          as: "sanpham_danhmucs",
-          include: [
-            {
-              model: danhmuc,
-              attributes: ["MaDM", "TenDM"],
-            },
-          ],
+          model: danhmuc,
+          as: "MaDM_danhmucs", // ← SỬA THÀNH ALIAS NÀY
+          attributes: ["MaDM", "TenDM"],
+          through: { attributes: [] }, // Ẩn bảng trung gian
         });
       }
 
-      // ĐÁNH GIÁ SẢN PHẨM
+      // 🟢 ĐÁNH GIÁ - SỬA LẠI
       if (includes.includes("danhgia")) {
         includeOptions.push({
           model: danhgiasanpham,
-          as: "danhgias",
+          as: "danhgias", // ← ĐÚNG
           attributes: ["MaDG", "Diem", "NoiDung", "NgayDG", "HieuLuc"],
           include: [
             {
               model: taikhoan,
+              as: "nguoidanhgia", // ← ĐÚNG
               attributes: ["MaTK", "TenDangNhap"],
             },
           ],
-          where: { HieuLuc: true }, // Optional
-          required: false, // Không bắt buộc nếu sản phẩm chưa có đánh giá
+          where: { HieuLuc: true },
+          required: false,
         });
       }
     }

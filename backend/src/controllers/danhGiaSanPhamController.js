@@ -340,17 +340,20 @@ export const getDanhGiaSanPham = async (req, res) => {
       whereCondition.Diem = parseInt(filter);
     }
 
+    // 🟢 SỬA LỖI: SỬ DỤNG ĐÚNG ALIAS 'nguoidanhgia'
     const { count, rows: danhGia } = await danhgiasanpham.findAndCountAll({
       where: whereCondition,
       include: [
         {
           model: taikhoan,
+          as: "nguoidanhgia", // 🟢 SỬA THÀNH 'nguoidanhgia' thay vì 'taikhoan'
           attributes: ["MaTK", "TenDangNhap", "Email"],
         },
       ],
       order,
       limit: parseInt(limit),
       offset: parseInt(offset),
+      distinct: true,
     });
 
     // 🟢 THỐNG KÊ ĐÁNH GIÁ
