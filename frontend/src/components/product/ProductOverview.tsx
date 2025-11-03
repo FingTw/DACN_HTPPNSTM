@@ -10,6 +10,8 @@ import {
 } from "lucide-react";
 import { productService, type Product } from "../../services/productService";
 import { CommentList, CommentForm } from "@/components/comments";
+import { Header } from "../layout/Header";
+import SidebarCategory from "../layout/SidebarCategory";
 
 interface ProductOverviewProps {
   productId?: string;
@@ -139,226 +141,299 @@ const ProductOverview: React.FC<ProductOverviewProps> = ({ productId }) => {
   const averageRating = product.DiemDG_SP ?? 0;
 
   return (
-    <section className="py-8 bg-gradient-to-br from-emerald-50 to-teal-50 md:py-16 antialiased min-h-screen">
-      <div className="max-w-screen-xl px-4 mx-auto 2xl:px-0">
-        <div className="lg:grid lg:grid-cols-2 lg:gap-8 xl:gap-16">
-          {/* Product Images */}
-          <div className="shrink-0 max-w-md lg:max-w-lg mx-auto">
-            <div className="relative bg-white rounded-2xl p-8 shadow-lg">
-              <img
-                className="w-full rounded-lg"
-                src={currentImage}
-                alt={product.TenSP}
-                onError={(e: React.SyntheticEvent<HTMLImageElement>) => {
-                  e.currentTarget.src =
-                    "https://via.placeholder.com/600x600?text=No+Image";
-                }}
-              />
+    <div className="min-h-screen flex flex-col bg-gray-50">
+      <Header />
 
-              {/* Stock Badge */}
-              {product.SLTonKho < 10 && product.SLTonKho > 0 && (
-                <div className="absolute top-4 right-4 bg-emerald-600 text-white px-4 py-2 rounded-full text-sm font-medium shadow-lg">
-                  Chỉ còn {product.SLTonKho} sản phẩm
-                </div>
-              )}
+      <div className="container mx-auto px-4 py-6 flex gap-6 ">
+        <aside className="w-1/3 bg-white p-4 rounded-xl ">
+          <div className="sticky top-0">
+            {/* Product Images */}
+            <div className="shrink-0 max-w-md lg:max-w-lg mx-auto">
+              <div className="relative bg-white rounded-2xl p-8 shadow-lg">
+                <img
+                  className="w-full rounded-lg"
+                  src={currentImage}
+                  alt={product.TenSP}
+                  onError={(e: React.SyntheticEvent<HTMLImageElement>) => {
+                    e.currentTarget.src =
+                      "https://via.placeholder.com/600x600?text=No+Image";
+                  }}
+                />
 
-              {product.SLTonKho === 0 && (
-                <div className="absolute top-4 right-4 bg-red-600 text-white px-4 py-2 rounded-full text-sm font-medium shadow-lg">
-                  Hết hàng
-                </div>
-              )}
+                {/* Stock Badge */}
+                {product.SLTonKho < 10 && product.SLTonKho > 0 && (
+                  <div className="absolute top-4 right-4 bg-emerald-600 text-white px-4 py-2 rounded-full text-sm font-medium shadow-lg">
+                    Chỉ còn {product.SLTonKho} sản phẩm
+                  </div>
+                )}
 
-              {/* Thumbnail Images */}
-              {hasImages && product.hinhanhs!.length > 1 && (
-                <div className="flex gap-2 mt-4 overflow-x-auto pb-2">
-                  {product.hinhanhs?.map((img, index) => (
+                {product.SLTonKho === 0 && (
+                  <div className="absolute top-4 right-4 bg-red-600 text-white px-4 py-2 rounded-full text-sm font-medium shadow-lg">
+                    Hết hàng
+                  </div>
+                )}
+
+                {/* Thumbnail Images */}
+                {hasImages && product.hinhanhs!.length > 1 && (
+                  <div className="flex gap-4 mt-4 overflow-x-auto pb-2">
+                    {product.hinhanhs?.map((img, index) => (
+                      <button
+                        key={img.MaHA}
+                        onClick={() => setSelectedImage(index)}
+                        className={`flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 transition ${
+                          selectedImage === index
+                            ? "border-emerald-600 shadow-md"
+                            : "border-gray-200 hover:border-emerald-400"
+                        }`}
+                      >
+                        <img
+                          src={img.URL}
+                          alt={img.MoTa || `Ảnh ${index + 1}`}
+                          className="w-full h-full object-cover"
+                          onError={(
+                            e: React.SyntheticEvent<HTMLImageElement>
+                          ) => {
+                            e.currentTarget.src =
+                              "https://via.placeholder.com/80x80?text=No+Image";
+                          }}
+                        />
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </aside>
+        <div className="flex-1 bg-green-50 p-6 rounded-xl ">
+          <section className=" py-8 bg-gradient-to-br from-emerald-50 to-teal-50 md:py-16 antialiased min-h-screen">
+            <div className="max-w-screen-xl px-4 mx-auto 2xl:px-0">
+              <div className="lg:grid lg:grid-cols-2 lg:gap-8 xl:gap-16">
+                {/* Product Info */}
+                <div className="mt-6 sm:mt-8 lg:mt-0">
+                  <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">
+                    {product.TenSP}
+                  </h1>
+
+                  {/* Store Info */}
+                  {product.cuahang && (
+                    <div className="mt-3 flex items-center gap-2 text-gray-600">
+                      <Store className="w-5 h-5 text-emerald-600" />
+                      <span className="font-medium text-emerald-700">
+                        {product.cuahang.TenCH}
+                      </span>
+                      <span className="text-gray-400">•</span>
+                      <div className="flex items-center gap-1">
+                        <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
+                        <span className="text-sm">
+                          {product.cuahang.DiemDG?.toFixed(1) ?? "0.0"}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Price and Rating */}
+                  <div className="mt-4 sm:items-center sm:gap-4 sm:flex">
+                    <p className="text-3xl font-extrabold text-emerald-600 sm:text-4xl">
+                      {formatPrice(Number(product.GiaBan))}
+                    </p>
+
+                    <div className="flex items-center gap-2 mt-2 sm:mt-0">
+                      <div className="flex items-center gap-1">
+                        {renderStars(averageRating)}
+                      </div>
+                      <p className="text-sm font-medium text-gray-500">
+                        ({averageRating.toFixed(1)})
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Product Details */}
+                  <div className="mt-6 space-y-3">
+                    {product.NguonGoc && (
+                      <div className="flex items-center gap-2">
+                        <Package className="w-5 h-5 text-emerald-600" />
+                        <span className="text-gray-700">
+                          <span className="font-medium">Xuất xứ:</span>{" "}
+                          {product.NguonGoc}
+                        </span>
+                      </div>
+                    )}
+
+                    <div className="flex items-center gap-2">
+                      <Package className="w-5 h-5 text-emerald-600" />
+                      <span className="text-gray-700">
+                        <span className="font-medium">Tình trạng:</span>{" "}
+                        <span
+                          className={
+                            product.SLTonKho > 0
+                              ? "text-emerald-600"
+                              : "text-red-600"
+                          }
+                        >
+                          {product.SLTonKho > 0
+                            ? `Còn ${product.SLTonKho} sản phẩm`
+                            : "Hết hàng"}
+                        </span>
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="mt-6 sm:gap-4 sm:items-center sm:flex sm:mt-8">
                     <button
-                      key={img.MaHA}
-                      onClick={() => setSelectedImage(index)}
-                      className={`flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 transition ${
-                        selectedImage === index
-                          ? "border-emerald-600 shadow-md"
-                          : "border-gray-200 hover:border-emerald-400"
+                      onClick={toggleFavorite}
+                      className={`flex items-center justify-center py-3 px-5 text-sm font-medium rounded-lg border-2 transition ${
+                        isFavorite
+                          ? "bg-emerald-50 border-emerald-600 text-emerald-700"
+                          : "bg-white border-gray-300 text-gray-700 hover:border-emerald-600 hover:text-emerald-600"
                       }`}
                     >
-                      <img
-                        src={img.URL}
-                        alt={img.MoTa || `Ảnh ${index + 1}`}
-                        className="w-full h-full object-cover"
-                        onError={(
-                          e: React.SyntheticEvent<HTMLImageElement>
-                        ) => {
-                          e.currentTarget.src =
-                            "https://via.placeholder.com/80x80?text=No+Image";
-                        }}
+                      <Heart
+                        className={`w-5 h-5 -ms-2 me-2 ${
+                          isFavorite ? "fill-emerald-600" : ""
+                        }`}
                       />
+                      {isFavorite ? "Đã yêu thích" : "Yêu thích"}
                     </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
 
-          {/* Product Info */}
-          <div className="mt-6 sm:mt-8 lg:mt-0">
-            <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">
-              {product.TenSP}
-            </h1>
-
-            {/* Store Info */}
-            {product.cuahang && (
-              <div className="mt-3 flex items-center gap-2 text-gray-600">
-                <Store className="w-5 h-5 text-emerald-600" />
-                <span className="font-medium text-emerald-700">
-                  {product.cuahang.TenCH}
-                </span>
-                <span className="text-gray-400">•</span>
-                <div className="flex items-center gap-1">
-                  <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
-                  <span className="text-sm">
-                    {product.cuahang.DiemDG?.toFixed(1) ?? "0.0"}
-                  </span>
-                </div>
-              </div>
-            )}
-
-            {/* Price and Rating */}
-            <div className="mt-4 sm:items-center sm:gap-4 sm:flex">
-              <p className="text-3xl font-extrabold text-emerald-600 sm:text-4xl">
-                {formatPrice(Number(product.GiaBan))}
-              </p>
-
-              <div className="flex items-center gap-2 mt-2 sm:mt-0">
-                <div className="flex items-center gap-1">
-                  {renderStars(averageRating)}
-                </div>
-                <p className="text-sm font-medium text-gray-500">
-                  ({averageRating.toFixed(1)})
-                </p>
-              </div>
-            </div>
-
-            {/* Product Details */}
-            <div className="mt-6 space-y-3">
-              {product.NguonGoc && (
-                <div className="flex items-center gap-2">
-                  <Package className="w-5 h-5 text-emerald-600" />
-                  <span className="text-gray-700">
-                    <span className="font-medium">Xuất xứ:</span>{" "}
-                    {product.NguonGoc}
-                  </span>
-                </div>
-              )}
-
-              <div className="flex items-center gap-2">
-                <Package className="w-5 h-5 text-emerald-600" />
-                <span className="text-gray-700">
-                  <span className="font-medium">Tình trạng:</span>{" "}
-                  <span
-                    className={
-                      product.SLTonKho > 0 ? "text-emerald-600" : "text-red-600"
-                    }
-                  >
-                    {product.SLTonKho > 0
-                      ? `Còn ${product.SLTonKho} sản phẩm`
-                      : "Hết hàng"}
-                  </span>
-                </span>
-              </div>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="mt-6 sm:gap-4 sm:items-center sm:flex sm:mt-8">
-              <button
-                onClick={toggleFavorite}
-                className={`flex items-center justify-center py-3 px-5 text-sm font-medium rounded-lg border-2 transition ${
-                  isFavorite
-                    ? "bg-emerald-50 border-emerald-600 text-emerald-700"
-                    : "bg-white border-gray-300 text-gray-700 hover:border-emerald-600 hover:text-emerald-600"
-                }`}
-              >
-                <Heart
-                  className={`w-5 h-5 -ms-2 me-2 ${
-                    isFavorite ? "fill-emerald-600" : ""
-                  }`}
-                />
-                {isFavorite ? "Đã yêu thích" : "Yêu thích"}
-              </button>
-
-              <button
-                onClick={handleAddToCart}
-                disabled={product.SLTonKho === 0}
-                className={`text-white mt-4 sm:mt-0 font-medium rounded-lg text-sm px-5 py-3 flex items-center justify-center transition ${
-                  product.SLTonKho === 0
-                    ? "bg-gray-400 cursor-not-allowed"
-                    : "bg-emerald-600 hover:bg-emerald-700 shadow-lg hover:shadow-xl"
-                }`}
-              >
-                <ShoppingCart className="w-5 h-5 -ms-2 me-2" />
-                {product.SLTonKho === 0 ? "Hết hàng" : "Thêm vào giỏ"}
-              </button>
-            </div>
-
-            <hr className="my-6 md:my-8 border-gray-300" />
-
-            {/* Product Description */}
-            <div>
-              <h2 className="text-xl font-semibold text-gray-900 mb-3">
-                Mô tả sản phẩm
-              </h2>
-              <p className="text-gray-700 leading-relaxed whitespace-pre-line">
-                {product.MoTa || "Chưa có mô tả cho sản phẩm này."}
-              </p>
-            </div>
-
-            {/* Categories */}
-            {product.sanpham_danhmucs?.length ? (
-              <div className="mt-6">
-                <h3 className="text-sm font-medium text-gray-700 mb-2">
-                  Danh mục:
-                </h3>
-                <div className="flex flex-wrap gap-2">
-                  {product.sanpham_danhmucs.map((item) => (
-                    <span
-                      key={item.MaSP_DM}
-                      className="px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-sm font-medium"
+                    <button
+                      onClick={handleAddToCart}
+                      disabled={product.SLTonKho === 0}
+                      className={`text-white mt-4 sm:mt-0 font-medium rounded-lg text-sm px-5 py-3 flex items-center justify-center transition ${
+                        product.SLTonKho === 0
+                          ? "bg-gray-400 cursor-not-allowed"
+                          : "bg-emerald-600 hover:bg-emerald-700 shadow-lg hover:shadow-xl"
+                      }`}
                     >
-                      {item.danhmuc.TenDM}
-                    </span>
-                  ))}
+                      <ShoppingCart className="w-5 h-5 -ms-2 me-2" />
+                      {product.SLTonKho === 0 ? "Hết hàng" : "Thêm vào giỏ"}
+                    </button>
+                  </div>
+
+                  <hr className="my-6 md:my-8 border-gray-300" />
+
+                  {/* Product Description */}
+                  <div>
+                    <h2 className="text-xl font-semibold text-gray-900 mb-3">
+                      Mô tả sản phẩm
+                    </h2>
+                    <p className="text-gray-700 leading-relaxed whitespace-pre-line">
+                      {product.MoTa || "Chưa có mô tả cho sản phẩm này."}
+                    </p>
+                  </div>
+
+                  {/* Categories */}
+                  {product.sanpham_danhmucs?.length ? (
+                    <div className="mt-6">
+                      <h3 className="text-sm font-medium text-gray-700 mb-2">
+                        Danh mục:
+                      </h3>
+                      <div className="flex flex-wrap gap-2">
+                        {product.sanpham_danhmucs.map((item) => (
+                          <span
+                            key={item.MaSP_DM}
+                            className="px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-sm font-medium"
+                          >
+                            {item.danhmuc.TenDM}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
               </div>
-            ) : null}
+
+              {/* Reviews Section - CHỈ DÙNG CommentList */}
+              <div id="reviews" className="mt-12">
+                <CommentList
+                  productId={product.MaSP}
+                  showStats={true}
+                  showFilters={true}
+                  showAddButton={true}
+                  onCommentAction={handleCommentAction}
+                  onAddComment={handleAddComment}
+                  key={refreshComments}
+                />
+              </div>
+
+              {/* Comment Form Modal */}
+              {showCommentForm && (
+                <CommentForm
+                  productId={product.MaSP}
+                  productName={product.TenSP}
+                  onSuccess={() => {
+                    setShowCommentForm(false);
+                    setRefreshComments((prev) => prev + 1);
+                  }}
+                  onCancel={() => setShowCommentForm(false)}
+                />
+              )}
+            </div>
+          </section>
+        </div>
+        <aside className="w-1/4 p-5 rounded-xl flex-shrink-0">
+          <div className="sticky top-0 bg-white shadow-md rounded-xl p-5">
+            {/* Thông tin cửa hàng */}
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="font-semibold text-gray-800">
+                  {product.cuahang?.TenCH}
+                </h3>
+                <div className="flex items-center gap-1 text-yellow-500 text-sm">
+                  <Star className=" text-yellow-500" />
+                  <span className="text-2xl font-bold text-yellow-500">
+                    {averageRating?.toFixed(1) || "0.0"}
+                  </span>
+                </div>
+              </div>
+              <img
+                src="/logo-tiki.png"
+                alt="Logo cửa hàng"
+                className="w-10 h-10 object-contain"
+              />
+            </div>
+
+            <hr className="my-3 border-gray-50 bg-gray-200" />
+
+            {/* Số lượng */}
+            <div className="mb-4">
+              <p className="text-gray-700 font-medium mb-2">Số lượng</p>
+              <div className="flex items-center gap-3">
+                <button className="border rounded-md w-8 h-8 flex items-center justify-center hover:bg-gray-100">
+                  -
+                </button>
+                <span className="font-semibold">{product.SLTonKho || 1}</span>
+                <button className="border rounded-md w-8 h-8 flex items-center justify-center hover:bg-gray-100">
+                  +
+                </button>
+              </div>
+            </div>
+
+            {/* Giá */}
+            <div className="mb-4">
+              <p className="text-gray-600 text-sm">Tạm tính</p>
+              <p className="text-2xl font-bold text-gray-800">
+                {product.GiaBan?.toLocaleString("vi-VN")}₫
+              </p>
+            </div>
+
+            {/* Nút hành động */}
+            <div className="space-y-3">
+              <button className="w-full bg-red-500 text-white font-semibold py-2 rounded-lg hover:bg-red-600 transition">
+                Mua ngay
+              </button>
+              <button className="w-full bg-green-500 border border-gray-300 text-white font-semibold py-2 rounded-lg hover:bg-green-700 transition">
+                Thêm vào giỏ
+              </button>
+              <button className="w-full border border-gray-300 text-gray-700 font-semibold py-2 rounded-lg hover:bg-gray-200 transition">
+                Mua trước trả sau
+              </button>
+            </div>
           </div>
-        </div>
-
-        {/* Reviews Section - CHỈ DÙNG CommentList */}
-        <div id="reviews" className="mt-12">
-          <CommentList
-            productId={product.MaSP}
-            showStats={true}
-            showFilters={true}
-            showAddButton={true}
-            onCommentAction={handleCommentAction}
-            onAddComment={handleAddComment}
-            key={refreshComments}
-          />
-        </div>
-
-        {/* Comment Form Modal */}
-        {showCommentForm && (
-          <CommentForm
-            productId={product.MaSP}
-            productName={product.TenSP}
-            onSuccess={() => {
-              setShowCommentForm(false);
-              setRefreshComments((prev) => prev + 1);
-            }}
-            onCancel={() => setShowCommentForm(false)}
-          />
-        )}
+        </aside>
       </div>
-    </section>
+    </div>
   );
 };
 

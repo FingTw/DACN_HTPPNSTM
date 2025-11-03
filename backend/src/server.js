@@ -15,6 +15,7 @@ import authRoutes from "./routes/authRoutes.js";
 import cartRoutes from "./routes/cartRoutes.js";
 import orderRoutes from "./routes/orderRoutes.js";
 import sanphamRoutes from "./routes/sanphamRoutes.js";
+import rfqRoutes from "./routes/rfqRoutes.js";
 
 import danhGiaSanPhamRoutes from "./routes/danhGiaSanPhamRoutes.js";
 import danhGiaCuaHangRoutes from "./routes/danhGiaCuaHangRoutes.js"; // 🆕 THÊM ROUTE ĐÁNH GIÁ CỬA HÀNG
@@ -27,21 +28,29 @@ app.use(
   cors({
     origin: function (origin, callback) {
       // Cho phép tất cả origins trong development
-      if (!origin || process.env.NODE_ENV === 'development') {
+      if (!origin || process.env.NODE_ENV === "development") {
         callback(null, true);
       } else {
         // Trong production, chỉ cho phép domains cụ thể
-        const allowedOrigins = ['http://localhost:5173', 'http://localhost:3000'];
+        const allowedOrigins = [
+          "http://localhost:5173",
+          "http://localhost:3000",
+        ];
         if (allowedOrigins.indexOf(origin) !== -1) {
           callback(null, true);
         } else {
-          callback(new Error('Not allowed by CORS'));
+          callback(new Error("Not allowed by CORS"));
         }
       }
     },
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept"],
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+      "X-Requested-With",
+      "Accept",
+    ],
   })
 );
 
@@ -223,6 +232,7 @@ async function startServer() {
     registerRoute("/api/sanpham", sanphamRoutes);
     registerRoute("/api/danh-gia-san-pham", danhGiaSanPhamRoutes); // 🆕 ĐĂNG KÝ ROUTE ĐÁNH GIÁ SẢN PHẨM
     registerRoute("/api/danh-gia-cua-hang", danhGiaCuaHangRoutes); // 🆕 ĐĂNG KÝ ROUTE ĐÁNH GIÁ CỬA HÀNG
+    registerRoute("/api/rfq", rfqRoutes);
 
     console.log("✅ Đăng ký routes thành công");
 
