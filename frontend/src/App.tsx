@@ -4,14 +4,22 @@ import { AuthProvider } from "@/context/AuthContext"; // ← Đảm bảo import
 import SignInPage from "./pages/SignInPage";
 import SignUpPage from "./pages/SignUpPage";
 import HomePage from "./pages/HomePage";
+import CartPage from './pages/CartPage';
+import ProductDetailPage from './pages/ProductDetailPage';
 import { Toaster } from "sonner";
 import StoreRegistrationPage from "./components/shop/StoreRegistrationPage";
 import StoreDetailsPage from "./components/shop/StoreDetailPage";
 import ProductOverview from "./components/product/ProductOverview";
+import { CartProvider } from "@/context/CartContext";
+import CheckoutPage from './pages/CheckoutPage';
+import OrderSuccessPage from './pages/OrderSuccessPage';
+import { AddressProvider } from "@/context/AddressContext";
 
 function App() {
   return (
     <AuthProvider>
+      <CartProvider>
+        <AddressProvider>
       {" "}
       <Toaster richColors />
       <BrowserRouter>
@@ -23,11 +31,16 @@ function App() {
           <Route path="/signupshop" element={<StoreRegistrationPage />} />
           <Route path="/viewshop" element={<StoreDetailsPage />} />
           <Route path="/product/:id" element={<ProductOverview />} />
-
+          <Route path="/cart" element={<CartPage />} />
+          <Route path="/product/:id" element={<ProductDetailPage />} />
+          <Route path="/checkout" element={<CheckoutPage />} />
+          <Route path="/order-success/:MaDH" element={<OrderSuccessPage />} />
           {/* Private routes - thêm sau */}
           {/* <Route path="/profile" element={<PrivateRoute><ProfilePage /></PrivateRoute>} /> */}
         </Routes>
       </BrowserRouter>
+      </AddressProvider>
+      </CartProvider>
     </AuthProvider>
   );
 }

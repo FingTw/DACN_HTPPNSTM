@@ -4,7 +4,9 @@ import {
   checkoutItem,
   processCheckout,
   orderSuccess,
-  updateOrderStatus
+  updateOrderStatus,
+  getShippingMethods,
+  getPaymentMethods
 } from "../controllers/orderController.js";
 
 const router = express.Router();
@@ -23,5 +25,9 @@ router.get("/order-success/:MaDH", orderSuccess);
 
 // Cập nhật trạng thái đơn hàng (admin)
 router.put("/update-status/:MaDH", updateOrderStatus);
+
+// Thêm vào routes/orderRoutes.js
+router.get("/shipping-methods", getShippingMethods);
+router.get("/payment-methods", getPaymentMethods);
 
 export default router;
