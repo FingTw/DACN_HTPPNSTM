@@ -7,11 +7,14 @@ import {
   AlertCircle,
   Store,
   Package,
+  MapPin,
+  Shield,
+  Truck,
 } from "lucide-react";
 import { productService, type Product } from "../../services/productService";
 import { CommentList, CommentForm } from "@/components/comments";
 import { Header } from "../layout/Header";
-import SidebarCategory from "../layout/SidebarCategory";
+import { Link } from "react-router-dom";
 
 interface ProductOverviewProps {
   productId?: string;
@@ -23,6 +26,7 @@ const ProductOverview: React.FC<ProductOverviewProps> = ({ productId }) => {
   const [error, setError] = useState<string | null>(null);
   const [isFavorite, setIsFavorite] = useState(false);
   const [selectedImage, setSelectedImage] = useState(0);
+  const [quantity, setQuantity] = useState(1);
 
   // State cho chức năng đánh giá
   const [showCommentForm, setShowCommentForm] = useState(false);
@@ -101,6 +105,13 @@ const ProductOverview: React.FC<ProductOverviewProps> = ({ productId }) => {
     setShowCommentForm(true);
   };
 
+  const handleQuantityChange = (change: number) => {
+    const newQuantity = quantity + change;
+    if (newQuantity >= 1 && newQuantity <= (product?.SLTonKho || 1)) {
+      setQuantity(newQuantity);
+    }
+  };
+
   // Loading state
   if (loading) {
     return (
@@ -117,7 +128,7 @@ const ProductOverview: React.FC<ProductOverviewProps> = ({ productId }) => {
   if (error || !product) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-50 to-teal-50">
-        <div className="text-center max-w-md mx-auto p-8 bg-white rounded-lg shadow-lg">
+        <div className="text-center max-w-md mx-auto p-8 bg-white rounded-2xl shadow-xl">
           <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
           <h2 className="text-2xl font-bold text-gray-800 mb-2">
             Không tìm thấy sản phẩm
@@ -125,7 +136,7 @@ const ProductOverview: React.FC<ProductOverviewProps> = ({ productId }) => {
           <p className="text-gray-600 mb-6">{error}</p>
           <button
             onClick={() => window.history.back()}
-            className="px-6 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition"
+            className="px-6 py-3 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition duration-200 font-medium"
           >
             Quay lại
           </button>
@@ -139,51 +150,68 @@ const ProductOverview: React.FC<ProductOverviewProps> = ({ productId }) => {
     ? product.hinhanhs?.[selectedImage]?.URL
     : "https://via.placeholder.com/600x600?text=No+Image";
   const averageRating = product.DiemDG_SP ?? 0;
+  const totalPrice = Number(product.GiaBan) * quantity;
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-emerald-50/30">
       <Header />
 
-      <div className="container mx-auto px-4 py-6 flex gap-6 ">
-        <aside className="w-1/3 bg-white p-4 rounded-xl ">
-          <div className="sticky top-0">
-            {/* Product Images */}
-            <div className="shrink-0 max-w-md lg:max-w-lg mx-auto">
-              <div className="relative bg-white rounded-2xl p-8 shadow-lg">
-                <img
-                  className="w-full rounded-lg"
-                  src={currentImage}
-                  alt={product.TenSP}
-                  onError={(e: React.SyntheticEvent<HTMLImageElement>) => {
-                    e.currentTarget.src =
-                      "https://via.placeholder.com/600x600?text=No+Image";
-                  }}
-                />
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {/* Breadcrumb */}
+        <nav className="flex items-center space-x-2 text-sm text-gray-600 mb-6">
+          <Link
+            to="/"
+            className="hover:text-emerald-600 transition duration-200"
+          >
+            🏠 Trang chủ
+          </Link>
+          <span>›</span>
+          <span className="text-emerald-600 font-medium">{product.TenSP}</span>
+        </nav>
 
-                {/* Stock Badge */}
-                {product.SLTonKho < 10 && product.SLTonKho > 0 && (
-                  <div className="absolute top-4 right-4 bg-emerald-600 text-white px-4 py-2 rounded-full text-sm font-medium shadow-lg">
-                    Chỉ còn {product.SLTonKho} sản phẩm
-                  </div>
-                )}
+        {/* 🟢 SỬA: CHUYỂN SANG LAYOUT NGANG */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Left Column - Images (Thu nhỏ lại) */}
+          <div className="lg:col-span-1">
+            <div className="bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden">
+              <div className="p-4">
+                {/* 🟢 THU NHỎ HÌNH CHÍNH */}
+                <div className="relative bg-white rounded-xl">
+                  <img
+                    className="w-full h-64 object-contain rounded-lg"
+                    src={currentImage}
+                    alt={product.TenSP}
+                    onError={(e: React.SyntheticEvent<HTMLImageElement>) => {
+                      e.currentTarget.src =
+                        "https://via.placeholder.com/400x400?text=No+Image";
+                    }}
+                  />
 
-                {product.SLTonKho === 0 && (
-                  <div className="absolute top-4 right-4 bg-red-600 text-white px-4 py-2 rounded-full text-sm font-medium shadow-lg">
-                    Hết hàng
-                  </div>
-                )}
+                  {/* Stock Badge */}
+                  {product.SLTonKho < 10 && product.SLTonKho > 0 && (
+                    <div className="absolute top-2 right-2 bg-gradient-to-r from-orange-500 to-red-500 text-white px-3 py-1 rounded-full text-xs font-medium shadow-lg">
+                      Chỉ còn {product.SLTonKho}
+                    </div>
+                  )}
+
+                  {product.SLTonKho === 0 && (
+                    <div className="absolute top-2 right-2 bg-red-600 text-white px-3 py-1 rounded-full text-xs font-medium shadow-lg">
+                      Hết hàng
+                    </div>
+                  )}
+                </div>
 
                 {/* Thumbnail Images */}
                 {hasImages && product.hinhanhs!.length > 1 && (
-                  <div className="flex gap-4 mt-4 overflow-x-auto pb-2">
+                  <div className="flex gap-2 mt-4 overflow-x-auto pb-1">
                     {product.hinhanhs?.map((img, index) => (
                       <button
                         key={img.MaHA}
                         onClick={() => setSelectedImage(index)}
-                        className={`flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 transition ${
+                        className={`flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-all duration-200 ${
                           selectedImage === index
-                            ? "border-emerald-600 shadow-md"
-                            : "border-gray-200 hover:border-emerald-400"
+                            ? "border-emerald-500 shadow-md"
+                            : "border-gray-200 hover:border-emerald-300"
                         }`}
                       >
                         <img
@@ -194,7 +222,7 @@ const ProductOverview: React.FC<ProductOverviewProps> = ({ productId }) => {
                             e: React.SyntheticEvent<HTMLImageElement>
                           ) => {
                             e.currentTarget.src =
-                              "https://via.placeholder.com/80x80?text=No+Image";
+                              "https://via.placeholder.com/64x64?text=No+Image";
                           }}
                         />
                       </button>
@@ -204,56 +232,96 @@ const ProductOverview: React.FC<ProductOverviewProps> = ({ productId }) => {
               </div>
             </div>
           </div>
-        </aside>
-        <div className="flex-1 bg-green-50 p-6 rounded-xl ">
-          <section className=" py-8 bg-gradient-to-br from-emerald-50 to-teal-50 md:py-16 antialiased min-h-screen">
-            <div className="max-w-screen-xl px-4 mx-auto 2xl:px-0">
-              <div className="lg:grid lg:grid-cols-2 lg:gap-8 xl:gap-16">
-                {/* Product Info */}
-                <div className="mt-6 sm:mt-8 lg:mt-0">
-                  <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">
-                    {product.TenSP}
-                  </h1>
 
-                  {/* Store Info */}
-                  {product.cuahang && (
-                    <div className="mt-3 flex items-center gap-2 text-gray-600">
-                      <Store className="w-5 h-5 text-emerald-600" />
-                      <span className="font-medium text-emerald-700">
+          {/* Middle Column - Product Info (Chiếm 2/3) */}
+          <div className="lg:col-span-2">
+            <div className="bg-white rounded-3xl shadow-xl border border-gray-100 p-6">
+              {/* Product Header */}
+              <div className="mb-6">
+                <h1 className="text-2xl font-bold text-gray-900 mb-3">
+                  {product.TenSP}
+                </h1>
+
+                {/* Store Info */}
+                {product.cuahang && (
+                  <div className="flex items-center gap-3 p-3 bg-emerald-50 rounded-lg border border-emerald-100">
+                    <Store className="w-5 h-5 text-emerald-600" />
+                    <div className="flex-1">
+                      <p className="font-semibold text-emerald-700 text-sm">
                         {product.cuahang.TenCH}
-                      </span>
-                      <span className="text-gray-400">•</span>
-                      <div className="flex items-center gap-1">
-                        <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
-                        <span className="text-sm">
-                          {product.cuahang.DiemDG?.toFixed(1) ?? "0.0"}
-                        </span>
+                      </p>
+                      <div className="flex items-center gap-2 text-xs text-gray-600">
+                        <div className="flex items-center gap-1">
+                          <Star className="w-3 h-3 text-yellow-400 fill-yellow-400" />
+                          <span className="font-medium">
+                            {product.cuahang.DiemDG?.toFixed(1) ?? "0.0"}
+                          </span>
+                        </div>
+                        <span>•</span>
+                        <span>1.2k theo dõi</span>
                       </div>
                     </div>
-                  )}
+                    <Link
+                      to={`/cuahang/${product.cuahang.MaCH}`}
+                      className="text-emerald-600 hover:text-emerald-700 font-medium text-xs"
+                    >
+                      Xem shop
+                    </Link>
+                  </div>
+                )}
+              </div>
 
-                  {/* Price and Rating */}
-                  <div className="mt-4 sm:items-center sm:gap-4 sm:flex">
-                    <p className="text-3xl font-extrabold text-emerald-600 sm:text-4xl">
-                      {formatPrice(Number(product.GiaBan))}
-                    </p>
-
-                    <div className="flex items-center gap-2 mt-2 sm:mt-0">
-                      <div className="flex items-center gap-1">
-                        {renderStars(averageRating)}
-                      </div>
-                      <p className="text-sm font-medium text-gray-500">
-                        ({averageRating.toFixed(1)})
-                      </p>
+              {/* 🟢 SỬA: CHUYỂN THÔNG TIN SANG LAYOUT 2 CỘT NGANG */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Left Info Column */}
+                <div className="space-y-4">
+                  {/* Rating */}
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-1">
+                      {renderStars(averageRating)}
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                      <span className="font-semibold text-gray-700">
+                        {averageRating.toFixed(1)}
+                      </span>
+                      <span>|</span>
+                      <span>128 đánh giá</span>
+                      <span>|</span>
+                      <span>512 đã bán</span>
                     </div>
                   </div>
 
+                  {/* Price */}
+                  <div>
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-3xl font-bold text-emerald-600">
+                        {formatPrice(Number(product.GiaBan))}
+                      </span>
+                      <span className="text-sm text-gray-500 line-through">
+                        {formatPrice(Number(product.GiaBan) * 1.2)}
+                      </span>
+                      <span className="bg-red-500 text-white px-2 py-1 rounded text-xs font-medium">
+                        -20%
+                      </span>
+                    </div>
+                    <p className="text-green-600 font-medium text-sm mt-1">
+                      🎉 Tiết kiệm {formatPrice(Number(product.GiaBan) * 0.2)}
+                    </p>
+                  </div>
+
                   {/* Product Details */}
-                  <div className="mt-6 space-y-3">
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Shield className="w-4 h-4 text-emerald-600" />
+                      <span className="text-sm text-gray-700">
+                        <span className="font-medium">Bảo hành:</span> 12 tháng
+                      </span>
+                    </div>
+
                     {product.NguonGoc && (
                       <div className="flex items-center gap-2">
-                        <Package className="w-5 h-5 text-emerald-600" />
-                        <span className="text-gray-700">
+                        <MapPin className="w-4 h-4 text-emerald-600" />
+                        <span className="text-sm text-gray-700">
                           <span className="font-medium">Xuất xứ:</span>{" "}
                           {product.NguonGoc}
                         </span>
@@ -261,14 +329,22 @@ const ProductOverview: React.FC<ProductOverviewProps> = ({ productId }) => {
                     )}
 
                     <div className="flex items-center gap-2">
-                      <Package className="w-5 h-5 text-emerald-600" />
-                      <span className="text-gray-700">
+                      <Truck className="w-4 h-4 text-emerald-600" />
+                      <span className="text-sm text-gray-700">
+                        <span className="font-medium">Vận chuyển:</span> Miễn
+                        phí
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <Package className="w-4 h-4 text-emerald-600" />
+                      <span className="text-sm text-gray-700">
                         <span className="font-medium">Tình trạng:</span>{" "}
                         <span
                           className={
                             product.SLTonKho > 0
-                              ? "text-emerald-600"
-                              : "text-red-600"
+                              ? "text-emerald-600 font-semibold"
+                              : "text-red-600 font-semibold"
                           }
                         >
                           {product.SLTonKho > 0
@@ -278,160 +354,176 @@ const ProductOverview: React.FC<ProductOverviewProps> = ({ productId }) => {
                       </span>
                     </div>
                   </div>
+                </div>
+
+                {/* Right Action Column */}
+                <div className="space-y-4">
+                  {/* Quantity Selector */}
+                  <div>
+                    <p className="text-gray-700 font-medium mb-2 text-sm">
+                      Số lượng
+                    </p>
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden">
+                        <button
+                          onClick={() => handleQuantityChange(-1)}
+                          disabled={quantity <= 1}
+                          className="w-10 h-10 flex items-center justify-center hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                        >
+                          -
+                        </button>
+                        <span className="w-10 h-10 flex items-center justify-center font-semibold">
+                          {quantity}
+                        </span>
+                        <button
+                          onClick={() => handleQuantityChange(1)}
+                          disabled={quantity >= (product.SLTonKho || 1)}
+                          className="w-10 h-10 flex items-center justify-center hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                        >
+                          +
+                        </button>
+                      </div>
+                      <span className="text-gray-600 text-xs">
+                        {product.SLTonKho} sản phẩm có sẵn
+                      </span>
+                    </div>
+                  </div>
 
                   {/* Action Buttons */}
-                  <div className="mt-6 sm:gap-4 sm:items-center sm:flex sm:mt-8">
-                    <button
-                      onClick={toggleFavorite}
-                      className={`flex items-center justify-center py-3 px-5 text-sm font-medium rounded-lg border-2 transition ${
-                        isFavorite
-                          ? "bg-emerald-50 border-emerald-600 text-emerald-700"
-                          : "bg-white border-gray-300 text-gray-700 hover:border-emerald-600 hover:text-emerald-600"
-                      }`}
-                    >
-                      <Heart
-                        className={`w-5 h-5 -ms-2 me-2 ${
-                          isFavorite ? "fill-emerald-600" : ""
+                  <div className="space-y-3">
+                    <div className="flex gap-3">
+                      <button
+                        onClick={toggleFavorite}
+                        className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 text-sm font-medium rounded-lg border-2 transition duration-200 ${
+                          isFavorite
+                            ? "bg-red-50 border-red-500 text-red-600"
+                            : "bg-white border-gray-300 text-gray-700 hover:border-red-400 hover:text-red-500"
                         }`}
-                      />
-                      {isFavorite ? "Đã yêu thích" : "Yêu thích"}
-                    </button>
+                      >
+                        <Heart
+                          className={`w-5 h-5 ${
+                            isFavorite ? "fill-red-500" : ""
+                          }`}
+                        />
+                        {isFavorite ? "Đã thích" : "Yêu thích"}
+                      </button>
 
+                      <button
+                        onClick={handleAddToCart}
+                        disabled={product.SLTonKho === 0}
+                        className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 text-sm font-medium rounded-lg transition duration-200 ${
+                          product.SLTonKho === 0
+                            ? "bg-gray-400 cursor-not-allowed text-white"
+                            : "bg-orange-500 hover:bg-orange-600 text-white shadow-lg hover:shadow-xl"
+                        }`}
+                      >
+                        <ShoppingCart className="w-5 h-5" />
+                        Thêm giỏ hàng
+                      </button>
+                    </div>
+
+                    {/* Buy Now Button */}
                     <button
-                      onClick={handleAddToCart}
                       disabled={product.SLTonKho === 0}
-                      className={`text-white mt-4 sm:mt-0 font-medium rounded-lg text-sm px-5 py-3 flex items-center justify-center transition ${
+                      className={`w-full py-3 px-4 text-sm font-semibold rounded-lg transition duration-200 ${
                         product.SLTonKho === 0
-                          ? "bg-gray-400 cursor-not-allowed"
-                          : "bg-emerald-600 hover:bg-emerald-700 shadow-lg hover:shadow-xl"
+                          ? "bg-gray-400 cursor-not-allowed text-white"
+                          : "bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white shadow-lg hover:shadow-xl"
                       }`}
                     >
-                      <ShoppingCart className="w-5 h-5 -ms-2 me-2" />
-                      {product.SLTonKho === 0 ? "Hết hàng" : "Thêm vào giỏ"}
+                      {product.SLTonKho === 0 ? "Hết hàng" : "Mua ngay"}
                     </button>
                   </div>
 
-                  <hr className="my-6 md:my-8 border-gray-300" />
-
-                  {/* Product Description */}
-                  <div>
-                    <h2 className="text-xl font-semibold text-gray-900 mb-3">
-                      Mô tả sản phẩm
-                    </h2>
-                    <p className="text-gray-700 leading-relaxed whitespace-pre-line">
-                      {product.MoTa || "Chưa có mô tả cho sản phẩm này."}
-                    </p>
-                  </div>
-
-                  {/* Categories */}
-                  {product.sanpham_danhmucs?.length ? (
-                    <div className="mt-6">
-                      <h3 className="text-sm font-medium text-gray-700 mb-2">
-                        Danh mục:
-                      </h3>
-                      <div className="flex flex-wrap gap-2">
-                        {product.sanpham_danhmucs.map((item) => (
-                          <span
-                            key={item.MaSP_DM}
-                            className="px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-sm font-medium"
-                          >
-                            {item.danhmuc.TenDM}
-                          </span>
-                        ))}
-                      </div>
+                  {/* Order Summary Mini */}
+                  <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                    <div className="flex justify-between text-sm mb-2">
+                      <span className="text-gray-600">Tạm tính:</span>
+                      <span>{formatPrice(Number(product.GiaBan))}</span>
                     </div>
-                  ) : null}
+                    <div className="flex justify-between text-sm mb-2">
+                      <span className="text-gray-600">Số lượng:</span>
+                      <span>{quantity}</span>
+                    </div>
+                    <div className="flex justify-between text-sm mb-2">
+                      <span className="text-gray-600">Giảm giá:</span>
+                      <span className="text-green-600">
+                        -{formatPrice(Number(product.GiaBan) * 0.2)}
+                      </span>
+                    </div>
+                    <hr className="border-gray-300 my-2" />
+                    <div className="flex justify-between font-bold">
+                      <span>Tổng tiền:</span>
+                      <span className="text-emerald-600">
+                        {formatPrice(totalPrice)}
+                      </span>
+                    </div>
+                  </div>
                 </div>
               </div>
-
-              {/* Reviews Section - CHỈ DÙNG CommentList */}
-              <div id="reviews" className="mt-12">
-                <CommentList
-                  productId={product.MaSP}
-                  showStats={true}
-                  showFilters={true}
-                  showAddButton={true}
-                  onCommentAction={handleCommentAction}
-                  onAddComment={handleAddComment}
-                  key={refreshComments}
-                />
-              </div>
-
-              {/* Comment Form Modal */}
-              {showCommentForm && (
-                <CommentForm
-                  productId={product.MaSP}
-                  productName={product.TenSP}
-                  onSuccess={() => {
-                    setShowCommentForm(false);
-                    setRefreshComments((prev) => prev + 1);
-                  }}
-                  onCancel={() => setShowCommentForm(false)}
-                />
-              )}
             </div>
-          </section>
+          </div>
         </div>
-        <aside className="w-1/4 p-5 rounded-xl flex-shrink-0">
-          <div className="sticky top-0 bg-white shadow-md rounded-xl p-5">
-            {/* Thông tin cửa hàng */}
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h3 className="font-semibold text-gray-800">
-                  {product.cuahang?.TenCH}
-                </h3>
-                <div className="flex items-center gap-1 text-yellow-500 text-sm">
-                  <Star className=" text-yellow-500" />
-                  <span className="text-2xl font-bold text-yellow-500">
-                    {averageRating?.toFixed(1) || "0.0"}
-                  </span>
-                </div>
-              </div>
-              <img
-                src="/logo-tiki.png"
-                alt="Logo cửa hàng"
-                className="w-10 h-10 object-contain"
-              />
-            </div>
 
-            <hr className="my-3 border-gray-50 bg-gray-200" />
-
-            {/* Số lượng */}
-            <div className="mb-4">
-              <p className="text-gray-700 font-medium mb-2">Số lượng</p>
-              <div className="flex items-center gap-3">
-                <button className="border rounded-md w-8 h-8 flex items-center justify-center hover:bg-gray-100">
-                  -
-                </button>
-                <span className="font-semibold">{product.SLTonKho || 1}</span>
-                <button className="border rounded-md w-8 h-8 flex items-center justify-center hover:bg-gray-100">
-                  +
-                </button>
-              </div>
-            </div>
-
-            {/* Giá */}
-            <div className="mb-4">
-              <p className="text-gray-600 text-sm">Tạm tính</p>
-              <p className="text-2xl font-bold text-gray-800">
-                {product.GiaBan?.toLocaleString("vi-VN")}₫
+        {/* Product Description */}
+        <div className="mt-8">
+          <div className="bg-white rounded-3xl shadow-xl border border-gray-100 p-6">
+            <h2 className="text-xl font-bold text-gray-800 mb-4">
+              Mô tả sản phẩm
+            </h2>
+            <div className="prose max-w-none">
+              <p className="text-gray-700 leading-relaxed whitespace-pre-line">
+                {product.MoTa || "Chưa có mô tả cho sản phẩm này."}
               </p>
             </div>
 
-            {/* Nút hành động */}
-            <div className="space-y-3">
-              <button className="w-full bg-red-500 text-white font-semibold py-2 rounded-lg hover:bg-red-600 transition">
-                Mua ngay
-              </button>
-              <button className="w-full bg-green-500 border border-gray-300 text-white font-semibold py-2 rounded-lg hover:bg-green-700 transition">
-                Thêm vào giỏ
-              </button>
-              <button className="w-full border border-gray-300 text-gray-700 font-semibold py-2 rounded-lg hover:bg-gray-200 transition">
-                Mua trước trả sau
-              </button>
-            </div>
+            {/* Categories */}
+            {product.sanpham_danhmucs?.length ? (
+              <div className="mt-6 pt-4 border-t border-gray-200">
+                <h3 className="text-md font-semibold text-gray-700 mb-3">
+                  Danh mục sản phẩm:
+                </h3>
+                <div className="flex flex-wrap gap-2">
+                  {product.sanpham_danhmucs.map((item) => (
+                    <span
+                      key={item.MaSP_DM}
+                      className="px-3 py-1 bg-gradient-to-r from-emerald-100 to-teal-100 text-emerald-700 rounded-full text-xs font-medium border border-emerald-200"
+                    >
+                      {item.danhmuc.TenDM}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ) : null}
           </div>
-        </aside>
+        </div>
+
+        {/* Reviews Section */}
+        <div className="mt-8">
+          <div className="bg-white rounded-3xl shadow-xl border border-gray-100 p-6">
+            <CommentList
+              productId={product.MaSP}
+              showStats={true}
+              showFilters={true}
+              showAddButton={true}
+              onCommentAction={handleCommentAction}
+              onAddComment={handleAddComment}
+              key={refreshComments}
+            />
+          </div>
+        </div>
+        {/* Comment Form Modal */}
+        {showCommentForm && (
+          <CommentForm
+            productId={product.MaSP}
+            productName={product.TenSP}
+            onSuccess={() => {
+              setShowCommentForm(false);
+              setRefreshComments((prev) => prev + 1);
+            }}
+            onCancel={() => setShowCommentForm(false)}
+          />
+        )}
       </div>
     </div>
   );
