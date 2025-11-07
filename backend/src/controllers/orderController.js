@@ -421,3 +421,24 @@ if (order.TrangThai !== TrangThai) {
     return res.status(500).json({ message: "Lỗi server", error: err.message });
   }
 };
+
+// Thêm vào controllers/orderController.js
+export const getShippingMethods = async (req, res) => {
+  try {
+    const methods = await ptvc.findAll();
+    res.json(methods);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Lỗi server" });
+  }
+};
+
+export const getPaymentMethods = async (req, res) => {
+  try {
+    const methods = await pttt.findAll();
+    res.json(methods);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Lỗi server" });
+  }
+};

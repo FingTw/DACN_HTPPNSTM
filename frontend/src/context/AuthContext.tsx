@@ -1,4 +1,4 @@
-// src/context/AuthContext.tsx
+// src/context/AuthContext.tsx - SỬA LẠI
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { authAPI } from "../services/authService";
 
@@ -23,26 +23,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const loadUser = () => {
-    const storedUser = localStorage.getItem("user");
-    if (storedUser) {
-      try {
-        setUser(JSON.parse(storedUser));
-      } catch (err) {
-        console.error("Parse user error:", err);
-      }
-    } else {
-      setUser(null);
-    }
-  };
-
   useEffect(() => {
-    loadUser();
-    setLoading(false);
+    const initializeAuth = () => {
+      const token = localStorage.getItem("token");
+      const storedUser = localStorage.getItem("user");
 
-    // LẮNG NGHE KHI LOGIN/LOGOUT
+      if (token && storedUser) {
+        try {
+          const parsedUser = JSON.parse(storedUser);
+          setUser(parsedUser);
+        } catch (err) {
+          console.error("Lỗi parse user:", err);
+          localStorage.removeItem("token");
+          localStorage.removeItem("user");
+          setUser(null);
+        }
+      } else {
+        setUser(null);
+      }
+      setLoading(false);
+    };
+
+    initializeAuth();
+
+    // Lắng nghe khi login/logout
     const handleAuthChange = () => {
-      loadUser();
+      initializeAuth();
     };
 
     window.addEventListener("authChange", handleAuthChange);
@@ -52,25 +58,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     };
   }, []);
 
-  useEffect(() => {
-    const token = localStorage.getItem("token");
-    const storedUser = localStorage.getItem("user");
-
-    if (token && storedUser) {
-      try {
-        const parsedUser = JSON.parse(storedUser);
-        setUser(parsedUser);
-      } catch (err) {
-        console.error("Lỗi parse user:", err);
-      }
-    }
-    setLoading(false);
-  }, []);
-
   const login = (token: string, user: User) => {
     localStorage.setItem("token", token);
     localStorage.setItem("user", JSON.stringify(user));
     setUser(user);
+    window.dispatchEvent(new Event("authChange"));
   };
 
   const logout = async () => {
@@ -82,6 +74,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       localStorage.removeItem("token");
       localStorage.removeItem("user");
       setUser(null);
+      window.dispatchEvent(new Event("authChange"));
       window.location.href = "/signin";
     }
   };

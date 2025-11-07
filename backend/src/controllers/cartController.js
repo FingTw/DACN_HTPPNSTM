@@ -206,3 +206,78 @@ export const getCartCount = async (req, res) => {
     return res.status(500).json({ count: 0, message: "Lỗi server" });
   }
 };
+
+// 📦 Lấy toàn bộ giỏ hàng
+export const getCart = async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return res.status(401).json({ message: "Không có token" });
+    }
+
+    const token = authHeader.split(" ")[1];
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (err) {
+      return res.status(401).json({ message: "Token không hợp lệ" });
+    }
+
+    const MaTK = decoded.MaTK;
+
+    // Tìm giỏ hàng với đầy đủ thông tin sản phẩm
+    const cart = await giohang.findOne({
+      where: { MaTK },
+      include: [{
+        model: ctgh,
+        as: "ctghs",
+        include: [{
+          model: sanpham,
+          as: "MaSP_sanpham",
+          include: ['hinhanhs'] // Nếu có relation với hình ảnh
+        }]
+      }]
+    });
+
+    if (!cart) {
+      return res.json({ 
+        success: true, 
+        cart: null, 
+        items: [], 
+        total: 0 
+      });
+    }
+
+    // Format response
+    const items = cart.ctghs.map(item => ({
+      MaGH: item.MaGH,
+      MaSP: item.MaSP,
+      SL: item.SL,
+      TongTien: item.TongTien,
+      sanpham: {
+        MaSP: item.MaSP_sanpham.MaSP,
+        TenSP: item.MaSP_sanpham.TenSP,
+        GiaBan: item.MaSP_sanpham.GiaBan,
+        SLTon: item.MaSP_sanpham.SLTon,
+        HinhAnh: item.MaSP_sanpham.hinhanhs?.[0]?.URL || '/productdefaut.jpg',
+        MoTa: item.MaSP_sanpham.MoTa
+      }
+    }));
+
+    const total = items.reduce((sum, item) => sum + item.TongTien, 0);
+
+    return res.json({
+      success: true,
+      cart: {
+        MaGH: cart.MaGH,
+        MaTK: cart.MaTK
+      },
+      items,
+      total
+    });
+
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: "Lỗi server" });
+  }
+};

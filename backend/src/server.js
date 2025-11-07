@@ -15,7 +15,11 @@ import authRoutes from "./routes/authRoutes.js";
 import cartRoutes from "./routes/cartRoutes.js";
 import orderRoutes from "./routes/orderRoutes.js";
 import sanphamRoutes from "./routes/sanphamRoutes.js";
+<<<<<<< HEAD
 //import rfqRoutes from "./routes/rfqRoutes.js";
+=======
+import rfqRoutes from "./routes/RFQ Routes.js";
+>>>>>>> 5eed40f559ab990db032bc34a68d039fb95b4ce6
 
 import danhGiaSanPhamRoutes from "./routes/danhGiaSanPhamRoutes.js";
 import danhGiaCuaHangRoutes from "./routes/danhGiaCuaHangRoutes.js"; // 🆕 THÊM ROUTE ĐÁNH GIÁ CỬA HÀNG
