@@ -3,12 +3,14 @@ import {
   addToCart,
   updateQuantity,
   removeFromCart,
-  getCartCount
+  getCartCount,
+  getCart
 } from "../controllers/cartController.js";
 
 const router = express.Router();
 
 // Không cần middleware, chỉ map thẳng routes → controller
+router.get("/", getCart);
 router.post("/add", addToCart);
 router.post("/update", updateQuantity);
 router.post("/remove", removeFromCart);

@@ -1,12 +1,30 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { navigation } from "../data/mockData";
 import { useAuth } from "@/context/AuthContext";
+import cartService from "@/services/cartService";
 
 export const Header: React.FC = () => {
-  const [cartCount] = useState(0);
+  const [cartCount, setCartCount] = useState(0);
+  const { user, logout, loading } = useAuth(); // Thêm loading từ AuthContext
 
-  const { user, logout } = useAuth();
+  // Lấy số lượng giỏ hàng khi user thay đổi
+  useEffect(() => {
+    const fetchCartCount = async () => {
+      if (user) {
+        try {
+          const { count } = await cartService.getCartCount();
+          setCartCount(count);
+        } catch (error) {
+          console.error('Lỗi lấy số lượng giỏ hàng:', error);
+          setCartCount(0);
+        }
+      } else {
+        setCartCount(0);
+      }
+    };
+
+    fetchCartCount();
+  }, [user]);
 
   const categories = [
     "Sản Phẩm ",
@@ -18,7 +36,7 @@ export const Header: React.FC = () => {
     " Mới & Theo mùa",
     " Đặc Trước",
   ];
-
+ 
   const benefits = [
     {
       icon: (
@@ -94,6 +112,69 @@ export const Header: React.FC = () => {
     },
   ];
 
+  // Hiển thị skeleton loading khi đang kiểm tra auth
+  if (loading) {
+    return (
+      <header className="w-full">
+        {/* Top Banner Skeleton */}
+        <div className="bg-gradient-to-r from-green-50 to-emerald-50">
+          <div className="max-w-7xl mx-auto px-4 py-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-6">
+                {[1, 2, 3, 4].map((item) => (
+                  <div key={item} className="flex items-center gap-2">
+                    <div className="w-4 h-4 bg-gray-200 rounded-full animate-pulse"></div>
+                    <div className="w-24 h-4 bg-gray-200 rounded animate-pulse"></div>
+                  </div>
+                ))}
+              </div>
+              <div className="flex items-center gap-4">
+                <div className="w-20 h-4 bg-gray-200 rounded animate-pulse"></div>
+                <div className="w-32 h-4 bg-gray-200 rounded animate-pulse"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Main Header Skeleton */}
+        <div className="bg-white border-gray-100 sticky top-0 z-50 shadow-sm">
+          <div className="max-w-7xl mx-auto px-4">
+            <div className="flex items-center justify-between py-4">
+              <div className="flex items-center gap-2">
+                <div className="w-16 h-16 bg-gray-200 rounded-full animate-pulse"></div>
+                <div className="flex flex-col gap-1">
+                  <div className="w-12 h-4 bg-gray-200 rounded animate-pulse"></div>
+                  <div className="w-20 h-3 bg-gray-200 rounded animate-pulse"></div>
+                </div>
+              </div>
+              
+              <div className="flex-1 max-w-2xl mx-8">
+                <div className="w-full h-12 bg-gray-200 rounded-full animate-pulse"></div>
+              </div>
+              
+              <div className="flex items-center gap-4">
+                <div className="w-24 h-10 bg-gray-200 rounded animate-pulse"></div>
+                <div className="w-12 h-12 bg-gray-200 rounded-full animate-pulse"></div>
+                <div className="w-12 h-12 bg-gray-200 rounded-full animate-pulse"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Categories Skeleton */}
+        <div className="bg-gray-50">
+          <div className="max-w-7xl mx-auto px-4">
+            <div className="flex gap-4 py-3">
+              {[1, 2, 3, 4, 5, 6, 7, 8].map((item) => (
+                <div key={item} className="w-20 h-6 bg-gray-200 rounded animate-pulse"></div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </header>
+    );
+  }
+
   return (
     <header className="w-full">
       {/* Top Banner */}
@@ -112,7 +193,7 @@ export const Header: React.FC = () => {
               ))}
             </div>
 
-            {/* User Actions - Thay thế phần Đăng nhập/Đăng ký cũ */}
+            {/* User Actions */}
             <div className="flex items-center gap-4">
               {/* Nút Cửa hàng */}
               <Link
@@ -186,11 +267,10 @@ export const Header: React.FC = () => {
                 <input
                   type="text"
                   placeholder="Tìm kiếm sản phẩm nông sản tươi ngon..."
-                  // Điều chỉnh padding bên phải để chừa chỗ cho 2 nút (px-5 -> pr-24)
-                  className="w-full px-5 py-3 **pr-24** border-1 border-gray-100 rounded-full text-sm focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-200 transition-all"
+                  className="w-full px-5 py-3 pr-24 border-1 border-gray-100 rounded-full text-sm focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-200 transition-all"
                 />
 
-                {/* 1. NÚT UPLOAD HÌNH ẢNH (CAMERA ICON) */}
+                {/* Nút upload hình ảnh */}
                 <button
                   className="absolute right-15 top-1/2 -translate-y-1/2 text-gray-700 p-2 rounded-full transition-all duration-300"
                   title="Tìm kiếm bằng hình ảnh"
@@ -201,7 +281,6 @@ export const Header: React.FC = () => {
                     stroke="currentColor"
                     viewBox="0 0 24 24"
                   >
-                    {/* ICON CAMERA (Ví dụ từ Heroicons/SVG) */}
                     <path
                       strokeLinecap="round"
                       strokeLinejoin="round"
@@ -217,7 +296,7 @@ export const Header: React.FC = () => {
                   </svg>
                 </button>
 
-                {/* 2. NÚT TÌM KIẾM GỐC */}
+                {/* Nút tìm kiếm */}
                 <button className="absolute right-2 top-1/2 -translate-y-1/2 bg-green-600 hover:bg-green-700 text-white p-2 rounded-full transition-colors">
                   <svg
                     className="w-4 h-4"
@@ -236,7 +315,6 @@ export const Header: React.FC = () => {
               </div>
             </div>
 
-            {/* Right Actions */}
             {/* Right Actions */}
             <div className="flex items-center gap-4">
               {/* Location */}
@@ -294,18 +372,17 @@ export const Header: React.FC = () => {
                 )}
               </Link>
 
-              {/* User Avatar - DI CHUYỂN VÀO ĐÂY */}
-              <div className="relative group  transition-transform duration-500 hover:scale-130">
-                {/* Nút chính - Thay đổi theo trạng thái đăng nhập */}
+              {/* User Avatar */}
+              <div className="relative group transition-transform duration-500 hover:scale-130">
                 <button className="flex items-center gap-2 h-10 px-3 bg-white rounded-full transition-all duration-200">
                   {user ? (
-                    // Khi đã đăng nhập: Hiển thị avatar + tên
+                    // Khi đã đăng nhập: Hiển thị avatar + tên (SAFE ACCESS)
                     <>
                       <div className="w-10 h-10 bg-gradient-to-br from-green-400 to-green-600 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-md ring-2 ring-white">
-                        {user.TenDangNhap.charAt(0).toUpperCase()}
+                        {user?.TenDangNhap?.charAt(0)?.toUpperCase() || 'U'}
                       </div>
                       <span className="hidden md:block text-green-600 font-medium pr-2">
-                        {user.TenDangNhap}
+                        {user?.TenDangNhap || 'User'}
                       </span>
                     </>
                   ) : (
@@ -327,6 +404,7 @@ export const Header: React.FC = () => {
                     </div>
                   )}
                 </button>
+                
                 {/* Dropdown - Hiện khi hover */}
                 <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 border">
                   <div className="py-2">

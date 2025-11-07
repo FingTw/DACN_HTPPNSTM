@@ -14,6 +14,21 @@ import { authAPI } from "@/services/authService";
 import { toast } from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
 
+// Định nghĩa interface cho response
+interface LoginResponse {
+  data?: {
+    data?: {
+      MaTK: string;
+      TenDangNhap: string;
+      Email: string;
+      [key: string]: any;
+    };
+    message?: string;
+    [key: string]: any;
+  };
+  [key: string]: any;
+}
+
 export function LoginForm({
   className,
   ...props
@@ -45,12 +60,33 @@ export function LoginForm({
     setIsLoading(true);
 
     try {
-      const response = await authAPI.login({
+      const response = (await authAPI.login({
         TenDangNhap: formData.TenDangNhap.trim(),
         MatKhau: formData.MatKhau,
-      });
+      })) as LoginResponse; // Type assertion
 
-      toast.success(response.data.message || "Đăng nhập thành công!");
+      console.log("🔍 LOGIN RESPONSE:", response);
+
+      // LƯU THÔNG TIN USER VÀO LOCALSTORAGE - CHỈ LƯU MaTK
+      if (response.data && response.data.data) {
+        const userData = response.data.data;
+
+        // Chỉ lưu MaTK vào localStorage
+        localStorage.setItem(
+          "userData",
+          JSON.stringify({
+            MaTK: userData.MaTK, // Quan trọng: chỉ lưu MaTK
+          })
+        );
+
+        console.log("💾 USER DATA SAVED:", {
+          MaTK: userData.MaTK,
+        });
+      } else {
+        console.log("❌ Không có user data trong response:", response.data);
+      }
+
+      toast.success(response.data?.message || "Đăng nhập thành công!");
 
       setFormData({
         TenDangNhap: "",
@@ -72,6 +108,7 @@ export function LoginForm({
     }
   };
 
+  // ... phần return JSX giữ nguyên
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
       <Card className="overflow-hidden p-0 bg-gray-50 shadow-xl shadow-gray-500">

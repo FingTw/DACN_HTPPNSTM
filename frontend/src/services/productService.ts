@@ -5,7 +5,7 @@ export interface Product {
   MaSP: string;
   TenSP: string;
   GiaBan: number;
-  SLTonKho: number;
+  SLTon: number;
   MoTa: string;
   NguonGoc: string;
   DiemDG_SP: number;

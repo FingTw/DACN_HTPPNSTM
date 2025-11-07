@@ -2,8 +2,9 @@
 import { initModels } from "../models/init-models.js";
 import sequelize from "../config/db.js";
 import { Op } from "sequelize";
-import jwt from "jsonwebtoken"; // 🟢 THÊM DÒNG NÀY
-import dotenv from "dotenv"; // 🟢 THÊM DÒNG NÀY
+import jwt from "jsonwebtoken";
+import dotenv from "dotenv";
+dotenv.config();
 
 const models = initModels(sequelize);
 const {
@@ -16,39 +17,59 @@ const {
   taikhoan_vaitro,
 } = models;
 
-// 🟢 NOTE QUAN TRỌNG:
-// - Controller này xử lý cả PUBLIC và PROTECTED routes
-// - Sử dụng req.user từ middleware authenticateToken
-// - Đăng ký cửa hàng BẮT BUỘC có tài khoản và JWT token
+// 🟢 Middleware authentication
+const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers["authorization"];
+  const token = authHeader && authHeader.split(" ")[1]; // Lấy token sau "Bearer "
+
+  console.log("🔐 Middleware auth - Header:", authHeader);
+  console.log(
+    "🔐 Middleware auth - Token:",
+    token ? `${token.substring(0, 20)}...` : "NULL"
+  );
+
+  if (!token) {
+    console.log("❌ Middleware: Không có token");
+    return res.status(401).json({
+      success: false,
+      message: "Token không tồn tại. Vui lòng đăng nhập!",
+    });
+  }
+
+  jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
+    if (err) {
+      console.log("❌ Middleware: Token không hợp lệ", err.message);
+      return res.status(403).json({
+        success: false,
+        message: "Token không hợp lệ hoặc đã hết hạn",
+      });
+    }
+
+    console.log("✅ Middleware: Token hợp lệ, user:", user);
+    req.user = user;
+    next();
+  });
+};
 
 // 🏪 ĐĂNG KÝ THÔNG TIN GIAN HÀNG - CHỈ USER ĐÃ ĐĂNG NHẬP
 export const createCuahang = async (req, res) => {
   const transaction = await sequelize.transaction();
 
   try {
-    // 🟢 XÁC THỰC JWT TRỰC TIẾP (THÊM CODE NÀY)
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    const user = req.user;
+
+    if (!user) {
       return res.status(401).json({
         success: false,
-        message: "Token không tồn tại. Vui lòng đăng nhập!",
+        message: "Chưa đăng nhập",
       });
     }
 
-    const token = authHeader.split(" ")[1];
-    let decoded;
-    try {
-      decoded = jwt.verify(token, process.env.JWT_SECRET);
-    } catch (err) {
-      return res.status(401).json({
-        success: false,
-        message: "Token không hợp lệ hoặc đã hết hạn",
-      });
-    }
+    console.log(`👤 Authenticated user: ${user.MaTK}`);
 
     // 🟢 KIỂM TRA USER TỒN TẠI
-    const user = await taikhoan.findByPk(decoded.MaTK, { transaction });
-    if (!user) {
+    const userAccount = await taikhoan.findByPk(user.MaTK, { transaction });
+    if (!userAccount) {
       await transaction.rollback();
       return res.status(404).json({
         success: false,
@@ -56,9 +77,8 @@ export const createCuahang = async (req, res) => {
       });
     }
 
-    console.log(`👤 Authenticated user: ${user.MaTK}`);
-
-    const { TenCH, MaHA_CuaHang, LoaiHinhKD, MaSoThue, DCLayHang } = req.body;
+    const { TenCH, MaHA_CuaHang, LoaiHinhKD, MaSoThue, DCLayHang, MoTa } =
+      req.body;
 
     // 🟢 KIỂM TRA USER ĐÃ CÓ CỬA HÀNG CHƯA
     const existingUserCH = await cuahang.findOne({
@@ -79,6 +99,7 @@ export const createCuahang = async (req, res) => {
         },
       });
     }
+
     // 🟢 TẠO MÃ GIAN HÀNG TỰ ĐỘNG (Format: CHYYMM0001)
     const now = new Date();
     const storePrefix =
@@ -146,6 +167,7 @@ export const createCuahang = async (req, res) => {
       {
         MaCH: newStoreId,
         TenCH,
+        MoTa: MoTa || null,
         SLTheoDoi: 0,
         DiemDG: 0,
         MaHA_CuaHang: MaHA_CuaHang || null,
@@ -180,21 +202,26 @@ export const createCuahang = async (req, res) => {
 
     await transaction.commit();
 
+    // Lấy lại thông tin cửa hàng sau khi tạo
+    const createdStore = await cuahang.findByPk(newStoreId, {
+      include: [
+        {
+          model: taikhoan,
+          as: "MaTK_taikhoan", // ✅ SỬA: Thêm alias
+          attributes: ["MaTK", "TenDangNhap", "Email"],
+        },
+        {
+          model: hinhanh,
+          as: "MaHA_CuaHang_hinhanh",
+          attributes: ["MaHA", "URL", "MoTa"],
+        },
+      ],
+    });
+
     res.status(201).json({
       success: true,
       message: "Đăng ký gian hàng thành công",
-      data: {
-        store: {
-          MaCH: newCuahang.MaCH,
-          TenCH: newCuahang.TenCH,
-          MaHA_CuaHang: newCuahang.MaHA_CuaHang,
-        },
-        contract: {
-          MaHD: newContract.MaHD,
-          LoaiHinhKD: newContract.LoaiHinhKD,
-          NgayLap: newContract.NgayLap,
-        },
-      },
+      data: createdStore,
     });
   } catch (err) {
     await transaction.rollback();
@@ -222,6 +249,7 @@ export const getAllCuahang = async (req, res) => {
       if (includes.includes("taikhoan")) {
         options.include.push({
           model: taikhoan,
+          as: "MaTK_taikhoan", // ✅ SỬA: Thêm alias
           attributes: ["MaTK", "TenDangNhap", "Email"],
         });
       }
@@ -269,6 +297,7 @@ export const getCuahangById = async (req, res) => {
       if (includes.includes("taikhoan")) {
         options.include.push({
           model: taikhoan,
+          as: "MaTK_taikhoan", // ✅ SỬA: Thêm alias
           attributes: ["MaTK", "TenDangNhap", "Email", "LoaiTK"],
         });
       }
@@ -284,6 +313,7 @@ export const getCuahangById = async (req, res) => {
       if (includes.includes("hdbanhang")) {
         options.include.push({
           model: hdbanhang,
+          as: "MaHD_hdbanhang", // ✅ SỬA: Thêm alias
           attributes: [
             "MaHD",
             "NgayLap",
@@ -318,63 +348,262 @@ export const getCuahangById = async (req, res) => {
   }
 };
 
-// ✏️ CHỈNH SỬA THÔNG TIN GIAN HÀNG - CHỈ CHỦ CỬA HÀNG
+// ✏️ CHỈNH SỬA THÔNG TIN GIAN HÀNG - CHỈ CHỦ CỬA HÀNG - ĐÃ SỬA
+// ✏️ CHỈNH SỬA THÔNG TIN GIAN HÀNG - XỬ LÝ CẢ 2 TRƯỜNG HỢP
 export const updateCuahang = async (req, res) => {
   try {
     const { MaCH } = req.params;
-    const user = req.user;
 
-    if (!user) {
+    console.log("🔄 [UPDATE] Nhận request update store:", MaCH);
+    console.log("👤 [UPDATE] User từ request:", req.user);
+    console.log("🔐 [UPDATE] Authorization header:", req.headers.authorization);
+    console.log("📦 [UPDATE] Dữ liệu nhận:", req.body);
+
+    // 🟢 XỬ LÝ AUTHENTICATION - CẢ 2 TRƯỜNG HỢP
+    let user;
+
+    // Cách 1: Lấy user từ middleware (nếu route được bảo vệ)
+    if (req.user) {
+      user = req.user;
+      console.log("✅ [UPDATE] User từ middleware:", {
+        MaTK: user.MaTK,
+        TenDangNhap: user.TenDangNhap,
+      });
+    }
+    // Cách 2: Tự decode token từ header (nếu route không có middleware)
+    else {
+      console.log(
+        "⚠️ [UPDATE] Không có user từ middleware, tự decode token..."
+      );
+
+      const authHeader = req.headers.authorization;
+      if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        console.log("❌ [UPDATE] Không có token trong header");
+        return res.status(401).json({
+          success: false,
+          message: "Token không tồn tại. Vui lòng đăng nhập!",
+        });
+      }
+
+      const token = authHeader.split(" ")[1];
+      console.log(
+        "🔐 [UPDATE] Token nhận được:",
+        token.substring(0, 20) + "..."
+      );
+
+      try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        user = decoded;
+        console.log("✅ [UPDATE] User từ token decode:", {
+          MaTK: user.MaTK,
+          TenDangNhap: user.TenDangNhap,
+          role: user.role,
+        });
+      } catch (err) {
+        console.log("❌ [UPDATE] Token không hợp lệ:", err.message);
+        return res.status(401).json({
+          success: false,
+          message: "Token không hợp lệ hoặc đã hết hạn",
+        });
+      }
+    }
+
+    if (!user || !user.MaTK) {
+      console.log("❌ [UPDATE] Không thể xác thực user");
       return res.status(401).json({
         success: false,
-        message: "Chưa đăng nhập",
+        message: "Chưa đăng nhập hoặc token không hợp lệ",
       });
     }
 
-    const { TenCH, SLTheoDoi, DiemDG, MaHA_CuaHang } = req.body;
+    // 🟢 KIỂM TRA USER CÓ TỒN TẠI TRONG DATABASE KHÔNG
+    const userInDB = await taikhoan.findByPk(user.MaTK, {
+      attributes: ["MaTK", "TenDangNhap", "Email", "TrangThai"],
+    });
 
+    if (!userInDB) {
+      console.log("❌ [UPDATE] User không tồn tại trong database:", user.MaTK);
+      return res.status(401).json({
+        success: false,
+        message: "Tài khoản không tồn tại",
+      });
+    }
+
+    if (userInDB.TrangThai !== "Hoạt động") {
+      console.log("❌ [UPDATE] Tài khoản bị khóa:", user.MaTK);
+      return res.status(401).json({
+        success: false,
+        message: "Tài khoản đã bị khóa",
+      });
+    }
+
+    console.log("✅ [UPDATE] User đã xác thực thành công:", {
+      MaTK: userInDB.MaTK,
+      TenDangNhap: userInDB.TenDangNhap,
+      TrangThai: userInDB.TrangThai,
+    });
+
+    // 🟢 LẤY DỮ LIỆU TỪ REQUEST BODY
+    const {
+      TenCH,
+      MoTa,
+      DCLayHang,
+      SLTheoDoi,
+      DiemDG,
+      MaHA_CuaHang,
+      LoaiHinhKD,
+      MaSoThue,
+    } = req.body;
+
+    console.log("📝 [UPDATE] Dữ liệu từ form:", {
+      TenCH,
+      MoTa: MoTa ? MoTa.substring(0, 50) + "..." : "null",
+      DCLayHang,
+      LoaiHinhKD,
+      MaSoThue,
+      MaHA_CuaHang,
+    });
+
+    // 🟢 TÌM CỬA HÀNG
     const item = await cuahang.findByPk(MaCH);
     if (!item) {
+      console.log("❌ [UPDATE] Không tìm thấy cửa hàng:", MaCH);
       return res.status(404).json({
         success: false,
         message: "Không tìm thấy gian hàng",
       });
     }
 
+    console.log("🏪 [UPDATE] Thông tin cửa hàng hiện tại:", {
+      MaCH: item.MaCH,
+      TenCH: item.TenCH,
+      MaTK: item.MaTK,
+      MaHD: item.MaHD,
+    });
+
     // 🟢 KIỂM TRA QUYỀN SỞ HỮU
     if (item.MaTK !== user.MaTK) {
+      console.log("❌ [UPDATE] Không có quyền sở hữu:", {
+        storeOwner: item.MaTK,
+        currentUser: user.MaTK,
+      });
       return res.status(403).json({
         success: false,
         message: "Bạn không có quyền chỉnh sửa cửa hàng này",
       });
     }
 
+    console.log("✅ [UPDATE] Kiểm tra quyền sở hữu thành công");
+
     // 🟢 KIỂM TRA HÌNH ẢNH TỒN TẠI (nếu có)
     if (MaHA_CuaHang) {
       const existingHA = await hinhanh.findByPk(MaHA_CuaHang);
       if (!existingHA) {
+        console.log("❌ [UPDATE] Hình ảnh không tồn tại:", MaHA_CuaHang);
         return res.status(400).json({
           success: false,
           message: "Hình ảnh không tồn tại",
         });
       }
+      console.log("✅ [UPDATE] Hình ảnh tồn tại:", MaHA_CuaHang);
     }
 
-    // 🟢 CẬP NHẬT THÔNG TIN
-    await item.update({
+    // 🟢 CẬP NHẬT THÔNG TIN CỬA HÀNG
+    const updateData = {
       TenCH: TenCH !== undefined ? TenCH : item.TenCH,
+      MoTa: MoTa !== undefined ? MoTa : item.MoTa,
+      DCLayHang: DCLayHang !== undefined ? DCLayHang : item.DCLayHang,
       SLTheoDoi: SLTheoDoi !== undefined ? SLTheoDoi : item.SLTheoDoi,
       DiemDG: DiemDG !== undefined ? DiemDG : item.DiemDG,
       MaHA_CuaHang:
         MaHA_CuaHang !== undefined ? MaHA_CuaHang : item.MaHA_CuaHang,
+    };
+
+    // Loại bỏ các trường undefined
+    Object.keys(updateData).forEach((key) => {
+      if (updateData[key] === undefined) {
+        delete updateData[key];
+      }
     });
+
+    console.log("📝 [UPDATE] Dữ liệu cập nhật cửa hàng:", updateData);
+
+    // Thực hiện update
+    await item.update(updateData);
+    console.log("✅ [UPDATE] Cập nhật cửa hàng thành công");
+
+    // 🟢 CẬP NHẬT THÔNG TIN HỢP ĐỒNG NẾU CÓ
+    if (LoaiHinhKD !== undefined || MaSoThue !== undefined) {
+      try {
+        const hdbanhangItem = await hdbanhang.findOne({
+          where: { MaHD: item.MaHD },
+        });
+
+        if (hdbanhangItem) {
+          const hdUpdateData = {};
+          if (LoaiHinhKD !== undefined) hdUpdateData.LoaiHinhKD = LoaiHinhKD;
+          if (MaSoThue !== undefined) hdUpdateData.MaSoThue = MaSoThue;
+
+          // Loại bỏ các trường undefined
+          Object.keys(hdUpdateData).forEach((key) => {
+            if (hdUpdateData[key] === undefined) {
+              delete hdUpdateData[key];
+            }
+          });
+
+          if (Object.keys(hdUpdateData).length > 0) {
+            console.log("📝 [UPDATE] Dữ liệu cập nhật hợp đồng:", hdUpdateData);
+            await hdbanhangItem.update(hdUpdateData);
+            console.log("✅ [UPDATE] Cập nhật hợp đồng thành công");
+          }
+        } else {
+          console.log("⚠️ [UPDATE] Không tìm thấy hợp đồng:", item.MaHD);
+        }
+      } catch (hdError) {
+        console.warn(
+          "⚠️ [UPDATE] Không thể cập nhật hợp đồng:",
+          hdError.message
+        );
+        // Không throw error vì đây không phải lỗi nghiêm trọng
+      }
+    }
+
+    // 🟢 LẤY LẠI THÔNG TIN CỬA HÀNG SAU KHI UPDATE
+    const updatedStore = await cuahang.findByPk(MaCH, {
+      include: [
+        {
+          model: taikhoan,
+          as: "MaTK_taikhoan",
+          attributes: ["MaTK", "TenDangNhap", "Email"],
+        },
+        {
+          model: hinhanh,
+          as: "MaHA_CuaHang_hinhanh",
+          attributes: ["MaHA", "URL", "MoTa"],
+        },
+        {
+          model: hdbanhang,
+          as: "MaHD_hdbanhang",
+          attributes: [
+            "MaHD",
+            "LoaiHinhKD",
+            "MaSoThue",
+            "DCLayHang",
+            "NgayLap",
+          ],
+        },
+      ],
+    });
+
+    console.log("✅ [UPDATE] Cập nhật hoàn tất");
 
     res.json({
       success: true,
       message: "Cập nhật thông tin gian hàng thành công",
-      data: item,
+      data: updatedStore,
     });
   } catch (err) {
+    console.error("❌ [UPDATE] Lỗi khi cập nhật gian hàng:", err);
     res.status(500).json({
       success: false,
       message: "Lỗi khi cập nhật gian hàng",
@@ -458,12 +687,18 @@ export const getMyCuahang = async (req, res) => {
       where: { MaTK: user.MaTK },
       include: [
         {
+          model: taikhoan,
+          as: "MaTK_taikhoan", // ✅ SỬA: Thêm alias
+          attributes: ["MaTK", "TenDangNhap", "Email"],
+        },
+        {
           model: hinhanh,
           as: "MaHA_CuaHang_hinhanh",
           attributes: ["MaHA", "URL", "MoTa"],
         },
         {
           model: hdbanhang,
+          as: "MaHD_hdbanhang", // ✅ SỬA: Thêm alias
           attributes: [
             "MaHD",
             "NgayLap",
@@ -730,3 +965,6 @@ export const getThongKeTonKhoFilter = async (req, res) => {
     });
   }
 };
+
+// Export cả middleware
+export { authenticateToken };
