@@ -1,4 +1,5 @@
 import express from "express";
+import jwt from 'jsonwebtoken';
 import {
   createBuyerRequest,
   getMyRequests,
@@ -14,10 +15,75 @@ import {
   updateProposal,
   getMyProductsForProposal,
   getNewRequestsForSeller,
-} from "../controllers/rfqController.js";
-import { authenticate, authorize, optionalAuth } from "../middleware/auth.js";
+} from "../controllers/RFQ Controller.js";
 
 const router = express.Router();
+
+const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_key';
+
+// Middleware JWT tích hợp trực tiếp
+const authenticateJWT = (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  
+  if (authHeader) {
+    const token = authHeader.split(' ')[1];
+    
+    jwt.verify(token, JWT_SECRET, (err, user) => {
+      if (err) {
+        return res.status(403).json({ 
+          success: false,
+          message: 'Token không hợp lệ hoặc đã hết hạn' 
+        });
+      }
+      
+      req.user = user;
+      next();
+    });
+  } else {
+    return res.status(401).json({ 
+      success: false,
+      message: 'Token xác thực không được cung cấp' 
+    });
+  }
+};
+
+// Middleware phân quyền tích hợp trực tiếp
+const authorizeJWT = (roles = []) => {
+  return (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({ 
+        success: false,
+        message: 'Không có thông tin người dùng' 
+      });
+    }
+    
+    if (roles.length && !roles.includes(req.user.role)) {
+      return res.status(403).json({ 
+        success: false,
+        message: 'Không có quyền truy cập' 
+      });
+    }
+    
+    next();
+  };
+};
+
+// Middleware xác thực tùy chọn tích hợp trực tiếp
+const optionalAuthJWT = (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  
+  if (authHeader) {
+    const token = authHeader.split(' ')[1];
+    
+    jwt.verify(token, JWT_SECRET, (err, user) => {
+      if (!err) {
+        req.user = user;
+      }
+    });
+  }
+  
+  next();
+};
 
 /* ============================
  📋 API CHO NGƯỜI MUA (BUYER)
@@ -30,8 +96,8 @@ const router = express.Router();
  */
 router.post(
   "/buyer/requests",
-  authenticate,
-  authorize(["Buyer", "Admin"]),
+  authenticateJWT,
+  authorizeJWT(["Buyer", "Admin"]),
   createBuyerRequest
 );
 
@@ -42,8 +108,8 @@ router.post(
  */
 router.get(
   "/buyer/requests",
-  authenticate,
-  authorize(["Buyer", "Admin"]),
+  authenticateJWT,
+  authorizeJWT(["Buyer", "Admin"]),
   getMyRequests
 );
 
@@ -54,8 +120,8 @@ router.get(
  */
 router.get(
   "/buyer/requests/:MaYCDH/proposals",
-  authenticate,
-  authorize(["Buyer", "Admin"]),
+  authenticateJWT,
+  authorizeJWT(["Buyer", "Admin"]),
   getProposalsForRequest
 );
 
@@ -66,8 +132,8 @@ router.get(
  */
 router.post(
   "/buyer/proposals/accept",
-  authenticate,
-  authorize(["Buyer", "Admin"]),
+  authenticateJWT,
+  authorizeJWT(["Buyer", "Admin"]),
   acceptProposalAndCreateOrder
 );
 
@@ -78,8 +144,8 @@ router.post(
  */
 router.put(
   "/buyer/proposals/:MaDNCC/reject",
-  authenticate,
-  authorize(["Buyer", "Admin"]),
+  authenticateJWT,
+  authorizeJWT(["Buyer", "Admin"]),
   rejectProposal
 );
 
@@ -90,8 +156,8 @@ router.put(
  */
 router.get(
   "/buyer/statistics",
-  authenticate,
-  authorize(["Buyer", "Admin"]),
+  authenticateJWT,
+  authorizeJWT(["Buyer", "Admin"]),
   getBuyerStatistics
 );
 
@@ -104,7 +170,7 @@ router.get(
  * @desc    Xem tất cả yêu cầu đang mở (có thể đề nghị)
  * @access  Private (Seller, Admin) hoặc Public
  */
-router.get("/seller/requests", optionalAuth, getAllOpenRequests);
+router.get("/seller/requests", optionalAuthJWT, getAllOpenRequests);
 
 /**
  * @route   GET /api/rfq/seller/requests/new
@@ -113,8 +179,8 @@ router.get("/seller/requests", optionalAuth, getAllOpenRequests);
  */
 router.get(
   "/seller/requests/new",
-  authenticate,
-  authorize(["Seller", "Admin"]),
+  authenticateJWT,
+  authorizeJWT(["Seller", "Admin"]),
   getNewRequestsForSeller
 );
 
@@ -125,8 +191,8 @@ router.get(
  */
 router.get(
   "/seller/products",
-  authenticate,
-  authorize(["Seller", "Admin"]),
+  authenticateJWT,
+  authorizeJWT(["Seller", "Admin"]),
   getMyProductsForProposal
 );
 
@@ -137,8 +203,8 @@ router.get(
  */
 router.post(
   "/seller/proposals",
-  authenticate,
-  authorize(["Seller", "Admin"]),
+  authenticateJWT,
+  authorizeJWT(["Seller", "Admin"]),
   submitProposal
 );
 
@@ -149,8 +215,8 @@ router.post(
  */
 router.get(
   "/seller/proposals",
-  authenticate,
-  authorize(["Seller", "Admin"]),
+  authenticateJWT,
+  authorizeJWT(["Seller", "Admin"]),
   getMyProposals
 );
 
@@ -161,8 +227,8 @@ router.get(
  */
 router.put(
   "/seller/proposals/:MaDNCC",
-  authenticate,
-  authorize(["Seller", "Admin"]),
+  authenticateJWT,
+  authorizeJWT(["Seller", "Admin"]),
   updateProposal
 );
 
@@ -173,8 +239,8 @@ router.put(
  */
 router.delete(
   "/seller/proposals/:MaDNCC",
-  authenticate,
-  authorize(["Seller", "Admin"]),
+  authenticateJWT,
+  authorizeJWT(["Seller", "Admin"]),
   cancelProposal
 );
 
@@ -185,8 +251,8 @@ router.delete(
  */
 router.get(
   "/seller/statistics",
-  authenticate,
-  authorize(["Seller", "Admin"]),
+  authenticateJWT,
+  authorizeJWT(["Seller", "Admin"]),
   getSellerStatistics
 );
 

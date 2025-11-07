@@ -64,7 +64,7 @@ const HomePage: React.FC = () => {
             <ProductList products={featuredProducts} title="Gợi ý hôm nay" />
           )}
 
-          {/* Featured Products Section */}
+          {/* Featured Products Section
           <section className="py-16">
             <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
               <h2 className="text-3xl font-bold text-center mb-12">
@@ -76,7 +76,7 @@ const HomePage: React.FC = () => {
                 </div>
               </div>
             </div>
-          </section>
+          </section> */}
         </main>
       </div>
 
