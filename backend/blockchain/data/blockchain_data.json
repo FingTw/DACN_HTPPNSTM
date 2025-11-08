@@ -1,0 +1,57 @@
+{
+  "chain": [
+    {
+      "index": 0,
+      "timestamp": 1762533022667,
+      "data": {
+        "productId": "GENESIS",
+        "productName": "Genesis Product",
+        "status": "Khởi tạo blockchain",
+        "location": "System",
+        "actor": "System",
+        "role": "Admin",
+        "action": "initialize"
+      },
+      "previousHash": "0",
+      "nonce": 475,
+      "hash": "00d18e221217cce937d56323bec3ec68a63d0e7597a5ae4a809747d8bb5187d9"
+    },
+    {
+      "index": 1,
+      "timestamp": 1762615380966,
+      "data": {
+        "productId": "dưa hấu",
+        "eventType": "planting",
+        "location": "hcm",
+        "notes": "",
+        "quantity": null,
+        "quality": "A",
+        "price": null,
+        "batchNumber": null,
+        "fromLocation": null,
+        "toLocation": null,
+        "seedType": "mp2",
+        "area": 122.9,
+        "yield": null,
+        "waterSource": null,
+        "fertilizerType": null,
+        "harvestDate": "2025-11-08",
+        "saleDate": null,
+        "duration": null,
+        "temperature": null,
+        "customerType": null,
+        "imageUrl": "/uploads/image-1762615380931-396080570.jpg",
+        "actor": "bang",
+        "role": "Farmer",
+        "timestamp": "2025-11-08T15:23:00.939Z"
+      },
+      "previousHash": "00d18e221217cce937d56323bec3ec68a63d0e7597a5ae4a809747d8bb5187d9",
+      "nonce": 54,
+      "hash": "00b78b820a5fa643157be974ae49b947bac8092ca30814ea8d5dd3d19fe0c7b2"
+    }
+  ],
+  "pendingTransactions": [],
+  "difficulty": 2,
+  "lastUpdated": "2025-11-08T15:23:01.013Z",
+  "totalBlocks": 2
+}

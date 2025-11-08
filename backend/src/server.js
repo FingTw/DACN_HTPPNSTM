@@ -1,4 +1,4 @@
-// 📦 server.js — File khởi động chính của backend Node.js (REST API)
+// 📦 server.js — File khởi động chính (Merge E-commerce + Blockchain)
 
 import express from "express";
 import cors from "cors";
@@ -6,35 +6,53 @@ import { connectDB, syncDB } from "./config/db.js";
 import sequelize from "./config/db.js";
 import dotenv from "dotenv";
 
-// 🟢 LOAD ENVIRONMENT VARIABLES
-dotenv.config();
+// 🟢 BLOCKCHAIN IMPORTS
+import http from "http";
+import { Server } from "socket.io";
+import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
+import QRCode from "qrcode";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
 
-// 🟢 IMPORT ROUTES
+// 🟢 E-COMMERCE ROUTE IMPORTS
 import cuahangRoutes from "./routes/cuahangRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
 import cartRoutes from "./routes/cartRoutes.js";
 import orderRoutes from "./routes/orderRoutes.js";
 import sanphamRoutes from "./routes/sanphamRoutes.js";
 import rfqRoutes from "./routes/RFQ Routes.js";
-
 import danhGiaSanPhamRoutes from "./routes/danhGiaSanPhamRoutes.js";
-import danhGiaCuaHangRoutes from "./routes/danhGiaCuaHangRoutes.js"; // 🆕 THÊM ROUTE ĐÁNH GIÁ CỬA HÀNG
+import danhGiaCuaHangRoutes from "./routes/danhGiaCuaHangRoutes.js";
+
+// 🟢 BLOCKCHAIN ROUTE IMPORTS
+import blockchainRoutes from "./routes/blockchainRoutes.js";
+import Blockchain from './../blockchain/core/MyBlockchain.js';
+
+// 🟢 LOAD ENVIRONMENT VARIABLES
+dotenv.config();
 
 const app = express();
-
+// Khởi tạo blockchain
+const supplyChain = new Blockchain();
+// 🟢 BLOCKCHAIN HTTP SERVER & SOCKET.IO SETUP
 // 🧩 MIDDLEWARE CẤU HÌNH
-// server.js - CORS configuration
+// backend/src/server.js - SỬA PHẦN CORS
 app.use(
   cors({
     origin: function (origin, callback) {
-      // Cho phép tất cả origins trong development
+      // CHO PHÉP TẤT CẢ ORIGINS TRONG DEVELOPMENT
       if (!origin || process.env.NODE_ENV === "development") {
         callback(null, true);
       } else {
         // Trong production, chỉ cho phép domains cụ thể
         const allowedOrigins = [
           "http://localhost:5173",
+          "http://localhost:5174", // ← THÊM PORT NÀY
           "http://localhost:3000",
+          "http://127.0.0.1:5173",
+          "http://127.0.0.1:5174", // ← THÊM PORT NÀY
         ];
         if (allowedOrigins.indexOf(origin) !== -1) {
           callback(null, true);
@@ -47,15 +65,104 @@ app.use(
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allowedHeaders: [
       "Content-Type",
-      "Authorization",
+      "Authorization", 
       "X-Requested-With",
       "Accept",
+      "X-Requested-With",
+      "X-HTTP-Method-Override"
     ],
+    exposedHeaders: ["Authorization"]
   })
 );
+const httpServer = http.createServer(app);
+const io = new Server(httpServer, {
+    cors: {
+        origin: function (origin, callback) {
+            if (!origin || process.env.NODE_ENV === "development") {
+                callback(null, true);
+            } else {
+                const allowedOrigins = [
+                    "http://localhost:5173",
+                    "http://localhost:3000",
+                ];
+                if (allowedOrigins.indexOf(origin) !== -1) {
+                    callback(null, true);
+                } else {
+                    callback(new Error("Not allowed by CORS"));
+                }
+            }
+        },
+        credentials: true,
+        methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"]
+    }
+});
 
-app.use(express.json({ limit: "10mb" })); // Tăng limit cho JSON
+global.io = io;
+
+// Socket.IO connection handling
+io.on('connection', (socket) => {
+    console.log('🔌 Client kết nối:', socket.id);
+    
+    socket.on('disconnect', () => {
+        console.log('🔌 Client ngắt kết nối:', socket.id);
+    });
+    
+    socket.on('subscribe:product', (productId) => {
+        const room = `product:${productId}`;
+        socket.join(room);
+        console.log(`📦 Client ${socket.id} đã join room: ${room}`);
+    });
+    
+    socket.on('unsubscribe:product', (productId) => {
+        socket.leave(`product:${productId}`);
+        console.log(`📦 Client ${socket.id} bỏ theo dõi sản phẩm: ${productId}`);
+    });
+});
+
+
+
+// THÊM MIDDLEWARE ĐỂ XỬ LÝ PREFLIGHT REQUESTS
+app.options('*', cors()); // Cho phép tất cả preflight requests
+
+app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+
+// 🟢 BLOCKCHAIN MULTER UPLOAD CONFIGURATION
+const storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        const uploadDir = path.join(process.cwd(), 'uploads');
+        if (!fs.existsSync(uploadDir)) {
+            fs.mkdirSync(uploadDir, { recursive: true });
+        }
+        cb(null, uploadDir);
+    },
+    filename: function (req, file, cb) {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        const ext = path.extname(file.originalname);
+        cb(null, 'image-' + uniqueSuffix + ext);
+    }
+});
+
+const upload = multer({ 
+    storage: storage,
+    limits: { fileSize: 5 * 1024 * 1024 },
+    fileFilter: function (req, file, cb) {
+        if (file.mimetype.startsWith('image/')) {
+            cb(null, true);
+        } else {
+            cb(new Error('Chỉ chấp nhận file ảnh!'), false);
+        }
+    }
+});
+
+// Tạo thư mục uploads
+const uploadsDir = path.join(process.cwd(), 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+// Serve static files
+app.use('/uploads', express.static(uploadsDir));
 
 // 🟢 REQUEST LOGGING MIDDLEWARE
 app.use((req, res, next) => {
@@ -72,29 +179,39 @@ app.use((req, res, next) => {
 app.get("/", (req, res) => {
   res.json({
     success: true,
-    message: "🚀 Backend Server is running!",
+    message: "🚀 Backend Server is running! (E-commerce + Blockchain)",
     timestamp: new Date().toISOString(),
-    version: "1.0.0",
+    version: "2.0.0",
     environment: process.env.NODE_ENV || "development",
     endpoints: {
+      // E-commerce endpoints
       products: "/api/sanpham",
       stores: "/api/cuahang",
       auth: "/api/auth",
       cart: "/api/cart",
       orders: "/api/order",
-      product_reviews: "/api/danh-gia-san-pham", // 🆕 THÊM ENDPOINT MỚI
-      store_reviews: "/api/danh-gia-cua-hang", // 🆕 THÊM ENDPOINT MỚI
+      product_reviews: "/api/danh-gia-san-pham",
+      store_reviews: "/api/danh-gia-cua-hang",
+      
+      // Blockchain endpoints
+      blockchain: {
+        auth: "/api/blockchain/register, /api/blockchain/login",
+        records: "/api/blockchain/record",
+        history: "/api/blockchain/history/:productId",
+        qrcode: "/api/blockchain/qrcode/:productId",
+        upload: "/api/blockchain/upload-image",
+        chain: "/api/blockchain/full-chain",
+        stats: "/api/blockchain/stats"
+      }
     },
-    documentation: "Check API documentation for available endpoints",
+    documentation: "Check /api/docs for detailed API documentation",
   });
 });
 
 // 🟢 HEALTH CHECK ENDPOINT
 app.get("/health", async (req, res) => {
   try {
-    // Kiểm tra kết nối database
     await sequelize.authenticate();
-
     res.json({
       success: true,
       status: "OK",
@@ -102,6 +219,12 @@ app.get("/health", async (req, res) => {
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
       memory: process.memoryUsage(),
+      services: {
+        ecommerce: "Running",
+        blockchain: "Running",
+        database: "Connected",
+        websocket: "Active"
+      }
     });
   } catch (error) {
     res.status(503).json({
@@ -118,79 +241,32 @@ app.get("/health", async (req, res) => {
 app.get("/api/docs", (req, res) => {
   res.json({
     success: true,
-    message: "API Documentation",
+    message: "API Documentation - Integrated System",
     endpoints: {
-      // SẢN PHẨM
-      products: {
-        "GET /api/sanpham": "Lấy danh sách sản phẩm (có phân trang, tìm kiếm)",
-        "GET /api/sanpham/tim-kiem": "Tìm kiếm sản phẩm nâng cao",
-        "GET /api/sanpham/:MaSP": "Lấy chi tiết sản phẩm",
-        "GET /api/sanpham/cua-hang/:MaCH": "Sản phẩm theo cửa hàng",
-        "POST /api/sanpham/tao-moi": "Thêm sản phẩm mới (cần auth)",
-        "PUT /api/sanpham/cap-nhat/:MaSP": "Cập nhật sản phẩm (cần auth)",
-        "DELETE /api/sanpham/xoa/:MaSP": "Xóa sản phẩm (cần auth)",
-        "GET /api/sanpham/cua-hang-cua-toi/danh-sach":
-          "Sản phẩm của tôi (cần auth)",
-      },
-
-      // CỬA HÀNG
-      stores: {
+      ecommerce: {
+        "GET /api/sanpham": "Lấy danh sách sản phẩm",
         "GET /api/cuahang": "Lấy danh sách cửa hàng",
-        "GET /api/cuahang/:MaCH": "Lấy chi tiết cửa hàng",
-        "POST /api/cuahang/dang-ky": "Đăng ký cửa hàng (cần auth)",
-        "GET /api/cuahang/cua-toi": "Cửa hàng của tôi (cần auth)",
-        "PUT /api/cuahang/chinh-sua/:MaCH": "Cập nhật cửa hàng (cần auth)",
-        "DELETE /api/cuahang/xoa/:MaCH": "Xóa cửa hàng (cần auth)",
+        "POST /api/auth/login": "Đăng nhập e-commerce",
+        // ... your existing e-commerce endpoints
       },
-
-      // ĐÁNH GIÁ SẢN PHẨM
-      product_reviews: {
-        "GET /api/danh-gia-san-pham/:MaSP/danh-sach":
-          "Lấy danh sách đánh giá sản phẩm",
-        "GET /api/danh-gia-san-pham/:MaSP/thong-ke": "Lấy thống kê đánh giá",
-        "POST /api/danh-gia-san-pham/:MaSP/them-moi":
-          "Thêm đánh giá mới (cần auth)",
-        "GET /api/danh-gia-san-pham/:MaSP/cua-toi":
-          "Lấy đánh giá của tôi (cần auth)",
-        "PUT /api/danh-gia-san-pham/:MaDG/cap-nhat":
-          "Cập nhật đánh giá (cần auth)",
-        "DELETE /api/danh-gia-san-pham/:MaDG/xoa": "Xóa đánh giá (cần auth)",
-      },
-
-      // ĐÁNH GIÁ CỬA HÀNG
-      store_reviews: {
-        "GET /api/danh-gia-cua-hang/:MaCH/danh-sach":
-          "Lấy danh sách đánh giá cửa hàng",
-        "GET /api/danh-gia-cua-hang/:MaCH/thong-ke": "Lấy thống kê đánh giá",
-        "POST /api/danh-gia-cua-hang/:MaCH/them-moi":
-          "Thêm đánh giá mới (cần auth)",
-        "GET /api/danh-gia-cua-hang/:MaCH/cua-toi":
-          "Lấy đánh giá của tôi (cần auth)",
-        "PUT /api/danh-gia-cua-hang/:MaDG/cap-nhat":
-          "Cập nhật đánh giá (cần auth)",
-        "DELETE /api/danh-gia-cua-hang/:MaDG/xoa": "Xóa đánh giá (cần auth)",
-      },
-
-      // AUTH
-      auth: {
-        "POST /api/auth/register": "Đăng ký tài khoản",
-        "POST /api/auth/login": "Đăng nhập",
-        "GET /api/auth/update-personal-info": "Thông tin tôi",
-        "POST /api/auth/logout": "Đăng xuất",
-        "POST /api/auth/forgot-password": "Quên mật khẩu",
-        "POST /api/auth/reset-password": "Đặt lại mật khẩu",
-      },
-
-      cart: "/api/cart",
-      orders: "/api/order",
-    },
+      blockchain: {
+        "POST /api/blockchain/register": "Đăng ký tài khoản blockchain",
+        "POST /api/blockchain/login": "Đăng nhập blockchain", 
+        "POST /api/blockchain/record": "Ghi dữ liệu lên blockchain (cần auth)",
+        "GET /api/blockchain/history/:productId": "Lấy lịch sử sản phẩm",
+        "GET /api/blockchain/qrcode/:productId": "Tạo QR code truy xuất nguồn gốc",
+        "POST /api/blockchain/upload-image": "Upload ảnh cho sản phẩm",
+        "GET /api/blockchain/full-chain": "Xem toàn bộ blockchain",
+        "GET /product/:productId": "Giao diện xem lịch sử sản phẩm"
+      }
+    }
   });
 });
 
 // 🚀 HÀM KHỞI ĐỘNG SERVER
 async function startServer() {
   try {
-    console.log("🔄 Đang khởi động server...");
+    console.log("🔄 Đang khởi động server tích hợp...");
     console.log("🌐 Environment:", process.env.NODE_ENV || "development");
 
     // 1️⃣ KẾT NỐI DATABASE
@@ -219,20 +295,41 @@ async function startServer() {
     // 4️⃣ ĐĂNG KÝ ROUTES
     console.log("🛣️ Đang đăng ký routes...");
 
-    // 🟢 ĐĂNG KÝ ROUTES VỚI LOGGING MIDDLEWARE
     const registerRoute = (path, router, method = "use") => {
+    if (router) {
       app[method](path, router);
       console.log(`✅ Registered: ${path}`);
-    };
+    } else {
+      console.log(`❌ Skipped: ${path} (router is null)`);
+    }
+  };
 
+    // 🟢 E-COMMERCE ROUTES
     registerRoute("/api/auth", authRoutes);
     registerRoute("/api/cuahang", cuahangRoutes);
     registerRoute("/api/cart", cartRoutes);
     registerRoute("/api/order", orderRoutes);
     registerRoute("/api/sanpham", sanphamRoutes);
-    registerRoute("/api/danh-gia-san-pham", danhGiaSanPhamRoutes); // 🆕 ĐĂNG KÝ ROUTE ĐÁNH GIÁ SẢN PHẨM
-    registerRoute("/api/danh-gia-cua-hang", danhGiaCuaHangRoutes); // 🆕 ĐĂNG KÝ ROUTE ĐÁNH GIÁ CỬA HÀNG
+    registerRoute("/api/danh-gia-san-pham", danhGiaSanPhamRoutes);
+    registerRoute("/api/danh-gia-cua-hang", danhGiaCuaHangRoutes);
     registerRoute("/api/rfq", rfqRoutes);
+
+    // 🟢 BLOCKCHAIN ROUTES
+    if (blockchainRoutes) {
+      registerRoute("/api/blockchain", blockchainRoutes);
+      console.log('🎯 Blockchain routes đã được đăng ký');
+    } else {
+      console.log('⚠️ Blockchain routes không khả dụng, chỉ e-commerce hoạt động');
+      
+      // Tạo fallback route cho blockchain
+      app.use('/api/blockchain', (req, res) => {
+        res.status(503).json({
+          success: false,
+          message: 'Blockchain service đang bảo trì',
+          endpoints: ['/health', '/stats', '/record', '/history/:productId']
+        });
+      });
+    }
 
     console.log("✅ Đăng ký routes thành công");
 
@@ -250,9 +347,9 @@ async function startServer() {
           "/api/auth",
           "/api/cart",
           "/api/order",
-
-          "/api/danh-gia-san-pham",
+          "/api/danh-gia-san-pham", 
           "/api/danh-gia-cua-hang",
+          "/api/blockchain",
           "/api/docs",
           "/health",
         ],
@@ -262,6 +359,17 @@ async function startServer() {
     // 6️⃣ XỬ LÝ LỖI TOÀN CỤC
     app.use((err, req, res, next) => {
       console.error("🔥 Lỗi server:", err);
+
+      // Multer errors
+      if (err instanceof multer.MulterError) {
+        if (err.code === 'LIMIT_FILE_SIZE') {
+          return res.status(400).json({
+            success: false,
+            message: 'File quá lớn',
+            details: 'Kích thước file tối đa là 5MB'
+          });
+        }
+      }
 
       // Sequelize errors
       if (err.name === "SequelizeValidationError") {
@@ -283,25 +391,6 @@ async function startServer() {
           error: "Duplicate Entry",
           message: "Dữ liệu đã tồn tại trong hệ thống",
           field: err.errors[0]?.path,
-        });
-      }
-
-      if (err.name === "SequelizeDatabaseError") {
-        return res.status(500).json({
-          success: false,
-          error: "Database Error",
-          message: "Lỗi cơ sở dữ liệu",
-          ...(process.env.NODE_ENV === "development" && {
-            details: err.message,
-          }),
-        });
-      }
-
-      if (err.name === "SequelizeConnectionError") {
-        return res.status(503).json({
-          success: false,
-          error: "Database Connection Error",
-          message: "Không thể kết nối đến database",
         });
       }
 
@@ -333,90 +422,65 @@ async function startServer() {
             : "Đã xảy ra lỗi, vui lòng thử lại sau",
         ...(process.env.NODE_ENV === "development" && {
           stack: err.stack,
-          details: err,
         }),
       });
     });
 
     // 7️⃣ KHỞI ĐỘNG SERVER
     const PORT = process.env.PORT || 3000;
-    const server = app.listen(PORT, () => {
+    const server = httpServer.listen(PORT, () => {
       console.log(`\n🎉 ==========================================`);
-      console.log(`✅ Server running on port ${PORT}`);
+      console.log(`✅ SERVER TÍCH HỢP CHẠY THÀNH CÔNG`);
+      console.log(`📍 Port: ${PORT}`);
       console.log(`🌐 Environment: ${process.env.NODE_ENV || "development"}`);
-      console.log(`🔗 API base URL: http://localhost:${PORT}`);
-      console.log(`📦 Products API: http://localhost:${PORT}/api/sanpham`);
-      console.log(`🏪 Stores API: http://localhost:${PORT}/api/cuahang`);
-      console.log(`🔐 Auth API: http://localhost:${PORT}/api/auth`);
-      console.log(`🛒 Cart API: http://localhost:${PORT}/api/cart`);
-      console.log(`🧾 Order API: http://localhost:${PORT}/api/order`);
-
-      console.log(
-        `⭐ Product Reviews: http://localhost:${PORT}/api/danh-gia-san-pham`
-      ); // 🆕
-      console.log(
-        `🏪 Store Reviews: http://localhost:${PORT}/api/danh-gia-cua-hang`
-      ); // 🆕
-      console.log(`📚 API Docs: http://localhost:${PORT}/api/docs`); // 🆕
-      console.log(`🏠 Test route: http://localhost:${PORT}/`);
-      console.log(`❤️ Health check: http://localhost:${PORT}/health`);
+      console.log(`🔗 API Base: http://localhost:${PORT}`);
+      console.log(`🔌 WebSocket: http://localhost:${PORT}`);
+      console.log(`\n🛒 E-COMMERCE ENDPOINTS:`);
+      console.log(`   📦 Products: http://localhost:${PORT}/api/sanpham`);
+      console.log(`   🏪 Stores: http://localhost:${PORT}/api/cuahang`);
+      console.log(`   🔐 Auth: http://localhost:${PORT}/api/auth`);
+      console.log(`   🛒 Cart: http://localhost:${PORT}/api/cart`);
+      console.log(`\n⛓️ BLOCKCHAIN ENDPOINTS:`);
+      console.log(`   🔐 Auth: http://localhost:${PORT}/api/blockchain/login`);
+      console.log(`   📝 Records: http://localhost:${PORT}/api/blockchain/record`);
+      console.log(`   📊 Chain: http://localhost:${PORT}/api/blockchain/full-chain`);
+      console.log(`   📱 QR Code: http://localhost:${PORT}/api/blockchain/qrcode/PRODUCT_ID`);
+      console.log(`\n📚 Documentation: http://localhost:${PORT}/api/docs`);
+      console.log(`❤️ Health: http://localhost:${PORT}/health`);
       console.log(`🎉 ==========================================\n`);
     });
 
     // 🟢 GRACEFUL SHUTDOWN
     const gracefulShutdown = (signal) => {
       console.log(`\n⚠️ Received ${signal}. Shutting down gracefully...`);
-
       server.close(() => {
         console.log("✅ HTTP server closed.");
-        sequelize
-          .close()
-          .then(() => {
-            console.log("✅ Database connection closed.");
-            process.exit(0);
-          })
-          .catch((err) => {
-            console.error("❌ Error closing database connection:", err);
-            process.exit(1);
-          });
+        sequelize.close().then(() => {
+          console.log("✅ Database connection closed.");
+          process.exit(0);
+        });
       });
-
-      // Force close after 10 seconds
       setTimeout(() => {
-        console.error(
-          "❌ Could not close connections in time, forcefully shutting down"
-        );
+        console.error("❌ Could not close connections in time, forcefully shutting down");
         process.exit(1);
       }, 10000);
     };
 
     process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
     process.on("SIGINT", () => gracefulShutdown("SIGINT"));
-
-    // 🟢 UNHANDLED REJECTION HANDLER
     process.on("unhandledRejection", (reason, promise) => {
       console.error("❌ Unhandled Rejection at:", promise, "reason:", reason);
     });
-
-    // 🟢 UNCAUGHT EXCEPTION HANDLER
     process.on("uncaughtException", (error) => {
       console.error("❌ Uncaught Exception:", error);
       process.exit(1);
     });
+
   } catch (err) {
     console.error("❌ LỖI KHỞI ĐỘNG SERVER:", err);
-
-    // Log detailed error information
-    if (err.original) {
-      console.error("📌 Original Error:", err.original);
-    }
-    if (err.sql) {
-      console.error("📌 SQL Query:", err.sql);
-    }
-    if (err.stack) {
-      console.error("📌 Stack Trace:", err.stack);
-    }
-
+    if (err.original) console.error("📌 Original Error:", err.original);
+    if (err.sql) console.error("📌 SQL Query:", err.sql);
+    if (err.stack) console.error("📌 Stack Trace:", err.stack);
     process.exit(1);
   }
 }

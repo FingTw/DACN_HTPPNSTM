@@ -14,6 +14,8 @@ import { CartProvider } from "@/context/CartContext";
 import CheckoutPage from './pages/CheckoutPage';
 import OrderSuccessPage from './pages/OrderSuccessPage';
 import { AddressProvider } from "@/context/AddressContext";
+import Dashboard from "@/pages/Blockchain/Dashboard";
+import Admin from "@/pages/Blockchain/Admin";
 
 function App() {
   return (
@@ -35,6 +37,8 @@ function App() {
           <Route path="/product/:id" element={<ProductDetailPage />} />
           <Route path="/checkout" element={<CheckoutPage />} />
           <Route path="/order-success/:MaDH" element={<OrderSuccessPage />} />
+          <Route path="/blockchain/dashboard" element={<Dashboard />} />
+          <Route path="/blockchain/admin" element={<Admin />} />
           {/* Private routes - thêm sau */}
           {/* <Route path="/profile" element={<PrivateRoute><ProfilePage /></PrivateRoute>} /> */}
         </Routes>
