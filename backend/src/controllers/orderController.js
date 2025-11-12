@@ -442,3 +442,173 @@ export const getPaymentMethods = async (req, res) => {
     res.status(500).json({ message: "Lỗi server" });
   }
 };
+
+// Thêm vào orderController.js
+export const getAllOrder = async (req, res) => {
+  try {
+    console.log("=== BẮT ĐẦU GET ALL ORDERS ===");
+    
+    const authHeader = req.headers.authorization;
+    console.log("Auth Header:", authHeader);
+    
+    if (!authHeader?.startsWith("Bearer ")) {
+      console.log("❌ Không có token");
+      return res.status(401).json({ message: "Không có token" });
+    }
+
+    const token = authHeader.split(" ")[1];
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
+      console.log("✅ Token decoded:", decoded);
+    } catch (err) {
+      console.log("❌ Token không hợp lệ:", err.message);
+      return res.status(401).json({ message: "Token không hợp lệ hoặc hết hạn" });
+    }
+    
+    const MaTK = decoded.MaTK;
+    console.log("📋 MaTK từ token:", MaTK);
+
+    // Lấy tất cả đơn hàng của user - SỬA ALIAS THANHTOAN
+    const orders = await donhang.findAll({
+      where: { MaTK },
+      include: [
+        {
+          model: chitiet_donhang,
+          as: "chitiet_donhangs",
+          include: [
+            {
+              model: sanpham,
+              as: "MaSP_sanpham",
+              attributes: ['TenSP']
+            }
+          ]
+        },
+        {
+          model: pttt,
+          as: "MaPTTT_pttt",
+          attributes: ['TenPTTT']
+        },
+        {
+          model: ptvc,
+          as: "MaPTVC_ptvc",
+          attributes: ['TenPTVC']
+        },
+        // {
+        //   model: thanhtoan,
+        //   as: "thanhtoan", // ← ALIAS CHÍNH XÁC THEO MODEL
+        //   attributes: ['TrangThai', 'Sotien', 'NgayTao']
+        // }
+      ],
+      order: [['NgayTao', 'DESC']]
+    });
+
+    console.log(`📦 Tìm thấy ${orders.length} đơn hàng cho user ${MaTK}`);
+
+    // Đếm số lượng đơn hàng theo từng trạng thái
+    const statusCounts = {
+      'Chờ xác nhận': 0,
+      'Chờ lấy hàng': 0,
+      'Chờ giao hàng': 0,
+      'Đã giao': 0,
+      'Trả hàng': 0,
+      'Đã hủy': 0
+    };
+
+    orders.forEach(order => {
+      console.log(`Đơn hàng ${order.MaDH} - Trạng thái: ${order.TrangThai}`);
+      if (statusCounts.hasOwnProperty(order.TrangThai)) {
+        statusCounts[order.TrangThai]++;
+      }
+    });
+
+    console.log("📊 Thống kê trạng thái:", statusCounts);
+
+    return res.json({
+      success: true,
+      data: {
+        orders,
+        statusCounts: {
+          'Tất cả': orders.length,
+          ...statusCounts
+        },
+        totalOrders: orders.length
+      }
+    });
+
+  } catch (err) {
+    console.error("❌ Lỗi khi lấy danh sách đơn hàng:", err);
+    return res.status(500).json({ 
+      success: false,
+      message: "Lỗi server khi lấy danh sách đơn hàng",
+      error: err.message 
+    });
+  }
+};
+
+// Hàm lấy đơn hàng theo trạng thái
+export const getOrdersByStatus = async (req, res) => {
+  try {
+    const { status } = req.params;
+    const authHeader = req.headers.authorization;
+    
+    if (!authHeader?.startsWith("Bearer ")) {
+      return res.status(401).json({ message: "Không có token" });
+    }
+
+    const token = authHeader.split(" ")[1];
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const MaTK = decoded.MaTK;
+
+    let whereCondition = { MaTK };
+    
+    if (status !== 'Tất cả') {
+      whereCondition.TrangThai = status;
+    }
+
+    const orders = await donhang.findAll({
+      where: whereCondition,
+      include: [
+        {
+          model: chitiet_donhang,
+          as: "chitiet_donhangs",
+          include: [
+            {
+              model: sanpham,
+              as: "MaSP_sanpham",
+              attributes: ['TenSP']
+            }
+          ]
+        },
+        {
+          model: pttt,
+          as: "MaPTTT_pttt",
+          attributes: ['TenPTTT']
+        },
+        {
+          model: ptvc,
+          as: "MaPTVC_ptvc",
+          attributes: ['TenPTVC']
+        },
+        // {
+        //   model: thanhtoan,
+        //   as: "thanhtoan", // ← SỬA ALIAS Ở ĐÂY NỮA
+        //   attributes: ['TrangThai', 'Sotien', 'NgayTao']
+        // }
+      ],
+      order: [['NgayTao', 'DESC']]
+    });
+
+    return res.json({
+      success: true,
+      data: orders
+    });
+
+  } catch (err) {
+    console.error("Lỗi khi lấy đơn hàng theo trạng thái:", err);
+    return res.status(500).json({ 
+      success: false,
+      message: "Lỗi server khi lấy đơn hàng" 
+    });
+  }
+};

@@ -1,5 +1,6 @@
 import express from "express";
 import authController from "../controllers/authController.js";
+import upload from '../config/upload.js';
 
 
 const router = express.Router();
@@ -25,6 +26,11 @@ router.post("/change-password", authController.changePassword);
 // Cập nhật thông tin cá nhân
 router.put("/update-personal-info", authController.updatePersonalInfo);
 
+// Upload avatar
+router.post("/upload-avatar", upload.single('avatar'), authController.uploadAvatar);
+
+// Trong authRoutes.js
+router.get("/profile", authController.getProfile);
 // router.get("/google", authController.googleLogin);
 
 // router.get("/google/callback", authController.googleCallback);

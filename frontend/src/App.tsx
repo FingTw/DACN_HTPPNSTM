@@ -16,6 +16,8 @@ import OrderSuccessPage from './pages/OrderSuccessPage';
 import { AddressProvider } from "@/context/AddressContext";
 import Dashboard from "@/pages/Blockchain/Dashboard";
 import Admin from "@/pages/Blockchain/Admin";
+import ProfilePage from "./pages/ProfilePage";
+import OrdersPage from "./pages/OrdersPage";
 
 function App() {
   return (
@@ -30,6 +32,8 @@ function App() {
           <Route path="/" element={<HomePage />} />
           <Route path="/signin" element={<SignInPage />} />
           <Route path="/signup" element={<SignUpPage />} />
+          <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/orders" element={<OrdersPage />} />
           <Route path="/signupshop" element={<StoreRegistrationPage />} />
           <Route path="/viewshop" element={<StoreDetailsPage />} />
           <Route path="/product/:id" element={<ProductOverview />} />
@@ -39,6 +43,7 @@ function App() {
           <Route path="/order-success/:MaDH" element={<OrderSuccessPage />} />
           <Route path="/blockchain/dashboard" element={<Dashboard />} />
           <Route path="/blockchain/admin" element={<Admin />} />
+          
           {/* Private routes - thêm sau */}
           {/* <Route path="/profile" element={<PrivateRoute><ProfilePage /></PrivateRoute>} /> */}
         </Routes>

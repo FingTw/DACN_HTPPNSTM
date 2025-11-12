@@ -91,6 +91,8 @@ router.get('/user-events', blockchainController.getUserEvents);
 
 // 📱 QR Code routes
 router.get('/qrcode/:productId', blockchainController.generateQRCode);
+router.get('/product/:productId/blocks', blockchainController.getProductBlocks);
+router.get('/qrcode/block/:productId/:blockIndex/:blockHash?', blockchainController.generateBlockQRCode);
 
 // 🖼️ Image upload routes
 router.post('/upload-image', upload.single('image'), async (req, res) => {

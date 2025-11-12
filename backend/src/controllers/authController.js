@@ -5,7 +5,8 @@ import crypto from "crypto";
 import { initModels } from "../models/init-models.js";
 import sequelize from "../config/db.js";
 import dotenv from "dotenv";
-  dotenv.config();
+
+dotenv.config();
 
 // khởi tạo models
 const models = initModels(sequelize);
@@ -20,6 +21,147 @@ import { sendEmail } from "../services/emailService.js";
 import { Op } from "sequelize";
 
 const authController = {
+  // Trong authController.js - Thêm API mới
+getProfile: async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return res.status(401).json({ message: "Không có token" });
+    }
+
+    const token = authHeader.split(" ")[1];
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (err) {
+      return res.status(401).json({ message: "Token không hợp lệ" });
+    }
+
+    const { MaTK } = decoded;
+
+    // Lấy thông tin tài khoản từ database
+    const account = await taikhoan.findByPk(MaTK, {
+      include: [{
+        model: hinhanh,
+        as: 'MaHA_Avatar_hinhanh',
+        attributes: ['MaHA', 'URL', 'MoTa']
+      }]
+    });
+
+    if (!account) {
+      return res.status(404).json({ message: "Không tìm thấy tài khoản" });
+    }
+
+    // Format response
+    const profileData = {
+      MaTK: account.MaTK,
+      TenDangNhap: account.TenDangNhap,
+      HoTen: account.HoTen,
+      SDT: account.SDT,
+      Email: account.Email,
+      MaHA_Avatar: account.MaHA_Avatar,
+      Avatar: account.MaHA_Avatar_hinhanh ? {
+        MaHA: account.MaHA_Avatar_hinhanh.MaHA,
+        URL: account.MaHA_Avatar_hinhanh.URL,
+        MoTa: account.MaHA_Avatar_hinhanh.MoTa
+      } : null
+    };
+
+    return res.json({
+      message: "Lấy thông tin profile thành công",
+      data: profileData
+    });
+  } catch (err) {
+    console.error("❌ Lỗi lấy thông tin profile:", err);
+    return res.status(500).json({ message: err.message });
+  }
+},
+  // API upload ảnh
+uploadAvatar: async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return res.status(401).json({ message: "Không có token" });
+    }
+
+    const token = authHeader.split(" ")[1];
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (err) {
+      return res.status(401).json({ message: "Token không hợp lệ" });
+    }
+
+    const { MaTK } = decoded;
+    
+    if (!req.file) {
+      return res.status(400).json({ message: "Không có file được upload" });
+    }
+
+    // Tìm tài khoản
+    const account = await taikhoan.findByPk(MaTK);
+    if (!account) {
+      return res.status(404).json({ message: "Không tìm thấy tài khoản" });
+    }
+
+    // Tạo URL cho file
+    const fileUrl = `/uploads/${req.file.filename}`;
+
+    // Tạo bản ghi ảnh mới
+    const now = new Date();
+    const prefix = "HA" + now.getFullYear().toString().slice(2) + String(now.getMonth() + 1).padStart(2, "0");
+
+    const lastImage = await hinhanh.findOne({
+      where: { MaHA: { [Op.like]: `${prefix}%` } },
+      order: [["MaHA", "DESC"]],
+    });
+
+    let newId = prefix + "0001";
+    if (lastImage) {
+      const num = parseInt(lastImage.MaHA.slice(6)) + 1;
+      newId = prefix + num.toString().padStart(4, "0");
+    }
+
+    const newImage = await hinhanh.create({
+      MaHA: newId,
+      URL: fileUrl,
+      MoTa: `Avatar của ${account.TenDangNhap}`,
+    });
+
+    // Cập nhật avatar cho tài khoản
+    account.MaHA_Avatar = newImage.MaHA;
+    await account.save();
+
+    // Lấy thông tin tài khoản đã cập nhật (KHÔNG DÙNG INCLUDE)
+    const updatedAccount = await taikhoan.findByPk(MaTK);
+    
+    // Lấy thông tin ảnh riêng biệt
+    const avatarInfo = await hinhanh.findByPk(newImage.MaHA);
+
+    // Format response thủ công
+    const responseData = {
+      MaTK: updatedAccount.MaTK,
+      TenDangNhap: updatedAccount.TenDangNhap,
+      HoTen: updatedAccount.HoTen,
+      SDT: updatedAccount.SDT,
+      Email: updatedAccount.Email,
+      MaHA_Avatar: updatedAccount.MaHA_Avatar,
+      Avatar: avatarInfo ? {
+        MaHA: avatarInfo.MaHA,
+        URL: avatarInfo.URL,
+        MoTa: avatarInfo.MoTa
+      } : null
+    };
+
+    return res.json({
+      message: "Upload avatar thành công",
+      data: responseData
+    });
+  } catch (err) {
+    console.error("❌ Lỗi upload avatar:", err);
+    return res.status(500).json({ message: err.message });
+  }
+},
   // ==============================
   // Cập nhật thông tin cá nhân
   // ==============================
@@ -90,6 +232,27 @@ const authController = {
       if (TenDangNhap !== undefined) account.TenDangNhap = TenDangNhap;
 
       await account.save();
+      
+      // Lấy thông tin avatar nếu có
+      let avatarInfo = null;
+      if (account.MaHA_Avatar) {
+        avatarInfo = await hinhanh.findByPk(account.MaHA_Avatar);
+      }
+
+      // Format response thủ công (KHÔNG DÙNG INCLUDE)
+      const responseData = {
+        MaTK: account.MaTK,
+        TenDangNhap: account.TenDangNhap,
+        HoTen: account.HoTen,
+        SDT: account.SDT,
+        Email: account.Email,
+        MaHA_Avatar: account.MaHA_Avatar,
+        Avatar: avatarInfo ? {
+          MaHA: avatarInfo.MaHA,
+          URL: avatarInfo.URL,
+          MoTa: avatarInfo.MoTa
+        } : null
+      };
 
       return res.json({
         message: "Cập nhật thông tin cá nhân thành công",

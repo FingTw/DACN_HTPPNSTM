@@ -97,11 +97,34 @@ export interface ProductHistoryItem {
     nonce?: number;
 }
 
+// THÊM: Interface cho QR Code responses
+export interface QRCodeResponse {
+    productId: string;
+    qrCode: string;
+    message: string;
+    timestamp: string;
+    blockIndex?: number;
+    blockCount?: number;
+    blockHash?: string;
+    url?: string;
+    hash?: string;
+    [key: string]: any;
+}
+
+export interface BlockQRCodeResponse {
+    productId: string;
+    blockIndex: number;
+    blockHash: string;
+    qrCode: string;
+    message: string;
+    timestamp?: string;
+}
+
 // API Base URL
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
 // Axios instance
-const apiClient = axios.create({
+export const apiClient = axios.create({
   baseURL: API_BASE_URL,
   timeout: 10000,
   headers: {
@@ -109,7 +132,7 @@ const apiClient = axios.create({
   },
 });
 
-// Request interceptor to add auth token - SỬA LẠI
+// Request interceptor to add auth token
 apiClient.interceptors.request.use(
   (config) => {
     // Thử cả 2 nơi lưu token
@@ -118,14 +141,8 @@ apiClient.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
       console.log('🔐 Đã thêm token vào request:', config.url);
-      console.log('📝 Token:', token.substring(0, 20) + '...');
     } else {
       console.warn('⚠️ Không tìm thấy token trong localStorage');
-      console.log('🔍 localStorage contents:', {
-        token: localStorage.getItem('token'),
-        authToken: localStorage.getItem('authToken'),
-        user: localStorage.getItem('user')
-      });
     }
     return config;
   },
@@ -149,7 +166,6 @@ apiClient.interceptors.response.use(
     
     if (error.response?.status === 401) {
       console.log('🛑 401 Unauthorized - Token có vấn đề');
-      console.log('🔍 Header Authorization đã gửi:', error.config?.headers?.Authorization ? 'Có' : 'Không');
       
       // Không redirect ngay, chỉ thông báo
       alert('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
@@ -235,46 +251,83 @@ export const blockchainAPI = {
         actor: string;
         role: string;
     }>> => {
+        console.log('📝 Gửi record transaction:', transactionData);
         const response = await apiClient.post('/blockchain/record', transactionData) as AxiosResponse<ApiResponse<any>>;
+        console.log('✅ Record transaction response:', response.data);
         return response.data;
     },
 
-    // QR Code
-    generateQRCode: async (productId: string): Promise<ApiResponse<{
-        productId: string;
-        qrCode: string;
-        url: string;
-        blockCount: number;
-        scanNote: string;
-    }>> => {
-        const response = await apiClient.get(`/blockchain/qrcode/${productId}`) as AxiosResponse<ApiResponse<any>>;
-        return response.data;
-    },
-
-    getUserEvents: async (username: string, limit: number = 10): Promise<ApiResponse<any[]>> => {
-    try {
-        const response = await apiClient.get('/blockchain/user-events', {
-        params: { username, limit },
-        });
-        return response.data;
-    } catch (error: any) {
-        console.error('Lỗi khi gọi getUserEvents:', error);
-        
-        // Xử lý lỗi 404 - trả về mảng rỗng thay vì lỗi
-        if (error.response?.status === 404) {
-        console.log('⚠️ Endpoint user-events không tồn tại, trả về mảng rỗng');
-        return {
-            success: true,
-            data: [],
-            message: 'Không tìm thấy sự kiện'
-        };
+    // QR Code - SỬA LẠI VỚI INTERFACE MỚI
+    generateQRCode: async (productId: string): Promise<ApiResponse<QRCodeResponse>> => {
+        try {
+            console.log(`📱 Requesting QR code for: ${productId}`);
+            const response = await apiClient.get(`/blockchain/qrcode/${productId}`);
+            console.log('✅ QR code response received:', response.data);
+            
+            // XỬ LÝ RESPONSE TỪ SERVER - có thể là 2 dạng:
+            let responseData;
+            if (response.data.success !== undefined) {
+                // Dạng 1: {success, data, message} - đúng chuẩn
+                responseData = response.data;
+            } else {
+                // Dạng 2: {productId, qrCode, url, ...} - response trực tiếp
+                responseData = {
+                    success: true,
+                    data: response.data,
+                    message: 'QR code generated successfully'
+                };
+            }
+            
+            return responseData;
+        } catch (error: any) {
+            console.error('❌ Generate QR code error:', error);
+            throw error.response?.data || { message: 'Lỗi tạo QR code' };
         }
-        
-        throw error.response?.data || { message: 'Lỗi không xác định' };
-    }
     },
 
-    // Image Upload
+    // Generate QR Code for block - SỬA LẠI VỚI INTERFACE MỚI
+    generateBlockQRCode: async (productId: string, blockIndex: number, blockHash?: string): Promise<ApiResponse<BlockQRCodeResponse>> => {
+        try {
+            const url = `/blockchain/qrcode/block/${productId}/${blockIndex}${blockHash ? `/${blockHash}` : ''}`;
+            console.log(`📱 Requesting block QR code: ${url}`);
+            const response = await apiClient.get(url);
+            console.log('✅ Block QR code response received');
+            return response.data;
+        } catch (error: any) {
+            console.error('❌ Generate block QR code error:', error);
+            throw error.response?.data || { message: 'Lỗi tạo QR code cho block' };
+        }
+    },
+
+    getSimpleQRCode: (productId: string) => apiClient.get(`/blockchain/qrcode-simple/${productId}`),
+
+    // User Events - SỬA LẠI
+    getUserEvents: async (username: string, limit: number = 10): Promise<ApiResponse<any[]>> => {
+        try {
+            console.log(`👤 Getting user events for: ${username}, limit: ${limit}`);
+            const response = await apiClient.get('/blockchain/user-events', {
+                params: { username, limit },
+            });
+            console.log(`✅ User events received: ${response.data.data?.length || 0} events`);
+            return response.data;
+        } catch (error: any) {
+            console.error('Lỗi khi gọi getUserEvents:', error);
+            
+            // Xử lý lỗi 404 - trả về mảng rỗng thay vì lỗi
+            if (error.response?.status === 404) {
+                console.log('⚠️ Endpoint user-events không tồn tại, trả về mảng rỗng');
+                return {
+                    success: true,
+                    data: [],
+                    message: 'Không tìm thấy sự kiện'
+                };
+            }
+            
+            throw error.response?.data || { message: 'Lỗi không xác định' };
+        }
+    },
+
+    // Image Upload - SỬA LẠI ĐỂ XỬ LÝ RESPONSE ĐÚNG
     uploadImage: async (imageFile: File): Promise<ApiResponse<{
         imageUrl: string;
         filename: string;
@@ -283,12 +336,21 @@ export const blockchainAPI = {
         const formData = new FormData();
         formData.append('image', imageFile);
         console.log('🖼️ Uploading image:', imageFile.name, imageFile.size);
+        
         const response = await apiClient.post('/blockchain/upload-image', formData, {
             headers: {
                 'Content-Type': 'multipart/form-data',
             },
-        }) as AxiosResponse<ApiResponse<any>>;
-        return response.data;
+        });
+        
+        console.log('📊 Upload response:', response.data);
+        
+        // Đảm bảo trả về đúng structure
+        return {
+            success: response.data.success,
+            data: response.data,
+            message: response.data.message
+        };
     },
 
     // User Management

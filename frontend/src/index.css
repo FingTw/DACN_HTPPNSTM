@@ -154,3 +154,86 @@ a {
   font-weight: 500;
   text-decoration: inherit;
 }
+
+/* Responsive styles */
+@media (max-width: 768px) {
+  .order-list-container {
+    padding: 10px;
+  }
+  
+  .status-tabs {
+    gap: 4px;
+  }
+  
+  .tab {
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+  
+  .order-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  
+  .order-footer {
+    flex-direction: column;
+    gap: 12px;
+    align-items: flex-start;
+  }
+  
+  .order-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+  /* Đảm bảo các tab căn đều hai bên */
+.status-tabs-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.status-tab {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 80px;
+  max-width: 100px;
+}
+
+/* Hiệu ứng hover */
+.status-tab:hover {
+  transform: translateY(-2px);
+  transition: all 0.2s ease-in-out;
+}
+
+/* Active state với màu xanh lá */
+.status-tab-active {
+  background-color: #f0f9f4 !important;
+  border-color: #10b981 !important;
+  color: #059669 !important;
+  font-weight: 600;
+}
+
+/* Responsive cho mobile */
+@media (max-width: 768px) {
+  .status-tabs-container {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  
+  .status-tab {
+    min-width: 70px;
+    flex: 0 0 calc(33.333% - 8px);
+  }
+}
+
+@media (max-width: 480px) {
+  .status-tab {
+    flex: 0 0 calc(50% - 8px);
+  }
+}
+}

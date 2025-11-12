@@ -498,4 +498,20 @@
     color: white;
     margin-left: 10px;
     }
+    /* QR code css */
+    .qr-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .qr-open-btn {
+      background: #4caf50 !important;
+    }
+
+    .qr-open-btn:hover {
+      background: #45a049 !important;
+    }
 }

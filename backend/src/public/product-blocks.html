@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lịch sử Sản phẩm - Blockchain</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            padding: 15px; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            min-height: 100vh;
+        }
+        
+        .container { 
+            max-width: 800px; 
+            margin: 0 auto; 
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        
+        .product-header { 
+            background: linear-gradient(135deg, #1a237e 0%, #283593 100%); 
+            color: white; 
+            padding: 20px; 
+            border-radius: 12px;
+            margin-bottom: 25px;
+            text-align: center;
+        }
+        
+        .product-header h1 {
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+        
+        .product-header h2 {
+            font-size: 20px;
+            margin-bottom: 8px;
+            color: #e3f2fd;
+        }
+        
+        .block-count {
+            background: rgba(255,255,255,0.2);
+            padding: 8px 15px;
+            border-radius: 20px;
+            display: inline-block;
+            font-size: 14px;
+        }
+        
+        .block-item { 
+            border: 1px solid #e0e0e0; 
+            padding: 18px; 
+            margin: 15px 0; 
+            border-radius: 12px;
+            background: #f8f9fa;
+            transition: transform 0.2s, box-shadow 0.2s;
+            border-left: 4px solid #1a237e;
+        }
+        
+        .block-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        
+        .block-header { 
+            font-weight: bold; 
+            color: #1a237e; 
+            margin-bottom: 12px;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .block-info {
+            display: grid;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+        
+        .block-info div {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .evidence-button {
+            background: #1a237e;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            margin: 10px 0;
+            transition: background 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .evidence-button:hover {
+            background: #283593;
+        }
+        
+        .evidence-button:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+        
+        .event-badge {
+            background: #1a237e;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        .action-badge {
+            background: #4CAF50;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        .event-details {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+            border-left: 4px solid #2196F3;
+        }
+        
+        .event-details h4 {
+            color: #1a237e;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+        
+        .loading-spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #1a237e;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .error-message {
+            background: #ffebee;
+            color: #c62828;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            border-left: 4px solid #c62828;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+        
+        .empty-state .icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+        }
+
+        /* Modal for image evidence */
+        .image-modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.9);
+            animation: fadeIn 0.3s;
+        }
+
+        .image-modal-content {
+            margin: auto;
+            display: block;
+            max-width: 90%;
+            max-height: 80%;
+            margin-top: 5%;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            animation: zoomIn 0.3s;
+        }
+
+        .image-modal-close {
+            position: absolute;
+            top: 20px;
+            right: 35px;
+            color: #f1f1f1;
+            font-size: 40px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.3s;
+            z-index: 1001;
+            background: rgba(0,0,0,0.5);
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .image-modal-close:hover {
+            background: rgba(0,0,0,0.8);
+            color: #fff;
+        }
+
+        .image-modal-caption {
+            text-align: center;
+            color: #fff;
+            padding: 10px 20px;
+            position: absolute;
+            bottom: 20px;
+            width: 100%;
+            background: rgba(0,0,0,0.7);
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes zoomIn {
+            from { transform: scale(0.8); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+        
+        @media (max-width: 600px) {
+            .container {
+                padding: 15px;
+                margin: 10px;
+            }
+            
+            .product-header {
+                padding: 15px;
+            }
+            
+            .product-header h1 {
+                font-size: 20px;
+            }
+            
+            .product-header h2 {
+                font-size: 18px;
+            }
+            
+            .block-item {
+                padding: 15px;
+            }
+            
+            .image-modal-content {
+                max-width: 95%;
+                max-height: 70%;
+            }
+            
+            .image-modal-close {
+                top: 10px;
+                right: 15px;
+                font-size: 30px;
+                width: 40px;
+                height: 40px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="product-header">
+            <h1>📦 Lịch sử Blockchain</h1>
+            <h2 id="productTitle">Đang tải...</h2>
+            <div class="block-count" id="blockCount">Tổng số blocks: 0</div>
+        </div>
+        <div id="blocksContainer">
+            <div class="loading">
+                <div class="loading-spinner"></div>
+                <p>Đang tải dữ liệu blockchain...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Image Modal -->
+    <div id="imageModal" class="image-modal">
+        <span class="image-modal-close">&times;</span>
+        <img class="image-modal-content" id="modalImage">
+        <div class="image-modal-caption" id="modalCaption">Minh chứng hình ảnh</div>
+    </div>
+
+    <script>
+        // Lấy productId từ URL
+        function getProductIdFromUrl() {
+            const pathParts = window.location.pathname.split('/');
+            const productIndex = pathParts.indexOf('product') + 1;
+            return productIndex < pathParts.length ? decodeURIComponent(pathParts[productIndex]) : null;
+        }
+
+        // Hiển thị lỗi
+        function showError(message) {
+            const container = document.getElementById('blocksContainer');
+            container.innerHTML = `
+                <div class="error-message">
+                    <div style="font-size: 24px; margin-bottom: 10px;">❌</div>
+                    <strong>Lỗi:</strong> ${message}
+                </div>
+            `;
+        }
+
+        // Hiển thị trạng thái không có dữ liệu
+        function showEmptyState() {
+            const container = document.getElementById('blocksContainer');
+            container.innerHTML = `
+                <div class="empty-state">
+                    <div class="icon">📝</div>
+                    <h3>Chưa có dữ liệu</h3>
+                    <p>Sản phẩm này chưa có block nào trong blockchain</p>
+                </div>
+            `;
+        }
+
+        // Mở modal xem ảnh minh chứng
+        function openEvidenceModal(imageUrl, blockIndex, actor, role) {
+            console.log('🔍 Opening evidence modal:', imageUrl);
+            
+            const modal = document.getElementById('imageModal');
+            const modalImg = document.getElementById('modalImage');
+            const modalCaption = document.getElementById('modalCaption');
+            
+            // Xử lý URL ảnh
+            let fullImageUrl = imageUrl;
+            if (!imageUrl.startsWith('http')) {
+                fullImageUrl = `${window.location.origin}${imageUrl}`;
+            }
+            
+            console.log('Full image URL:', fullImageUrl);
+            
+            // Đặt ảnh và hiển thị modal
+            modalImg.src = fullImageUrl;
+            modalCaption.textContent = `Minh chứng - Block #${blockIndex} - ${actor} (${role})`;
+            modal.style.display = "block";
+        }
+
+        // Đóng modal
+        document.querySelector('.image-modal-close').onclick = function() {
+            document.getElementById('imageModal').style.display = "none";
+        }
+
+        // Đóng modal khi click outside
+        document.getElementById('imageModal').onclick = function(e) {
+            if (e.target === this) {
+                this.style.display = "none";
+            }
+        }
+
+
+        // Hiển thị danh sách blocks với đầy đủ thông tin
+        function displayBlocks(blocks) {
+            const container = document.getElementById('blocksContainer');
+            
+            if (!blocks || blocks.length === 0) {
+                showEmptyState();
+                return;
+            }
+
+            // Sắp xếp blocks theo thứ tự mới nhất trước
+            blocks.sort((a, b) => b.index - a.index);
+
+            container.innerHTML = blocks.map(block => {
+                // 🔥 TỰ ĐỘNG SUY LUẬN eventType NẾU KHÔNG CÓ
+                let inferredEventType = block.eventType;
+                let inferredAction = block.action;
+                
+                // Nếu không có eventType, suy luận từ role
+                if (!inferredEventType && block.role) {
+                    const roleToEvent = {
+                        'Farmer': 'planting',
+                        'Shipper': 'transport', 
+                        'Factory': 'process',
+                        'CuaHang': 'sale'
+                    };
+                    inferredEventType = roleToEvent[block.role] || 'general';
+                }
+                
+                // Nếu không có action, suy luận từ eventType
+                if (!inferredAction && inferredEventType) {
+                    inferredAction = inferredEventType;
+                }
+
+                console.log('🔍 Block display:', {
+                    index: block.index,
+                    eventType: block.eventType,
+                    inferredEventType: inferredEventType,
+                    action: block.action,
+                    inferredAction: inferredAction,
+                    role: block.role
+                });
+
+                return `
+                    <div class="block-item">
+                        <div class="block-header">
+                            🔗 Block #${block.index}
+                            <span style="font-size: 12px; color: #666; font-weight: normal;">
+                                ${new Date(block.timestamp).toLocaleString('vi-VN')}
+                            </span>
+                        </div>
+                        
+                        <div class="block-info">
+                            <!-- Tên sự kiện (dùng inferred nếu không có) -->
+                            <div>
+                                <strong>📅 Sự kiện:</strong> 
+                                <span class="event-badge">${getEventName(inferredEventType)}</span>
+                            </div>                           
+                            
+                            <!-- Thông tin cơ bản -->
+                            ${block.location ? `<div><strong>📍 Địa điểm:</strong> ${block.location}</div>` : ''}
+                            ${block.actor ? `<div><strong>👤 Người thực hiện:</strong> ${block.actor}</div>` : ''}
+                            ${block.role ? `<div><strong>🎭 Vai trò:</strong> ${block.role}</div>` : ''}
+                            ${block.notes ? `<div><strong>📝 Ghi chú:</strong> ${block.notes}</div>` : ''}
+                            
+                            <!-- 🔥 THÊM QUALITY VÀO THÔNG TIN CƠ BẢN (không phải sự kiện) -->
+                            ${block.quality ? `<div><strong>⭐ Chất lượng:</strong> ${block.quality}</div>` : ''}
+                        </div>
+
+                        <!-- Hiển thị chi tiết sự kiện (KHÔNG BAO GỒM quality) -->
+                        ${displayEventDetails(block)}
+
+                        <!-- Nút xem minh chứng -->
+                        ${block.imageUrl ? `
+                            <button class="evidence-button" 
+                                    onclick="openEvidenceModal('${block.imageUrl}', ${block.index}, '${block.actor}', '${block.role}')">
+                                📷 Xem Minh Chứng
+                            </button>
+                        ` : `
+                            <button class="evidence-button" disabled>
+                                📷 Không có minh chứng
+                            </button>
+                        `}
+
+                        <div class="block-info" style="margin-top: 10px;">
+                            <div>
+                                <strong>🔐 Hash:</strong>
+                                <div class="hash-value">${block.hash || 'N/A'}</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+
+        // Hàm hiển thị chi tiết sự kiện (giữ nguyên)
+        function displayEventDetails(block) {
+            const source = block.data || block; // lấy dữ liệu từ block.data nếu có
+            const eventFields = [
+                { key: 'seedType', label: 'Loại giống', icon: '🌱' },
+                { key: 'area', label: 'Diện tích (m²)', icon: '📏' },
+                { key: 'yield', label: 'Năng suất', icon: '📊' },
+                { key: 'waterSource', label: 'Nguồn nước', icon: '💧' },
+                { key: 'fertilizerType', label: 'Loại phân bón', icon: '🧪' },
+                { key: 'harvestDate', label: 'Ngày thu hoạch', icon: '🌾' },
+                { key: 'saleDate', label: 'Ngày bán', icon: '🛒' },
+                { key: 'duration', label: 'Thời gian', icon: '⏱️' },
+                { key: 'temperature', label: 'Nhiệt độ', icon: '🌡️' },
+                { key: 'customerType', label: 'Loại khách hàng', icon: '👥' },
+                { key: 'batchNumber', label: 'Số lô', icon: '🏷️' },
+                { key: 'fromLocation', label: 'Điểm đi', icon: '🚚' },
+                { key: 'toLocation', label: 'Điểm đến', icon: '🎯' },
+                { key: 'processType', label: 'Quy trình', icon: '🏭' },
+                { key: 'quantity', label: 'Số lượng (kg)', icon: '📦' },
+                { key: 'price', label: 'Giá (VNĐ)', icon: '💰' }
+            ];
+
+            const validFields = eventFields.filter(field => {
+                const value = source[field.key];
+                return value !== null && value !== undefined && value !== '' && value !== 'null' && value !== 'undefined';
+            });
+
+            if (validFields.length === 0) {
+                return '';
+            }
+
+            return `
+                <div class="event-details">
+                    <h4>📋 Chi tiết sự kiện</h4>
+                    <div class="block-info">
+                        ${validFields.map(field => `
+                            <div>
+                                <strong>${field.icon} ${field.label}:</strong> 
+                                ${source[field.key]}
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+
+
+        // Chuyển đổi tên sự kiện
+        function getEventName(eventType) {
+            const eventNames = {
+                'planting': 'Trồng cây',
+                'fertilizing': 'Bón phân',
+                'watering': 'Tưới nước',
+                'harvesting': 'Thu hoạch',
+                'quality_check': 'Kiểm tra chất lượng',
+                'pickup': 'Lấy hàng',
+                'intransit': 'Đang vận chuyển',
+                'warehouse': 'Nhập kho',
+                'delivered': 'Đã giao hàng',
+                'delay': 'Trì hoãn',
+                'cleaning': 'Làm sạch',
+                'sorting': 'Phân loại',
+                'roasting': 'Rang xay',
+                'grinding': 'Xay nghiền',
+                'packaging': 'Đóng gói',
+                'quality_control': 'Kiểm soát chất lượng',
+                'received': 'Nhập hàng',
+                'sale': 'Bán hàng',
+                'display': 'Trưng bày',
+                'promotion': 'Khuyến mãi',
+                'purchase': 'Mua hàng',
+                'review': 'Đánh giá',
+                'return': 'Trả hàng'
+            };
+            return eventNames[eventType] || eventType || 'Sự kiện';
+        }
+
+        // // Chuyển đổi tên hành động
+        function getActionName(action) {
+            const actionNames = {
+                'harvest': 'Thu hoạch',
+                'transport': 'Vận chuyển',
+                'process': 'Chế biến',
+                'sell': 'Bán hàng',
+                'view': 'Xem thông tin',
+                'planting': 'Trồng cây',
+                'fertilizing': 'Bón phân',
+                'watering': 'Tưới nước',
+                'quality_check': 'Kiểm tra chất lượng',
+                'pickup': 'Lấy hàng',
+                'intransit': 'Đang vận chuyển',
+                'warehouse': 'Nhập kho',
+                'delivered': 'Đã giao hàng',
+                'cleaning': 'Làm sạch',
+                'sorting': 'Phân loại',
+                'roasting': 'Rang xay',
+                'grinding': 'Xay nghiền',
+                'packaging': 'Đóng gói',
+                'received': 'Nhập hàng',
+                'sale': 'Bán hàng',
+                'display': 'Trưng bày',
+                'promotion': 'Khuyến mãi'
+            };
+            return actionNames[action] || action || 'Hành động';
+        }
+
+        // Gọi API để lấy blocks
+        async function loadProductBlocks() {
+            const productId = getProductIdFromUrl();
+            
+            if (!productId) {
+                showError('Không tìm thấy mã sản phẩm trong URL');
+                return;
+            }
+
+            document.getElementById('productTitle').textContent = `Sản phẩm: ${productId}`;
+
+            try {
+                const baseUrl = window.location.origin;
+                const apiUrl = `${baseUrl}/api/blockchain/product/${encodeURIComponent(productId)}/blocks`;
+                
+                console.log('🔍 Calling API:', apiUrl);
+                
+                const response = await fetch(apiUrl);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    document.getElementById('blockCount').textContent = `Tổng số blocks: ${data.data.totalBlocks}`;
+                    document.title = `Blockchain - ${productId} (${data.data.totalBlocks} blocks)`;
+                    displayBlocks(data.data.blocks);
+                } else {
+                    showError(data.message || 'Không thể tải dữ liệu từ server');
+                }
+            } catch (error) {
+                console.error('❌ Load error:', error);
+                showError('Lỗi kết nối đến server: ' + error.message);
+            }
+        }
+
+        // Tải dữ liệu khi trang load
+        document.addEventListener('DOMContentLoaded', loadProductBlocks);
+
+        // Thêm auto-refresh mỗi 30 giây (optional)
+        setInterval(loadProductBlocks, 30000);
+    </script>
+</body>
+</html>

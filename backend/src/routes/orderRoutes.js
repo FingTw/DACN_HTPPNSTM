@@ -6,7 +6,9 @@ import {
   orderSuccess,
   updateOrderStatus,
   getShippingMethods,
-  getPaymentMethods
+  getPaymentMethods,
+  getAllOrder,
+  getOrdersByStatus
 } from "../controllers/orderController.js";
 
 const router = express.Router();
@@ -28,6 +30,11 @@ router.put("/update-status/:MaDH", updateOrderStatus);
 
 // Thêm vào routes/orderRoutes.js
 router.get("/shipping-methods", getShippingMethods);
+
 router.get("/payment-methods", getPaymentMethods);
+
+// Lấy tất cả đơn hàng
+router.get("/all", getAllOrder);
+router.get("/status/:status", getOrdersByStatus);
 
 export default router;

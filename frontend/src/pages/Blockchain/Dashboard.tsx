@@ -1,7 +1,7 @@
 // src/pages/BlockchainDashboard.tsx
 import React, { useState, useEffect, useRef } from 'react';
-import { useAuth } from '@/context/AuthContext'; // ← THÊM LẠI
-import { blockchainAPI } from '@/services/blockchainApi';
+import { useAuth } from '@/context/AuthContext'; 
+import { blockchainAPI, apiClient } from '@/services/blockchainApi';
 import './BlockchainDashboard.css';
 
 interface UserEvent {
@@ -38,6 +38,7 @@ interface NewBlockData {
   duration?: number | null;
   temperature?: number | null;
   customerType?: string | null;
+
 }
 
 interface QRModalData {
@@ -45,6 +46,8 @@ interface QRModalData {
   productId: string;
   blockIndex: number;
   blockHash: string;
+  totalBlocks?: number;
+  qrUrl?: string;
 }
 
 // Event types theo role
@@ -356,28 +359,204 @@ const BlockchainDashboard: React.FC = () => {
   };
 
   const generateQRCode = async (productId: string) => {
+  try {
+    console.log(`📱 Đang tạo QR code cho sản phẩm: ${productId}`);
+    
+    // CHỈ GỌI MỘT ENDPOINT DUY NHẤT
+    const res = await apiClient.get(`/qrcode/${productId}`);
+
+    console.log('📊 QR code response:', res.data);
+    
+    if (res.data.success && res.data.qrCode) {
+      console.log('✅ QR code tạo thành công');
+      
+      setQrModal({
+        qrCode: res.data.qrCode,
+        productId: productId,
+        blockIndex: res.data.blockCount || 0,
+        blockHash: res.data.blockCount ? `Sản phẩm có ${res.data.blockCount} blocks` : 'Quét mã để xem chi tiết',
+        totalBlocks: res.data.blockCount,
+        qrUrl: res.data.url
+      });
+    } else {
+      alert('❌ Không thể tạo QR code: ' + (res.data.message || 'Lỗi không xác định'));
+    }
+  } catch (err: any) {
+    console.error('❌ Lỗi tạo QR code:', err);
+    const errorMessage = err.response?.data?.message || err.message || 'Lỗi kết nối server';
+    alert(`❌ Không thể tạo QR code: ${errorMessage}`);
+  }
+};
+
+  // THÊM: Hàm tạo QR code cho block cụ thể (nếu cần)
+  const generateBlockQRCode = async (productId: string, blockIndex: number, blockHash?: string) => {
     try {
-      const res = await blockchainAPI.generateQRCode(productId);
-      if (res.success) {
+      console.log(`📱 Đang tạo QR code cho block: #${blockIndex}, sản phẩm: ${productId}`);
+      
+      const res = await blockchainAPI.generateBlockQRCode(productId, blockIndex, blockHash);
+      
+      if (res.success && res.data) {
+        console.log('✅ Block QR code tạo thành công');
+        
         setQrModal({
           qrCode: res.data.qrCode,
-          productId: productId,
-          blockIndex: res.data.blockCount || 0,
-          blockHash: 'Quét mã để xem chi tiết'
+          productId: res.data.productId,
+          blockIndex: res.data.blockIndex,
+          blockHash: res.data.blockHash || `Block #${res.data.blockIndex}`
         });
+      } else {
+        alert('❌ Không thể tạo QR code cho block: ' + (res.message || 'Lỗi không xác định'));
       }
-    } catch (err) {
-      alert('❌ Không thể tạo QR code');
+    } catch (err: any) {
+      console.error('❌ Lỗi tạo block QR code:', err);
+      const errorMessage = err.response?.data?.message || err.message || 'Lỗi kết nối server';
+      alert(`❌ Không thể tạo QR code cho block: ${errorMessage}`);
     }
   };
 
   const downloadQRCode = () => {
-    if (!qrModal) return;
-    const link = document.createElement('a');
-    link.href = qrModal.qrCode;
-    link.download = `QR_${qrModal.productId.replace(/\s+/g, '_')}.png`;
-    link.click();
+    if (!qrModal) {
+      console.warn('⚠️ Không có QR code để tải xuống');
+      return;
+    }
+    
+    try {
+      console.log(`💾 Đang tải xuống QR code cho: ${qrModal.productId}`);
+      
+      const link = document.createElement('a');
+      link.href = qrModal.qrCode;
+      
+      // Tạo tên file an toàn hơn
+      const safeFileName = qrModal.productId
+        .replace(/[^a-zA-Z0-9\u00C0-\u024F\u1E00-\u1EFF]/g, '_') // Thay thế ký tự đặc biệt
+        .replace(/_+/g, '_') // Loại bỏ nhiều _ liên tiếp
+        .substring(0, 50); // Giới hạn độ dài
+      
+      link.download = `QR_${safeFileName}_${Date.now()}.png`;
+      
+      // Thêm sự kiện để xử lý sau khi tải
+      link.addEventListener('click', () => {
+        setTimeout(() => {
+          console.log('✅ QR code đã được tải xuống');
+        }, 100);
+      });
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+    } catch (err) {
+      console.error('❌ Lỗi tải xuống QR code:', err);
+      alert('❌ Lỗi tải xuống QR code');
+    }
   };
+
+  // THÊM: Hàm mở QR code trong tab mới
+  const openQRCodeInNewTab = () => {
+    if (!qrModal) return;
+    
+    try {
+      const newWindow = window.open();
+      if (newWindow) {
+        newWindow.document.write(`
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <title>QR Code - ${qrModal.productId}</title>
+            <style>
+              body { 
+                font-family: Arial, sans-serif; 
+                text-align: center; 
+                padding: 20px;
+                background: #f5f5f5;
+              }
+              .qr-container { 
+                background: white; 
+                padding: 20px; 
+                border-radius: 10px; 
+                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                display: inline-block;
+                margin-top: 50px;
+              }
+              .product-info { 
+                margin-bottom: 20px; 
+                color: #333;
+              }
+              .qr-image { 
+                max-width: 300px; 
+                border: 2px solid #1a237e;
+                border-radius: 5px;
+              }
+              .download-btn {
+                margin-top: 15px;
+                padding: 10px 20px;
+                background: #1a237e;
+                color: white;
+                border: none;
+                border-radius: 5px;
+                cursor: pointer;
+              }
+            </style>
+          </head>
+          <body>
+            <div class="qr-container">
+              <div class="product-info">
+                <h2>📱 Mã QR Sản Phẩm</h2>
+                <p><strong>Mã sản phẩm:</strong> ${qrModal.productId}</p>
+                <p><strong>Block:</strong> #${qrModal.blockIndex}</p>
+              </div>
+              <img src="${qrModal.qrCode}" alt="QR Code" class="qr-image" />
+              <br>
+              <button class="download-btn" onclick="window.print()">🖨️ In QR Code</button>
+            </div>
+          </body>
+          </html>
+        `);
+        newWindow.document.close();
+      }
+    } catch (err) {
+      console.error('❌ Lỗi mở QR code:', err);
+      alert('❌ Không thể mở QR code trong tab mới');
+    }
+  };
+
+  // CẬP NHẬT PHẦN JSX - Thêm nút mở trong tab mới
+  {/* Trong phần QR Modal */}
+  {qrModal && (
+  <div className="qr-modal show" onClick={() => setQrModal(null)}>
+    <div className="qr-modal-content" onClick={(e) => e.stopPropagation()}>
+      <h2>📱 Mã QR Sản Phẩm</h2>
+      <div className="qr-product-info">
+        <p><strong>Mã sản phẩm:</strong> {qrModal.productId}</p>
+        <p><strong>Tổng số blocks:</strong> {qrModal.totalBlocks || 'Đang tải...'}</p>
+        <p><strong>Block mới nhất:</strong> #{qrModal.blockIndex}</p>
+        <p><strong>URL khi quét:</strong> 
+          <br />
+          <code style={{ fontSize: '10px', wordBreak: 'break-all' }}>
+            {qrModal.qrUrl || 'Quét mã để xem chi tiết'}
+          </code>
+        </p>
+      </div>
+      <img src={qrModal.qrCode} alt="QR Code" className="qr-image" />
+      <p className="qr-note">
+        📸 Quét mã QR bằng điện thoại (cùng mạng WiFi) 
+        <br />
+        để xem toàn bộ lịch sử sản phẩm
+      </p>
+      <div className="qr-buttons">
+        <button className="qr-download-btn" onClick={downloadQRCode}>
+          💾 Tải xuống QR
+        </button>
+        <button className="qr-open-btn" onClick={openQRCodeInNewTab}>
+          🔍 Mở toàn màn hình
+        </button>
+        <button className="qr-close-btn" onClick={() => setQrModal(null)}>
+          Đóng
+        </button>
+      </div>
+    </div>
+  </div>
+)}
 
   const getRoleIcon = (role: string) => {
     const icons: { [key: string]: string } = {
@@ -430,126 +609,255 @@ const BlockchainDashboard: React.FC = () => {
     return map[et ?? ''] ?? et ?? '';
   };
 
-  // Hiển thị dynamic fields theo role và event type
+  // Hiển thị các trường động theo vai trò và loại sự kiện
   const renderDynamicFields = () => {
     if (!authUser) return null;
-    
+
     const userRole = authUser.role;
     const eventType = form.eventType;
 
+    // 🧑‍🌾 NÔNG DÂN (Farmer)
     if (userRole === 'Farmer') {
       switch (eventType) {
         case 'planting':
           return (
             <>
               <div className="form-group">
-                <label htmlFor="harvestDate">Ngày trồng *</label>
+                <label>Ngày trồng *</label>
                 <input
                   type="date"
-                  id="harvestDate"
                   value={form.harvestDate || ''}
                   onChange={(e) => handleFormChange('harvestDate', e.target.value)}
                   required
                 />
               </div>
               <div className="form-group">
-                <label htmlFor="seedType">Loại giống *</label>
+                <label>Loại giống *</label>
                 <input
                   type="text"
-                  id="seedType"
                   value={form.seedType || ''}
                   onChange={(e) => handleFormChange('seedType', e.target.value)}
-                  placeholder="Loại giống sử dụng"
+                  placeholder="VD: Giống cà chua MN2"
                   required
                 />
               </div>
               <div className="form-group">
-                <label htmlFor="area">Diện tích (m²) *</label>
+                <label>Diện tích (m²)</label>
                 <input
                   type="number"
-                  id="area"
                   value={form.area || ''}
                   onChange={(e) => handleFormChange('area', Number(e.target.value))}
                   min="0"
-                  step="0.1"
-                  required
                 />
               </div>
             </>
           );
+
+        case 'fertilizing':
+          return (
+            <>
+              <div className="form-group">
+                <label>Loại phân bón *</label>
+                <input
+                  type="text"
+                  value={form.fertilizerType || ''}
+                  onChange={(e) => handleFormChange('fertilizerType', e.target.value)}
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label>Ghi chú</label>
+                <textarea
+                  value={form.notes || ''}
+                  onChange={(e) => handleFormChange('notes', e.target.value)}
+                  placeholder="Thời gian, liều lượng, ghi chú thêm..."
+                />
+              </div>
+            </>
+          );
+
+        case 'watering':
+          return (
+            <>
+              <div className="form-group">
+                <label>Nguồn nước *</label>
+                <input
+                  type="text"
+                  value={form.waterSource || ''}
+                  onChange={(e) => handleFormChange('waterSource', e.target.value)}
+                  placeholder="Giếng khoan, nước sông..."
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label>Ghi chú</label>
+                <textarea
+                  value={form.notes || ''}
+                  onChange={(e) => handleFormChange('notes', e.target.value)}
+                />
+              </div>
+            </>
+          );
+
         case 'harvesting':
           return (
             <>
               <div className="form-group">
-                <label htmlFor="harvestDate">Ngày thu hoạch *</label>
+                <label>Ngày thu hoạch *</label>
                 <input
                   type="date"
-                  id="harvestDate"
                   value={form.harvestDate || ''}
                   onChange={(e) => handleFormChange('harvestDate', e.target.value)}
                   required
                 />
               </div>
               <div className="form-group">
-                <label htmlFor="quantity">Số lượng thu hoạch (kg) *</label>
+                <label>Sản lượng (kg) *</label>
                 <input
                   type="number"
-                  id="quantity"
                   value={form.quantity || ''}
                   onChange={(e) => handleFormChange('quantity', Number(e.target.value))}
                   min="0"
-                  step="0.1"
                   required
-                />
-              </div>
-              <div className="form-group">
-                <label htmlFor="yield">Năng suất (kg/m²)</label>
-                <input
-                  type="number"
-                  id="yield"
-                  value={form.yield || ''}
-                  onChange={(e) => handleFormChange('yield', Number(e.target.value))}
-                  min="0"
-                  step="0.1"
                 />
               </div>
             </>
           );
-        // Thêm các case khác cho Farmer...
-      }
-    }
 
-    if (userRole === 'Shipper') {
-      switch (eventType) {
-        case 'pickup':
-        case 'delivered':
+        case 'quality_check':
           return (
             <>
               <div className="form-group">
-                <label htmlFor="fromLocation">Điểm đi *</label>
+                <label>Phân loại chất lượng *</label>
+                <select
+                  value={form.quality || ''}
+                  onChange={(e) => handleFormChange('quality', e.target.value)}
+                  required
+                >
+                  <option value="">-- Chọn loại --</option>
+                  <option value="A">Loại A</option>
+                  <option value="B">Loại B</option>
+                  <option value="C">Loại C</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Ghi chú</label>
+                <textarea
+                  value={form.notes || ''}
+                  onChange={(e) => handleFormChange('notes', e.target.value)}
+                />
+              </div>
+            </>
+          );
+      }
+    }
+
+    // 🏭 NHÀ MÁY (Factory)
+    if (userRole === 'Factory') {
+      switch (eventType) {
+        case 'cleaning':
+        case 'sorting':
+        case 'roasting':
+        case 'grinding':
+          return (
+            <>
+              <div className="form-group">
+                <label>Thời gian xử lý (giờ)</label>
+                <input
+                  type="number"
+                  value={form.duration || ''}
+                  onChange={(e) => handleFormChange('duration', Number(e.target.value))}
+                  min="0"
+                  step="0.1"
+                />
+              </div>
+              <div className="form-group">
+                <label>Ghi chú</label>
+                <textarea
+                  value={form.notes || ''}
+                  onChange={(e) => handleFormChange('notes', e.target.value)}
+                />
+              </div>
+            </>
+          );
+
+        case 'packaging':
+          return (
+            <>
+              <div className="form-group">
+                <label>Mã lô hàng *</label>
                 <input
                   type="text"
-                  id="fromLocation"
+                  value={form.batchNumber || ''}
+                  onChange={(e) => handleFormChange('batchNumber', e.target.value)}
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label>Số lượng đóng gói *</label>
+                <input
+                  type="number"
+                  value={form.quantity || ''}
+                  onChange={(e) => handleFormChange('quantity', Number(e.target.value))}
+                  min="0"
+                  required
+                />
+              </div>
+            </>
+          );
+
+        case 'quality_control':
+          return (
+            <>
+              <div className="form-group">
+                <label>Kết quả kiểm soát chất lượng *</label>
+                <select
+                  value={form.quality || ''}
+                  onChange={(e) => handleFormChange('quality', e.target.value)}
+                  required
+                >
+                  <option value="">-- Chọn kết quả --</option>
+                  <option value="Pass">Đạt</option>
+                  <option value="Fail">Không đạt</option>
+                </select>
+              </div>
+            </>
+          );
+      }
+    }
+
+    // 🚚 VẬN CHUYỂN (Shipper)
+    if (userRole === 'Shipper') {
+      switch (eventType) {
+        case 'pickup':
+        case 'intransit':
+        case 'warehouse':
+        case 'delivered':
+        case 'delay':
+          return (
+            <>
+              <div className="form-group">
+                <label>Điểm đi *</label>
+                <input
+                  type="text"
                   value={form.fromLocation || ''}
                   onChange={(e) => handleFormChange('fromLocation', e.target.value)}
                   required
                 />
               </div>
               <div className="form-group">
-                <label htmlFor="toLocation">Điểm đến *</label>
+                <label>Điểm đến *</label>
                 <input
                   type="text"
-                  id="toLocation"
                   value={form.toLocation || ''}
                   onChange={(e) => handleFormChange('toLocation', e.target.value)}
                   required
                 />
               </div>
               <div className="form-group">
-                <label htmlFor="temperature">Nhiệt độ vận chuyển (°C)</label>
+                <label>Nhiệt độ vận chuyển (°C)</label>
                 <input
                   type="number"
-                  id="temperature"
                   value={form.temperature || ''}
                   onChange={(e) => handleFormChange('temperature', Number(e.target.value))}
                   step="0.1"
@@ -560,10 +868,154 @@ const BlockchainDashboard: React.FC = () => {
       }
     }
 
-    // Thêm các role khác...
+    // 🏪 CỬA HÀNG (CuaHang)
+    if (userRole === 'CuaHang') {
+      switch (eventType) {
+        case 'received':
+          return (
+            <>
+              <div className="form-group">
+                <label>Ngày nhập hàng *</label>
+                <input
+                  type="date"
+                  value={form.saleDate || ''}
+                  onChange={(e) => handleFormChange('saleDate', e.target.value)}
+                  required
+                />
+              </div>
+            </>
+          );
+
+        case 'sale':
+          return (
+            <>
+              <div className="form-group">
+                <label>Ngày bán *</label>
+                <input
+                  type="date"
+                  value={form.saleDate || ''}
+                  onChange={(e) => handleFormChange('saleDate', e.target.value)}
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label>Giá bán (VNĐ)</label>
+                <input
+                  type="number"
+                  value={form.price || ''}
+                  onChange={(e) => handleFormChange('price', Number(e.target.value))}
+                  min="0"
+                />
+              </div>
+            </>
+          );
+
+        case 'display':
+          return (
+            <>
+              <div className="form-group">
+                <label>Kệ trưng bày *</label>
+                <input
+                  type="text"
+                  value={form.location || ''}
+                  onChange={(e) => handleFormChange('location', e.target.value)}
+                  required
+                />
+              </div>
+            </>
+          );
+
+        case 'promotion':
+          return (
+            <>
+              <div className="form-group">
+                <label>Ghi chú khuyến mãi</label>
+                <textarea
+                  value={form.notes || ''}
+                  onChange={(e) => handleFormChange('notes', e.target.value)}
+                  placeholder="Thông tin về chương trình khuyến mãi"
+                />
+              </div>
+            </>
+          );
+      }
+    }
+
+    // 👤 KHÁCH HÀNG (Customer)
+    if (userRole === 'Customer') {
+      switch (eventType) {
+        case 'purchase':
+          return (
+            <>
+              <div className="form-group">
+                <label>Ngày mua *</label>
+                <input
+                  type="date"
+                  value={form.saleDate || ''}
+                  onChange={(e) => handleFormChange('saleDate', e.target.value)}
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label>Loại khách hàng</label>
+                <input
+                  type="text"
+                  value={form.customerType || ''}
+                  onChange={(e) => handleFormChange('customerType', e.target.value)}
+                  placeholder="Cá nhân / Doanh nghiệp..."
+                />
+              </div>
+            </>
+          );
+
+        case 'review':
+          return (
+            <>
+              <div className="form-group">
+                <label>Đánh giá *</label>
+                <select
+                  value={form.quality || ''}
+                  onChange={(e) => handleFormChange('quality', e.target.value)}
+                  required
+                >
+                  <option value="">-- Chọn đánh giá --</option>
+                  <option value="5">★★★★★ Rất tốt</option>
+                  <option value="4">★★★★ Tốt</option>
+                  <option value="3">★★★ Trung bình</option>
+                  <option value="2">★★ Kém</option>
+                  <option value="1">★ Rất tệ</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Nhận xét</label>
+                <textarea
+                  value={form.notes || ''}
+                  onChange={(e) => handleFormChange('notes', e.target.value)}
+                  placeholder="Nhận xét của bạn..."
+                />
+              </div>
+            </>
+          );
+
+        case 'return':
+          return (
+            <>
+              <div className="form-group">
+                <label>Lý do trả hàng *</label>
+                <textarea
+                  value={form.notes || ''}
+                  onChange={(e) => handleFormChange('notes', e.target.value)}
+                  required
+                />
+              </div>
+            </>
+          );
+      }
+    }
 
     return null;
   };
+
 
   if (loading) {
     return (
@@ -811,9 +1263,11 @@ const BlockchainDashboard: React.FC = () => {
                 {userEvents.map((event, index) => (
                   <div key={index} className="timeline-item">
                     <div className="timeline-content">
-                      <div className="timeline-status">{eventName(event.eventType) || event.status || 'Sự kiện'}</div>
+                      <div className="timeline-status">
+                        <strong>📅 Sự kiện:</strong> {eventName(event.eventType) || event.status || 'Không xác định'}
+                      </div>
                       <div className="timeline-info">
-                        <strong>👤 Người thực hiện:</strong> {event.actor} ({getRoleName(event.role)})
+                        <strong>👤 Người thực hiện:</strong> {event.actor} {getRoleName(event.role)}
                       </div>
                       <div className="timeline-info">
                         <strong>🕒 Thời gian:</strong> {new Date(Number(event.timestamp)).toLocaleString('vi-VN')}
@@ -862,27 +1316,40 @@ const BlockchainDashboard: React.FC = () => {
 
       {/* QR Modal */}
       {qrModal && (
-        <div className="qr-modal show" onClick={() => setQrModal(null)}>
-          <div className="qr-modal-content" onClick={(e) => e.stopPropagation()}>
-            <h2>📱 Mã QR Sản Phẩm</h2>
-            <div className="qr-product-info">
-              <p><strong>Mã sản phẩm:</strong> {qrModal.productId}</p>
-              <p><strong>Block:</strong> #{qrModal.blockIndex}</p>
-              <p><strong>Hash:</strong> <code>{qrModal.blockHash}</code></p>
-            </div>
-            <img src={qrModal.qrCode} alt="QR Code" className="qr-image" />
-            <p className="qr-note">📸 Quét mã QR này để xem lịch sử sản phẩm</p>
-            <div className="qr-buttons">
-              <button className="qr-download-btn" onClick={downloadQRCode}>
-                💾 Tải xuống QR
-              </button>
-              <button className="qr-close-btn" onClick={() => setQrModal(null)}>
-                Đóng
-              </button>
-            </div>
+      <div className="qr-modal show" onClick={() => setQrModal(null)}>
+        <div className="qr-modal-content" onClick={(e) => e.stopPropagation()}>
+          <h2>📱 Mã QR Sản Phẩm</h2>
+          <div className="qr-product-info">
+            <p><strong>Mã sản phẩm:</strong> {qrModal.productId}</p>
+            <p><strong>Tổng số blocks:</strong> {qrModal.totalBlocks || 'Đang tải...'}</p>
+            <p><strong>Block mới nhất:</strong> #{qrModal.blockIndex}</p>
+            <p><strong>URL khi quét:</strong> 
+              <br />
+              <code style={{ fontSize: '10px', wordBreak: 'break-all' }}>
+                {qrModal.qrUrl || 'Quét mã để xem chi tiết'}
+              </code>
+            </p>
+          </div>
+          <img src={qrModal.qrCode} alt="QR Code" className="qr-image" />
+          <p className="qr-note">
+            📸 Quét mã QR bằng điện thoại (cùng mạng WiFi) 
+            <br />
+            để xem toàn bộ lịch sử sản phẩm
+          </p>
+          <div className="qr-buttons">
+            <button className="qr-download-btn" onClick={downloadQRCode}>
+              💾 Tải xuống QR
+            </button>
+            <button className="qr-open-btn" onClick={openQRCodeInNewTab}>
+              🔍 Mở toàn màn hình
+            </button>
+            <button className="qr-close-btn" onClick={() => setQrModal(null)}>
+              Đóng
+            </button>
           </div>
         </div>
-      )}
+      </div>
+    )}
     </div>
   );
 };

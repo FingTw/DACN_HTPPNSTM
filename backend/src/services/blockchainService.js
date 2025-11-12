@@ -49,9 +49,22 @@ class BlockchainService {
 
     // Blockchain core methods - TẤT CẢ ĐỀU SỬ DỤNG supplyChain (MyBlockchain)
     getFullChain() {
-        const chain = this.supplyChain.getFullChain();
-        console.log(`📦 Retrieved full chain with ${chain.length} blocks`);
-        return chain;
+        try {
+            // Nếu dùng supplyChain
+            if (this.supplyChain && this.supplyChain.chain) {
+                return this.supplyChain.chain;
+            }
+            // Nếu dùng legacy blockchain
+            if (this.legacyChain && this.legacyChain.chain) {
+                return this.legacyChain.chain;
+            }
+            // Fallback: trả về mảng rỗng
+            console.warn('⚠️ No blockchain instance found, returning empty chain');
+            return [];
+        } catch (error) {
+            console.error('❌ Error getting full chain:', error);
+            return [];
+        }
     }
 
     getProductHistory(productId) {
@@ -108,6 +121,7 @@ class BlockchainService {
             // Map role to action
             const roleMapping = this.getRoleMapping();
             const action = data.action || roleMapping[user.VaiTro] || 'view';
+            
 
             // Check permission using supplyChain
             if (!this.supplyChain.hasPermission(user.VaiTro, action)) {
@@ -159,22 +173,83 @@ class BlockchainService {
     }
 
     // QR Code generation
-    async generateQRCode(productId) {
+async generateQRCode(productId) {
+    try {
+        console.log(`📱 Đang tạo QR code cho: ${productId}`);
+        
+        // Tạo URL cho QR code - TRỎ ĐẾN BACKEND HTML
+        const serverIP = process.env.SERVER_IP || 'localhost';
+        const backendPort = process.env.PORT || 3000;
+        
+        // URL đến file HTML trong backend public folder
+        const url = `http://${serverIP}:${backendPort}/product-block.html?productId=${encodeURIComponent(productId)}`;
+        
+        console.log(`🔗 QR Code URL: ${url}`);
+        
+        // Tạo QR code với options
+        const qrCode = await QRCode.toDataURL(url, { 
+            width: 300,
+            height: 300,
+            margin: 2,
+            color: {
+                dark: '#1a237e',      // Màu tối - xanh đậm
+                light: '#FFFFFF'      // Màu sáng - trắng
+            },
+            errorCorrectionLevel: 'H' // High error correction
+        });
+        
+        console.log(`✅ Generated QR code successfully for: ${productId}`);
+        console.log(`📏 QR Code size: ${qrCode.length} characters`);
+        
+        return qrCode;
+        
+    } catch (error) {
+        console.error('❌ QR Code generation error:', error);
+        
+        // Fallback: Tạo QR code đơn giản hơn
         try {
-            const serverIP = process.env.SERVER_IP || 'localhost';
-            const backendPort = process.env.PORT || 3000;
-            const url = `http://${serverIP}:${backendPort}/product/${encodeURIComponent(productId)}`;
+            console.log('🔄 Thử tạo QR code với cài đặt đơn giản...');
+            const simpleUrl = `Product: ${productId}`;
+            const simpleQR = await QRCode.toDataURL(simpleUrl, {
+                width: 200,
+                margin: 1
+            });
+            console.log('✅ Fallback QR code created');
+            return simpleQR;
+        } catch (fallbackError) {
+            console.error('❌ Fallback QR code also failed:', fallbackError);
+            return null;
+        }
+    }
+}
+
+    // Method để generate QR code cho block (dùng trong recordTransaction)
+    async generateQRCodeForBlock(productId, blockIndex, blockHash) {
+        try {
+            console.log(`📱 Tạo QR code cho block: #${blockIndex}, Product: ${productId}`);
             
-            const qrCode = await QRCode.toDataURL(url, { 
-                width: 300, 
-                margin: 2, 
-                color: { dark: '#1a237e', light: '#FFFFFF' }
+            const qrData = JSON.stringify({
+                productId: productId,
+                blockIndex: blockIndex,
+                blockHash: blockHash.substring(0, 16) + '...',
+                timestamp: new Date().toISOString(),
+                type: 'blockchain_block'
             });
             
-            console.log(`✅ Generated QR code for: ${productId}`);
+            const qrCode = await QRCode.toDataURL(qrData, {
+                width: 250,
+                margin: 2,
+                color: {
+                    dark: '#1a237e',
+                    light: '#f8f9fa'
+                }
+            });
+            
+            console.log(`✅ QR code for block #${blockIndex} generated`);
             return qrCode;
+            
         } catch (error) {
-            console.error('❌ QR Code generation error:', error);
+            console.error('❌ Error generating QR code for block:', error);
             return null;
         }
     }
