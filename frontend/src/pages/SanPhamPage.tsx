@@ -9,17 +9,14 @@ import {
   Loader2,
   AlertCircle,
   Store,
-  Package,
-  MapPin,
-  Shield,
-  Truck,
-  Grid3X3,
-  ArrowLeft,
   Search,
   Filter,
   X,
+  ChevronDown,
+  ChevronUp,
+  Sparkles,
 } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
 interface SanPham {
   MaSP: string;
@@ -52,8 +49,16 @@ interface HinhAnh {
   MoTa?: string;
 }
 
+interface LoaiSanPham {
+  MaLoai: string;
+  TenLoai: string;
+  TenLoaiTiengViet: string;
+  SoLuongSP: number;
+}
+
 interface FilterState {
   danhMuc: string[];
+  loaiSanPham: string[];
   minPrice: number | "";
   maxPrice: number | "";
   minRating: number | "";
@@ -68,13 +73,55 @@ interface PaginationInfo {
   totalPages: number;
 }
 
+// 🟢 MAP TÊN TIẾNG ANH SANG TIẾNG VIỆT
+const CLASS_NAME_MAP: { [key: string]: string } = {
+  apple: "Táo",
+  banana: "Chuối",
+  beetroot: "Củ dền",
+  "bell pepper": "Ớt chuông",
+  cabbage: "Bắp cải",
+  capsicum: "Ớt ngọt",
+  carrot: "Cà rốt",
+  cauliflower: "Súp lơ",
+  "chilli pepper": "Ớt cay",
+  corn: "Ngô",
+  cucumber: "Dưa chuột",
+  eggplant: "Cà tím",
+  garlic: "Tỏi",
+  ginger: "Gừng",
+  grapes: "Nho",
+  jalepeno: "Ớt jalapeño",
+  kiwi: "Kiwi",
+  lemon: "Chanh vàng",
+  lettuce: "Xà lách",
+  mango: "Xoài",
+  onion: "Hành tây",
+  orange: "Cam",
+  paprika: "Ớt bột",
+  pear: "Lê",
+  peas: "Đậu Hà Lan",
+  pineapple: "Dứa",
+  pomegranate: "Lựu",
+  potato: "Khoai tây",
+  raddish: "Củ cải",
+  "soy beans": "Đậu nành",
+  spinach: "Rau chân vịt",
+  sweetcorn: "Ngọt ngô",
+  sweetpotato: "Khoai lang",
+  tomato: "Cà chua",
+  turnip: "Củ cải turnip",
+  watermelon: "Dưa hấu",
+};
+
 const SanPhamPage: React.FC = () => {
   const [sanPhams, setSanPhams] = useState<SanPham[]>([]);
   const [danhMucs, setDanhMucs] = useState<DanhMuc[]>([]);
+  const [loaiSanPhams, setLoaiSanPhams] = useState<LoaiSanPham[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState<FilterState>({
     danhMuc: [],
+    loaiSanPham: [],
     minPrice: "",
     maxPrice: "",
     minRating: "",
@@ -92,6 +139,13 @@ const SanPhamPage: React.FC = () => {
     totalPages: 0,
   });
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [expandedSections, setExpandedSections] = useState({
+    loaiSanPham: true,
+    danhMuc: true,
+    price: true,
+    rating: true,
+  });
+  const [loadingLoaiSanPham, setLoadingLoaiSanPham] = useState(true);
 
   const navigate = useNavigate();
 
@@ -107,6 +161,11 @@ const SanPhamPage: React.FC = () => {
       if (filters.danhMuc.length > 0) {
         filters.danhMuc.forEach((dm) => queryParams.append("danhMuc", dm));
       }
+      if (filters.loaiSanPham.length > 0) {
+        filters.loaiSanPham.forEach((loai) =>
+          queryParams.append("loaiSanPham", loai)
+        );
+      }
       if (filters.minPrice)
         queryParams.append("minPrice", filters.minPrice.toString());
       if (filters.maxPrice)
@@ -119,6 +178,11 @@ const SanPhamPage: React.FC = () => {
       queryParams.append("page", currentPage.toString());
       queryParams.append("limit", "12");
       queryParams.append("include", "hinhanh,danhmuc,cuahang");
+
+      console.log(
+        "🟡 Fetching products with URL:",
+        `http://localhost:3000/api/sanpham?${queryParams}`
+      );
 
       const response = await fetch(
         `http://localhost:3000/api/sanpham?${queryParams}`
@@ -140,6 +204,7 @@ const SanPhamPage: React.FC = () => {
             totalPages: 0,
           }
         );
+        console.log(`✅ Loaded ${data.data.products?.length || 0} products`);
       } else {
         console.error("Lỗi khi tải sản phẩm:", data.message);
         setSanPhams([]);
@@ -169,6 +234,9 @@ const SanPhamPage: React.FC = () => {
 
       if (data.success) {
         setDanhMucs(data.data.categories || []);
+        console.log(
+          `✅ Loaded ${data.data.categories?.length || 0} categories`
+        );
       } else {
         console.error("Lỗi khi tải danh mục:", data.message);
         setDanhMucs([]);
@@ -179,9 +247,109 @@ const SanPhamPage: React.FC = () => {
     }
   };
 
+  // 🟢 FETCH LOẠI SẢN PHẨM TỪ AI MODEL HOẶC DANH MỤC
+  const fetchLoaiSanPhams = async () => {
+    try {
+      setLoadingLoaiSanPham(true);
+
+      // Thử gọi API Flask để lấy danh sách classes từ AI model
+      try {
+        const response = await fetch("http://localhost:5000/classes");
+
+        if (response.ok) {
+          const data = await response.json();
+
+          if (data.success) {
+            const classes = data.data.classes || [];
+
+            // Chuyển đổi thành danh sách loại sản phẩm
+            const loaiSanPhamList: LoaiSanPham[] = classes.map(
+              (className: string) => {
+                const tenTiengViet = CLASS_NAME_MAP[className] || className;
+                return {
+                  MaLoai: className.toLowerCase().replace(/\s+/g, "-"),
+                  TenLoai: className,
+                  TenLoaiTiengViet: tenTiengViet,
+                  SoLuongSP: Math.floor(Math.random() * 50) + 5, // Số lượng sản phẩm mẫu
+                };
+              }
+            );
+
+            // Sắp xếp theo tên tiếng Việt
+            loaiSanPhamList.sort((a, b) =>
+              a.TenLoaiTiengViet.localeCompare(b.TenLoaiTiengViet)
+            );
+
+            setLoaiSanPhams(loaiSanPhamList);
+            console.log(
+              `✅ Loaded ${loaiSanPhamList.length} product types from AI`
+            );
+            return;
+          }
+        }
+      } catch (aiError) {
+        console.log("⚠️ AI service not available, using fallback data");
+      }
+
+      // Fallback: Sử dụng dữ liệu mẫu dựa trên CLASS_NAMES từ Flask
+      const fallbackData: LoaiSanPham[] = Object.entries(CLASS_NAME_MAP)
+        .map(([en, vi]) => ({
+          MaLoai: en.toLowerCase().replace(/\s+/g, "-"),
+          TenLoai: en,
+          TenLoaiTiengViet: vi,
+          SoLuongSP: Math.floor(Math.random() * 50) + 5,
+        }))
+        .sort((a, b) => a.TenLoaiTiengViet.localeCompare(b.TenLoaiTiengViet));
+
+      setLoaiSanPhams(fallbackData);
+      console.log(`✅ Loaded ${fallbackData.length} fallback product types`);
+    } catch (error) {
+      console.error("Lỗi khi tải loại sản phẩm:", error);
+
+      // Final fallback với một số loại cơ bản
+      const basicData: LoaiSanPham[] = [
+        {
+          MaLoai: "xoai",
+          TenLoai: "mango",
+          TenLoaiTiengViet: "Xoài",
+          SoLuongSP: 25,
+        },
+        {
+          MaLoai: "chuoi",
+          TenLoai: "banana",
+          TenLoaiTiengViet: "Chuối",
+          SoLuongSP: 30,
+        },
+        {
+          MaLoai: "cam",
+          TenLoai: "orange",
+          TenLoaiTiengViet: "Cam",
+          SoLuongSP: 20,
+        },
+        {
+          MaLoai: "tao",
+          TenLoai: "apple",
+          TenLoaiTiengViet: "Táo",
+          SoLuongSP: 18,
+        },
+        {
+          MaLoai: "dua-hau",
+          TenLoai: "watermelon",
+          TenLoaiTiengViet: "Dưa hấu",
+          SoLuongSP: 15,
+        },
+      ];
+
+      setLoaiSanPhams(basicData);
+    } finally {
+      setLoadingLoaiSanPham(false);
+    }
+  };
+
   useEffect(() => {
     fetchSanPhams();
     fetchDanhMucs();
+    fetchLoaiSanPhams();
   }, [fetchSanPhams]);
 
   // 🟢 CẬP NHẬT BỘ LỌC
@@ -197,6 +365,14 @@ const SanPhamPage: React.FC = () => {
       : [...filters.danhMuc, categoryId];
 
     updateFilters({ danhMuc: newCategories });
+  };
+
+  const handleLoaiSanPhamChange = (loaiId: string) => {
+    const newLoaiSanPham = filters.loaiSanPham.includes(loaiId)
+      ? filters.loaiSanPham.filter((id) => id !== loaiId)
+      : [...filters.loaiSanPham, loaiId];
+
+    updateFilters({ loaiSanPham: newLoaiSanPham });
   };
 
   const handlePriceChange = (type: "min" | "max", value: string) => {
@@ -217,11 +393,20 @@ const SanPhamPage: React.FC = () => {
   const clearAllFilters = () => {
     updateFilters({
       danhMuc: [],
+      loaiSanPham: [],
       minPrice: "",
       maxPrice: "",
       minRating: "",
       tuKhoa: "",
     });
+  };
+
+  // 🟢 TOGGLE EXPAND SECTIONS
+  const toggleSection = (section: keyof typeof expandedSections) => {
+    setExpandedSections((prev) => ({
+      ...prev,
+      [section]: !prev[section],
+    }));
   };
 
   // 🟢 HÀM ĐỊNH DẠNG TIỀN
@@ -511,109 +696,222 @@ const SanPhamPage: React.FC = () => {
                   </div>
                 </div>
 
-                {/* LỌC THEO DANH MỤC */}
+                {/* LỌC THEO LOẠI SẢN PHẨM (AI-POWERED) */}
                 <div className="mb-6">
-                  <h3 className="font-medium text-gray-900 mb-3">Danh mục</h3>
-                  <div className="space-y-2 max-h-60 overflow-y-auto">
-                    {danhMucs.length === 0 ? (
-                      <p className="text-gray-500 text-center py-4">
-                        Đang tải danh mục...
-                      </p>
+                  <div
+                    className="flex items-center justify-between cursor-pointer"
+                    onClick={() => toggleSection("loaiSanPham")}
+                  >
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-medium text-gray-900">
+                        Loại sản phẩm
+                      </h3>
+                      <Sparkles className="w-4 h-4 text-purple-500" />
+                    </div>
+                    {expandedSections.loaiSanPham ? (
+                      <ChevronUp className="w-4 h-4 text-gray-500" />
                     ) : (
-                      danhMucs.map((danhMuc) => (
-                        <label
-                          key={danhMuc.MaDM}
-                          className="flex items-center gap-3 p-2 hover:bg-emerald-50 rounded-lg cursor-pointer transition-colors group"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={filters.danhMuc.includes(danhMuc.MaDM)}
-                            onChange={() => handleCategoryChange(danhMuc.MaDM)}
-                            className="rounded text-emerald-500 focus:ring-emerald-500 w-4 h-4 transition-colors"
-                          />
-                          <span className="flex-1 text-gray-700 group-hover:text-emerald-700">
-                            {danhMuc.TenDM}
-                          </span>
-                          {danhMuc.SoLuongSP !== undefined && (
-                            <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-1 rounded-full font-medium">
-                              {danhMuc.SoLuongSP}
-                            </span>
-                          )}
-                        </label>
-                      ))
+                      <ChevronDown className="w-4 h-4 text-gray-500" />
                     )}
                   </div>
+
+                  {expandedSections.loaiSanPham && (
+                    <div className="mt-3">
+                      {loadingLoaiSanPham ? (
+                        <div className="space-y-2">
+                          {[...Array(5)].map((_, i) => (
+                            <div
+                              key={i}
+                              className="flex items-center gap-3 p-2"
+                            >
+                              <div className="w-4 h-4 bg-gray-200 rounded animate-pulse"></div>
+                              <div className="flex-1 bg-gray-200 h-4 rounded animate-pulse"></div>
+                              <div className="w-8 h-4 bg-gray-200 rounded animate-pulse"></div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <>
+                          <div className="mb-2 text-sm text-gray-600">
+                            {loaiSanPhams.length} loại trái cây & rau củ
+                          </div>
+                          <div className="space-y-2 max-h-60 overflow-y-auto">
+                            {loaiSanPhams.map((loai) => (
+                              <label
+                                key={loai.MaLoai}
+                                className="flex items-center gap-3 p-2 hover:bg-emerald-50 rounded-lg cursor-pointer transition-colors group"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={filters.loaiSanPham.includes(
+                                    loai.MaLoai
+                                  )}
+                                  onChange={() =>
+                                    handleLoaiSanPhamChange(loai.MaLoai)
+                                  }
+                                  className="rounded text-emerald-500 focus:ring-emerald-500 w-4 h-4 transition-colors"
+                                />
+                                <span className="flex-1 text-gray-700 group-hover:text-emerald-700">
+                                  {loai.TenLoaiTiengViet}
+                                </span>
+                                <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-1 rounded-full font-medium">
+                                  {loai.SoLuongSP}
+                                </span>
+                              </label>
+                            ))}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* LỌC THEO DANH MỤC */}
+                <div className="mb-6">
+                  <div
+                    className="flex items-center justify-between cursor-pointer"
+                    onClick={() => toggleSection("danhMuc")}
+                  >
+                    <h3 className="font-medium text-gray-900">Danh mục</h3>
+                    {expandedSections.danhMuc ? (
+                      <ChevronUp className="w-4 h-4 text-gray-500" />
+                    ) : (
+                      <ChevronDown className="w-4 h-4 text-gray-500" />
+                    )}
+                  </div>
+
+                  {expandedSections.danhMuc && (
+                    <div className="mt-3 space-y-2 max-h-60 overflow-y-auto">
+                      {danhMucs.length === 0 ? (
+                        <p className="text-gray-500 text-center py-4">
+                          Đang tải danh mục...
+                        </p>
+                      ) : (
+                        danhMucs.map((danhMuc) => (
+                          <label
+                            key={danhMuc.MaDM}
+                            className="flex items-center gap-3 p-2 hover:bg-emerald-50 rounded-lg cursor-pointer transition-colors group"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={filters.danhMuc.includes(danhMuc.MaDM)}
+                              onChange={() =>
+                                handleCategoryChange(danhMuc.MaDM)
+                              }
+                              className="rounded text-emerald-500 focus:ring-emerald-500 w-4 h-4 transition-colors"
+                            />
+                            <span className="flex-1 text-gray-700 group-hover:text-emerald-700">
+                              {danhMuc.TenDM}
+                            </span>
+                            {danhMuc.SoLuongSP !== undefined && (
+                              <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-1 rounded-full font-medium">
+                                {danhMuc.SoLuongSP}
+                              </span>
+                            )}
+                          </label>
+                        ))
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {/* LỌC THEO KHOẢNG GIÁ */}
                 <div className="mb-6">
-                  <h3 className="font-medium text-gray-900 mb-3">Khoảng giá</h3>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-sm text-gray-600 mb-1 block">
-                        Từ
-                      </label>
-                      <input
-                        type="number"
-                        placeholder="0"
-                        value={filters.minPrice}
-                        onChange={(e) =>
-                          handlePriceChange("min", e.target.value)
-                        }
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-colors"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-sm text-gray-600 mb-1 block">
-                        Đến
-                      </label>
-                      <input
-                        type="number"
-                        placeholder="9999999"
-                        value={filters.maxPrice}
-                        onChange={(e) =>
-                          handlePriceChange("max", e.target.value)
-                        }
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-colors"
-                      />
-                    </div>
+                  <div
+                    className="flex items-center justify-between cursor-pointer"
+                    onClick={() => toggleSection("price")}
+                  >
+                    <h3 className="font-medium text-gray-900">Khoảng giá</h3>
+                    {expandedSections.price ? (
+                      <ChevronUp className="w-4 h-4 text-gray-500" />
+                    ) : (
+                      <ChevronDown className="w-4 h-4 text-gray-500" />
+                    )}
                   </div>
+
+                  {expandedSections.price && (
+                    <div className="mt-3">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-sm text-gray-600 mb-1 block">
+                            Từ
+                          </label>
+                          <input
+                            type="number"
+                            placeholder="0"
+                            value={filters.minPrice}
+                            onChange={(e) =>
+                              handlePriceChange("min", e.target.value)
+                            }
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-colors"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-sm text-gray-600 mb-1 block">
+                            Đến
+                          </label>
+                          <input
+                            type="number"
+                            placeholder="9999999"
+                            value={filters.maxPrice}
+                            onChange={(e) =>
+                              handlePriceChange("max", e.target.value)
+                            }
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-colors"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* LỌC THEO ĐÁNH GIÁ */}
                 <div className="mb-6">
-                  <h3 className="font-medium text-gray-900 mb-3">Đánh giá</h3>
-                  <div className="space-y-2">
-                    {[5, 4, 3, 2, 1].map((rating) => (
-                      <label
-                        key={rating}
-                        className="flex items-center gap-3 p-2 hover:bg-emerald-50 rounded-lg cursor-pointer transition-colors group"
-                      >
-                        <input
-                          type="radio"
-                          name="rating"
-                          checked={filters.minRating === rating}
-                          onChange={() => handleRatingChange(rating)}
-                          className="text-emerald-500 focus:ring-emerald-500 transition-colors"
-                        />
-                        <div className="flex items-center gap-1">
-                          {[...Array(5)].map((_, i) => (
-                            <Star
-                              key={i}
-                              className={`w-4 h-4 ${
-                                i < rating
-                                  ? "text-yellow-400 fill-yellow-400"
-                                  : "text-gray-300"
-                              }`}
-                            />
-                          ))}
-                          <span className="text-sm text-gray-600 ml-1 group-hover:text-emerald-700">
-                            trở lên
-                          </span>
-                        </div>
-                      </label>
-                    ))}
+                  <div
+                    className="flex items-center justify-between cursor-pointer"
+                    onClick={() => toggleSection("rating")}
+                  >
+                    <h3 className="font-medium text-gray-900">Đánh giá</h3>
+                    {expandedSections.rating ? (
+                      <ChevronUp className="w-4 h-4 text-gray-500" />
+                    ) : (
+                      <ChevronDown className="w-4 h-4 text-gray-500" />
+                    )}
                   </div>
+
+                  {expandedSections.rating && (
+                    <div className="mt-3 space-y-2">
+                      {[5, 4, 3, 2, 1].map((rating) => (
+                        <label
+                          key={rating}
+                          className="flex items-center gap-3 p-2 hover:bg-emerald-50 rounded-lg cursor-pointer transition-colors group"
+                        >
+                          <input
+                            type="radio"
+                            name="rating"
+                            checked={filters.minRating === rating}
+                            onChange={() => handleRatingChange(rating)}
+                            className="text-emerald-500 focus:ring-emerald-500 transition-colors"
+                          />
+                          <div className="flex items-center gap-1">
+                            {[...Array(5)].map((_, i) => (
+                              <Star
+                                key={i}
+                                className={`w-4 h-4 ${
+                                  i < rating
+                                    ? "text-yellow-400 fill-yellow-400"
+                                    : "text-gray-300"
+                                }`}
+                              />
+                            ))}
+                            <span className="text-sm text-gray-600 ml-1 group-hover:text-emerald-700">
+                              trở lên
+                            </span>
+                          </div>
+                        </label>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -635,9 +933,16 @@ const SanPhamPage: React.FC = () => {
                 </div>
               ) : sanPhams.length > 0 ? (
                 <>
-                  <div className="mb-4 text-sm text-gray-600">
-                    Hiển thị {sanPhams.length} trong tổng số{" "}
-                    {pagination.totalItems} sản phẩm
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="text-sm text-gray-600">
+                      Hiển thị {sanPhams.length} trong tổng số{" "}
+                      {pagination.totalItems} sản phẩm
+                    </div>
+                    {filters.loaiSanPham.length > 0 && (
+                      <div className="text-sm text-emerald-600">
+                        Đang lọc: {filters.loaiSanPham.length} loại sản phẩm
+                      </div>
+                    )}
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -657,7 +962,10 @@ const SanPhamPage: React.FC = () => {
                     Không tìm thấy sản phẩm
                   </h3>
                   <p className="text-gray-600 mb-6">
-                    Hãy thử điều chỉnh bộ lọc hoặc tìm kiếm với từ khóa khác
+                    {filters.loaiSanPham.length > 0 ||
+                    filters.danhMuc.length > 0
+                      ? "Không có sản phẩm nào phù hợp với bộ lọc hiện tại"
+                      : "Hãy thử điều chỉnh bộ lọc hoặc tìm kiếm với từ khóa khác"}
                   </p>
                   <button
                     onClick={clearAllFilters}
@@ -682,7 +990,6 @@ const ProductCard: React.FC<{ sanPham: SanPham }> = ({ sanPham }) => {
   const navigate = useNavigate();
   const [isFavorite, setIsFavorite] = useState(false);
 
-  // 🟢 HÀM ĐỊNH DẠNG TIỀN
   const formatPrice = (price: number): string => {
     return new Intl.NumberFormat("vi-VN", {
       style: "currency",
@@ -690,7 +997,6 @@ const ProductCard: React.FC<{ sanPham: SanPham }> = ({ sanPham }) => {
     }).format(price);
   };
 
-  // 🟢 HÀM VẼ SAO ĐÁNH GIÁ
   const renderStars = (rating: number) => {
     return [...Array(5)].map((_, index) => (
       <Star
@@ -704,7 +1010,6 @@ const ProductCard: React.FC<{ sanPham: SanPham }> = ({ sanPham }) => {
     ));
   };
 
-  // 🟢 HÀM XỬ LÝ URL HÌNH ẢNH
   const getImageUrl = (url: string | undefined): string => {
     if (!url) return "https://via.placeholder.com/400x400?text=No+Image";
     if (url.startsWith("http")) return url;
@@ -721,7 +1026,7 @@ const ProductCard: React.FC<{ sanPham: SanPham }> = ({ sanPham }) => {
   const handleAddToCart = (e: React.MouseEvent) => {
     e.stopPropagation();
     console.log("Thêm vào giỏ hàng:", sanPham.MaSP);
-    // Thêm logic giỏ hàng ở đây
+    // TODO: Thêm logic giỏ hàng
   };
 
   const toggleFavorite = (e: React.MouseEvent) => {

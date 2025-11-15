@@ -186,6 +186,7 @@ export const getAllSanpham = async (req, res) => {
       maxPrice,
       minRating,
       danhMuc,
+      loaiSanPham, // 🟢 THÊM FILTER LOẠI SẢN PHẨM
       sortBy = "newest",
       include,
       MaCH,
@@ -223,7 +224,7 @@ export const getAllSanpham = async (req, res) => {
       whereCondition.MaCH = MaCH;
     }
 
-    // 🟢 LỌC THEO DANH MỤC
+    // 🟢 LỌC THEO DANH MỤC (DANHMUC HIỆN CÓ)
     if (danhMuc) {
       const categoryIds = Array.isArray(danhMuc) ? danhMuc : [danhMuc];
       includeOptions.push({
@@ -240,6 +241,43 @@ export const getAllSanpham = async (req, res) => {
         through: { attributes: [] },
         required: false,
       });
+    }
+
+    // 🟢 LỌC THEO LOẠI SẢN PHẨM (TÌM THEO TÊN SẢN PHẨM)
+    if (loaiSanPham) {
+      const loaiSanPhamIds = Array.isArray(loaiSanPham)
+        ? loaiSanPham
+        : [loaiSanPham];
+
+      // Map từ mã loại sang từ khóa tìm kiếm tiếng Việt
+      const searchKeywords = loaiSanPhamIds.map((loai) => {
+        const keywordMap = {
+          mango: "xoài",
+          banana: "chuối",
+          "thanh-long": "thanh long",
+          watermelon: "dưa hấu",
+          orange: "cam",
+          apple: "táo",
+          grapes: "nho",
+          pineapple: "dứa",
+          cucumber: "dưa chuột",
+          tomato: "cà chua",
+          carrot: "cà rốt",
+          potato: "khoai tây",
+          // ... thêm các mapping khác từ AI model
+        };
+        return keywordMap[loai] || loai;
+      });
+
+      // Thêm điều kiện tìm kiếm theo tên sản phẩm
+      whereCondition[Op.or] = [
+        ...(whereCondition[Op.or] || []), // Giữ các điều kiện tìm kiếm cũ
+        ...searchKeywords.map((keyword) => ({
+          TenSP: {
+            [Op.like]: `%${keyword}%`,
+          },
+        })),
+      ];
     }
 
     // 🟢 SẮP XẾP
@@ -286,6 +324,15 @@ export const getAllSanpham = async (req, res) => {
       }
     }
 
+    console.log("🔍 Filter conditions:", {
+      loaiSanPham,
+      danhMuc,
+      search,
+      minPrice,
+      maxPrice,
+      minRating,
+    });
+
     const { count, rows: products } = await sanpham.findAndCountAll({
       where: whereCondition,
       include: includeOptions,
@@ -294,6 +341,8 @@ export const getAllSanpham = async (req, res) => {
       offset: parseInt(offset),
       distinct: true,
     });
+
+    console.log(`📊 Found ${count} products with filters`);
 
     res.json({
       success: true,
