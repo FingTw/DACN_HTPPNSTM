@@ -1,6 +1,6 @@
 // src/App.tsx
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { AuthProvider } from "@/context/AuthContext"; // ← Đảm bảo import đúng
+import { AuthProvider } from "@/context/AuthContext"; 
 import SignInPage from "./pages/SignInPage";
 import SignUpPage from "./pages/SignUpPage";
 import HomePage from "./pages/HomePage";
@@ -18,6 +18,13 @@ import Dashboard from "@/pages/Blockchain/Dashboard";
 import Admin from "@/pages/Blockchain/Admin";
 import ProfilePage from "./pages/ProfilePage";
 import OrdersPage from "./pages/OrdersPage";
+import KhuyenMaiPage from './pages/KhuyenMaiPage';
+import KhuyenMaiDaNhanPage from './pages/KhuyenMaiDaNhanPage';
+import QuanLyKhuyenMaiPage from './pages/QuanLyKhuyenMaiPage';
+
+// ✅ Import PrivateRoute
+import PrivateRoute from './components/PrivateRoute';
+
 
 function App() {
   return (
@@ -43,9 +50,19 @@ function App() {
           <Route path="/order-success/:MaDH" element={<OrderSuccessPage />} />
           <Route path="/blockchain/dashboard" element={<Dashboard />} />
           <Route path="/blockchain/admin" element={<Admin />} />
-          
+          <Route path="/khuyen-mai" element={<KhuyenMaiPage />} />
+          <Route path="/khuyen-mai-da-nhan" element={<KhuyenMaiDaNhanPage />} />
+          <Route path="/quan-ly-khuyen-mai" element={<QuanLyKhuyenMaiPage />} />
           {/* Private routes - thêm sau */}
           {/* <Route path="/profile" element={<PrivateRoute><ProfilePage /></PrivateRoute>} /> */}
+          <Route 
+            path="/quan-ly-khuyen-mai" 
+            element={
+              <PrivateRoute allowedRoles={['Admin', 'Cửa Hàng']}>
+                <QuanLyKhuyenMaiPage />
+              </PrivateRoute>
+            } 
+          />    
         </Routes>
       </BrowserRouter>
       </AddressProvider>

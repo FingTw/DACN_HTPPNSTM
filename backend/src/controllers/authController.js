@@ -15,7 +15,7 @@ const models = initModels(sequelize);
 // console.log("JWT_SECRET:", process.env.JWT_SECRET);
 
 
-const { taikhoan, sanpham, donhang, vaitro, taikhoan_vaitro, password_reset_token, hinhanh } = models;
+const { taikhoan, sanpham, donhang, vaitro, taikhoan_vaitro, password_reset_token, hinhanh, cuahang } = models;
 
 import { sendEmail } from "../services/emailService.js";
 import { Op } from "sequelize";
@@ -355,7 +355,12 @@ uploadAvatar: async (req, res) => {
                 as: "vaitro", 
                 attributes: ["MaVT", "TenVT"]
               }
-            ]
+            ]        
+          },
+          {
+            model: cuahang,
+            as: 'cuahangs', 
+            attributes: ['MaCH']
           }
         ]
       });
@@ -383,7 +388,8 @@ uploadAvatar: async (req, res) => {
         {
           MaTK: user.MaTK,
           TenDangNhap: user.TenDangNhap,
-          role: roleName
+          role: roleName,
+          MaCH: user.MaCH_cuahang ? user.MaCH_cuahang.MaCH : null
         },
         process.env.JWT_SECRET,
         { expiresIn: "1h" }
@@ -396,7 +402,8 @@ uploadAvatar: async (req, res) => {
         user: {
           MaTK: user.MaTK,
           TenDangNhap: user.TenDangNhap,
-          role: roleName
+          role: roleName,
+          MaCH: user.MaCH_cuahang ? user.MaCH_cuahang.MaCH : null
         }
       });
     } catch (err) {

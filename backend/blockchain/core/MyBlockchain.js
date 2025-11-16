@@ -30,32 +30,18 @@ class Block {
             .digest('hex');
     }
 
-    mineBlock(difficulty) {
-        const target = Array(difficulty + 1).join("0");
-        
-        console.log(`⛏️  Bắt đầu mining block #${this.index}...`);
-        const startTime = Date.now();
-        
-        while (this.hash.substring(0, difficulty) !== target) {
-            this.nonce++;
-            this.hash = this.calculateHash();
-            
-            if (this.nonce % 100000 === 0) {
-                console.log(`  Thử lần ${this.nonce}... Hash hiện tại: ${this.hash.substring(0, 10)}...`);
-            }
-        }
-        
-        const endTime = Date.now();
-        const miningTime = ((endTime - startTime) / 1000).toFixed(2);
-        
-        console.log(`✅ Block #${this.index} đã được mine!`);
-        console.log(`   Nonce: ${this.nonce}`);
-        console.log(`   Hash: ${this.hash}`);
-        console.log(`   Thời gian mining: ${miningTime}s`);
-        console.log(`   Số lần thử: ${this.nonce.toLocaleString()}\n`);
-        
-        return this.hash;
-    }
+    // SỬA TRONG MyBlockchain.js - mineBlock method
+mineBlock(difficulty) {
+    console.log(`⚡ DEVELOPMENT MODE - Bỏ qua mining cho block #${this.index}`);
+    
+    // 🔥 SIMPLE HASH - không mining (fix timeout)
+    this.hash = this.calculateHash();
+    
+    console.log(`✅ Block #${this.index} đã tạo (không mining)`);
+    console.log(`   Hash: ${this.hash}\n`);
+    
+    return this.hash;
+}
 }
 
 // Smart Contract với role mới
@@ -332,6 +318,7 @@ class Blockchain {
                         productId: block.data.productId,
                         productName: block.data.productName,
                         action: block.data.action,
+                        eventType: block.data.eventType || block.data.action, // 🔥 THÊM DÒNG NÀY
                         location: block.data.location,
                         role: block.data.role,
                         status: this.getActionStatusText(block.data.action)

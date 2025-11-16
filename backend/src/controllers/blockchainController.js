@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import sql from 'mssql';
 import QRCode from 'qrcode';
 
+
 // Database config
 const dbConfig = {
     user: process.env.DB_USER,
@@ -17,6 +18,26 @@ const dbConfig = {
 };
 
 class BlockchainController {
+    constructor() {
+        // Gán supplyChain từ blockchainService
+        this.supplyChain = blockchainService;
+    }
+    // Ánh xạ vai trò trong DB -> hành động trong blockchain
+    getRoleMapping() {
+        return {
+            'Nông dân': 'Farmer',
+            'Farmer': 'Farmer',
+            'Nhà máy': 'Factory',
+            'Factory': 'Factory',
+            'Shipper': 'Shipper',
+            'Cửa hàng': 'CuaHang',
+            'CuaHang': 'CuaHang',
+            'Khách hàng': 'KhachHang',
+            'KhachHang': 'KhachHang',
+            'Admin': 'Admin'
+        };
+    }
+
     // Blockchain operations với user mới
     async recordTransaction(user, data, signature = null, publicKey = null) {
         try {
@@ -71,18 +92,37 @@ class BlockchainController {
             // Mine block using supplyChain
             console.log(`⛏️ Mining new block...`);
             const startMining = Date.now();
-            
+            if (!this.supplyChain) {
+                throw new Error('supplyChain is not initialized');
+            }
+
+            if (!this.supplyChain.addBlock) {
+                throw new Error('addBlock method not available in supplyChain');
+            }
+
+            console.log('🔍 SupplyChain methods:', Object.keys(this.supplyChain));
+
+            const newBlock = this.supplyChain.addBlock(blockData);
+            if (!newBlock) {
+                throw new Error('addBlock returned null/undefined');
+            }
+
+            if (!newBlock.hash) {
+                console.warn('⚠️ newBlock.hash is undefined, block might not be mined properly');
+                // Gán hash tạm thời nếu cần
+                newBlock.hash = 'pending_' + Date.now();
+            }
+
+            const miningTime = ((Date.now() - startMining) / 1000).toFixed(2);
             // Kiểm tra và gọi addBlock
             if (!this.supplyChain.addBlock) {
                 throw new Error('addBlock method not available in supplyChain');
             }
             
-            const newBlock = this.supplyChain.addBlock(blockData);
-            const miningTime = ((Date.now() - startMining) / 1000).toFixed(2);
+            // const newBlock = this.supplyChain.addBlock(blockData);
+            // const miningTime = ((Date.now() - startMining) / 1000).toFixed(2);
 
-            console.log(`✅ Block mined: #${newBlock.index}, Hash: ${newBlock.hash.substring(0, 16)}..., Time: ${miningTime}s`);
-
-            // Generate QR code if needed - CẢI THIỆN PHẦN NÀY
+            console.log(`✅ Block mined: #${newBlock.index}, Hash: ${newBlock.hash ? newBlock.hash.substring(0, 16) + '...' : 'N/A'}, Time: ${miningTime}s`);            // Generate QR code if needed - CẢI THIỆN PHẦN NÀY
             let qrCode = null;
             const shouldGenerateQR = user.VaiTro === 'Farmer' || user.VaiTro === 'CuaHang' || data.batchNumber || data.productId;
             
@@ -152,6 +192,24 @@ class BlockchainController {
             
             throw new Error(errorMessage);
         }
+    }
+
+    // Thêm ngay trong class BlockchainController
+    async recordTransactionHandler(req, res) {
+    try {
+        const user = req.user;
+        const data = req.body;
+
+        const result = await this.recordTransaction(user, data);
+
+        res.status(200).json(result);
+    } catch (error) {
+        console.error('❌ recordTransactionHandler error:', error);
+        res.status(500).json({
+        success: false,
+        message: error.message || 'Lỗi khi ghi giao dịch blockchain'
+        });
+    }
     }
 
     // Prepare block data - CẬP NHẬT THÊM

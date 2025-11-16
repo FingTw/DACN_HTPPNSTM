@@ -68,7 +68,9 @@ console.log('generateQRCode:', typeof blockchainController.generateQRCode);
 console.log('================================');
 
 // 📦 Blockchain data routes (cần authentication)
-router.post('/record', authenticateToken, blockchainController.recordTransaction);
+router.post('/record', authenticateToken, (req, res) => 
+  blockchainController.recordTransactionHandler(req, res)
+);
 router.get('/history/:productId', blockchainController.getProductHistory);
 
 // 👥 User management routes (Admin only)

@@ -1089,17 +1089,18 @@ const BlockchainDashboard: React.FC = () => {
         {/* Success Message */}
         {successData && (
           <div className="message success">
-            <h3>✅ Sự kiện đã được ghi thành công!</h3>
+            <h3>✅ {successData.message || 'Sự kiện đã được ghi thành công!'}</h3>
             <div className="success-grid">
-              <div><strong>Sự kiện:</strong> {eventName(successData.eventType)}</div>
-              <div><strong>Mã SP:</strong> {successData.productId}</div>
-              <div><strong>Địa điểm:</strong> {successData.location}</div>
-              <div><strong>Người thực hiện:</strong> {successData.actor} ({getRoleName(successData.role)})</div>
-              <div><strong>Thời gian:</strong> {new Date(successData.timestamp).toLocaleString('vi-VN')}</div>
-              <div><strong>Block:</strong> #{successData.blockIndex}</div>
-              <div><strong>Hash:</strong> {successData.transactionHash?.substring(0, 20)}...</div>
+              {/* Sử dụng nested data từ API response */}
+              <div><strong>Sự kiện:</strong> {eventName(successData.transaction?.eventType) || eventName(successData.eventType) || 'Không xác định'}</div>
+              <div><strong>Mã SP:</strong> {successData.transaction?.productId || successData.productId}</div>
+              <div><strong>Địa điểm:</strong> {successData.transaction?.location || successData.location}</div>
+              <div><strong>Người thực hiện:</strong> {successData.transaction?.actor || successData.actor} ({getRoleName(successData.transaction?.role || successData.role)})</div>
+              {/* <div><strong>Thời gian:</strong> {new Date(successData.transaction?.timestamp || successData.timestamp).toLocaleString('vi-VN')}</div>
+              <div><strong>Block:</strong> #{successData.block?.index || successData.blockIndex}</div>
+              <div><strong>Hash:</strong> {successData.block?.hash?.substring(0, 20) || successData.transactionHash?.substring(0, 20)}...</div> */}
             </div>
-            {successData.notes && <div><strong>Ghi chú:</strong> {successData.notes}</div>}
+            {successData.transaction?.notes && <div><strong>Ghi chú:</strong> {successData.transaction.notes}</div>}
           </div>
         )}
 
