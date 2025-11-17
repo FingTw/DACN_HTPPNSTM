@@ -4,6 +4,9 @@ import sequelize from "../config/db.js";
 import { Op } from "sequelize";
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
+import path from "path";
+import fs from "fs";
+
 dotenv.config();
 
 const models = initModels(sequelize);
@@ -20,9 +23,8 @@ const {
 // 🟢 Middleware authentication
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers["authorization"];
-  const token = authHeader && authHeader.split(" ")[1]; // Lấy token sau "Bearer "
+  const token = authHeader && authHeader.split(" ")[1];
 
-  console.log("🔐 Middleware auth - Header:", authHeader);
   console.log(
     "🔐 Middleware auth - Token:",
     token ? `${token.substring(0, 20)}...` : "NULL"
@@ -51,6 +53,75 @@ const authenticateToken = (req, res, next) => {
   });
 };
 
+// 🟢 TẠO THƯ MỤC UPLOAD
+const ensureUploadDir = (type = "stores") => {
+  const uploadDir = path.join(process.cwd(), "public", "uploads", type);
+  if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+  }
+  return uploadDir;
+};
+
+// 🟢 XỬ LÝ UPLOAD FILE
+const handleFileUpload = (file, type = "stores") => {
+  ensureUploadDir(type);
+  const uploadDir = path.join(process.cwd(), "public", "uploads", type);
+
+  const fileExt = path.extname(file.originalname);
+  const fileName = `${type}_${Date.now()}_${Math.random()
+    .toString(36)
+    .substring(7)}${fileExt}`;
+  const filePath = path.join(uploadDir, fileName);
+
+  if (!file.buffer) {
+    const sourcePath = file.path;
+    if (sourcePath && fs.existsSync(sourcePath)) {
+      fs.copyFileSync(sourcePath, filePath);
+    } else {
+      throw new Error("File data không hợp lệ");
+    }
+  } else {
+    fs.writeFileSync(filePath, file.buffer);
+  }
+
+  return `/uploads/${type}/${fileName}`;
+};
+
+// 🟢 TẠO MÃ HÌNH ẢNH
+const generateMaHA = async () => {
+  const now = new Date();
+  const imagePrefix =
+    "HA" +
+    now.getFullYear().toString().slice(2) +
+    String(now.getMonth() + 1).padStart(2, "0");
+
+  const lastImage = await hinhanh.findOne({
+    where: { MaHA: { [Op.like]: `${imagePrefix}%` } },
+    order: [["MaHA", "DESC"]],
+  });
+
+  let newImageId = imagePrefix + "0001";
+  if (lastImage) {
+    const lastNum = parseInt(lastImage.MaHA.slice(6)) || 0;
+    newImageId = imagePrefix + String(lastNum + 1).padStart(4, "0");
+  }
+
+  return newImageId;
+};
+
+// 🟢 XÓA FILE VẬT LÝ
+const deletePhysicalFile = (filePath) => {
+  try {
+    const fullPath = path.join(process.cwd(), "public", filePath);
+    if (fs.existsSync(fullPath)) {
+      fs.unlinkSync(fullPath);
+      console.log(`✅ Đã xóa file: ${filePath}`);
+    }
+  } catch (error) {
+    console.warn(`⚠️ Không thể xóa file: ${filePath}`, error.message);
+  }
+};
+
 // 🏪 ĐĂNG KÝ THÔNG TIN GIAN HÀNG - CHỈ USER ĐÃ ĐĂNG NHẬP
 export const createCuahang = async (req, res) => {
   const transaction = await sequelize.transaction();
@@ -77,8 +148,16 @@ export const createCuahang = async (req, res) => {
       });
     }
 
-    const { TenCH, MaHA_CuaHang, LoaiHinhKD, MaSoThue, DCLayHang, MoTa } =
-      req.body;
+    const { TenCH, LoaiHinhKD, MaSoThue, DCLayHang, MoTa } = req.body;
+
+    // 🟢 VALIDATION
+    if (!TenCH || TenCH.trim() === "") {
+      await transaction.rollback();
+      return res.status(400).json({
+        success: false,
+        message: "Tên cửa hàng không được để trống",
+      });
+    }
 
     // 🟢 KIỂM TRA USER ĐÃ CÓ CỬA HÀNG CHƯA
     const existingUserCH = await cuahang.findOne({
@@ -137,15 +216,25 @@ export const createCuahang = async (req, res) => {
       newContractId = contractPrefix + num.toString().padStart(4, "0");
     }
 
-    // 🟢 KIỂM TRA HÌNH ẢNH TỒN TẠI (nếu có)
-    if (MaHA_CuaHang) {
-      const existingHA = await hinhanh.findByPk(MaHA_CuaHang, { transaction });
-      if (!existingHA) {
-        await transaction.rollback();
-        return res.status(400).json({
-          success: false,
-          message: "Hình ảnh không tồn tại",
-        });
+    // 🟢 XỬ LÝ HÌNH ẢNH CỬA HÀNG (PHẦN THÊM MỚI)
+    let storeImage = null;
+    if (req.file) {
+      try {
+        const MaHA = await generateMaHA();
+        const imageUrl = handleFileUpload(req.file, "stores");
+
+        storeImage = await hinhanh.create(
+          {
+            MaHA,
+            URL: imageUrl,
+            MoTa: `Hình ảnh cửa hàng ${TenCH}`,
+          },
+          { transaction }
+        );
+        console.log("✅ Đã upload hình ảnh cửa hàng:", MaHA);
+      } catch (imageError) {
+        console.error("❌ Lỗi upload ảnh cửa hàng:", imageError);
+        // Vẫn tiếp tục tạo cửa hàng dù upload ảnh lỗi
       }
     }
 
@@ -166,13 +255,13 @@ export const createCuahang = async (req, res) => {
     const newCuahang = await cuahang.create(
       {
         MaCH: newStoreId,
-        TenCH,
-        MoTa: MoTa || null,
+        TenCH: TenCH.trim(),
+        MoTa: MoTa?.trim() || null,
         SLTheoDoi: 0,
         DiemDG: 0,
-        MaHA_CuaHang: MaHA_CuaHang || null,
+        MaHA_CuaHang: storeImage ? storeImage.MaHA : null, // Sử dụng ảnh mới upload hoặc null
         MaTK: user.MaTK,
-        MaHD: newContractId, // Liên kết với hợp đồng
+        MaHD: newContractId,
       },
       { transaction }
     );
@@ -207,13 +296,24 @@ export const createCuahang = async (req, res) => {
       include: [
         {
           model: taikhoan,
-          as: "MaTK_taikhoan", // ✅ SỬA: Thêm alias
+          as: "MaTK_taikhoan",
           attributes: ["MaTK", "TenDangNhap", "Email"],
         },
         {
           model: hinhanh,
           as: "MaHA_CuaHang_hinhanh",
           attributes: ["MaHA", "URL", "MoTa"],
+        },
+        {
+          model: hdbanhang,
+          as: "MaHD_hdbanhang",
+          attributes: [
+            "MaHD",
+            "NgayLap",
+            "LoaiHinhKD",
+            "MaSoThue",
+            "DCLayHang",
+          ],
         },
       ],
     });
@@ -249,7 +349,7 @@ export const getAllCuahang = async (req, res) => {
       if (includes.includes("taikhoan")) {
         options.include.push({
           model: taikhoan,
-          as: "MaTK_taikhoan", // ✅ SỬA: Thêm alias
+          as: "MaTK_taikhoan",
           attributes: ["MaTK", "TenDangNhap", "Email"],
         });
       }
@@ -297,7 +397,7 @@ export const getCuahangById = async (req, res) => {
       if (includes.includes("taikhoan")) {
         options.include.push({
           model: taikhoan,
-          as: "MaTK_taikhoan", // ✅ SỬA: Thêm alias
+          as: "MaTK_taikhoan",
           attributes: ["MaTK", "TenDangNhap", "Email", "LoaiTK"],
         });
       }
@@ -313,7 +413,7 @@ export const getCuahangById = async (req, res) => {
       if (includes.includes("hdbanhang")) {
         options.include.push({
           model: hdbanhang,
-          as: "MaHD_hdbanhang", // ✅ SỬA: Thêm alias
+          as: "MaHD_hdbanhang",
           attributes: [
             "MaHD",
             "NgayLap",
@@ -348,225 +448,128 @@ export const getCuahangById = async (req, res) => {
   }
 };
 
-// ✏️ CHỈNH SỬA THÔNG TIN GIAN HÀNG - CHỈ CHỦ CỬA HÀNG - ĐÃ SỬA
-// ✏️ CHỈNH SỬA THÔNG TIN GIAN HÀNG - XỬ LÝ CẢ 2 TRƯỜNG HỢP
+// ✏️ CHỈNH SỬA THÔNG TIN GIAN HÀNG - CHỈ CHỦ CỬA HÀNG
 export const updateCuahang = async (req, res) => {
+  const transaction = await sequelize.transaction();
+
   try {
     const { MaCH } = req.params;
 
     console.log("🔄 [UPDATE] Nhận request update store:", MaCH);
-    console.log("👤 [UPDATE] User từ request:", req.user);
-    console.log("🔐 [UPDATE] Authorization header:", req.headers.authorization);
-    console.log("📦 [UPDATE] Dữ liệu nhận:", req.body);
+    console.log("👤 [UPDATE] User:", req.user);
+    console.log("📦 [UPDATE] Có file upload:", !!req.file);
 
-    // 🟢 XỬ LÝ AUTHENTICATION - CẢ 2 TRƯỜNG HỢP
-    let user;
-
-    // Cách 1: Lấy user từ middleware (nếu route được bảo vệ)
-    if (req.user) {
-      user = req.user;
-      console.log("✅ [UPDATE] User từ middleware:", {
-        MaTK: user.MaTK,
-        TenDangNhap: user.TenDangNhap,
-      });
-    }
-    // Cách 2: Tự decode token từ header (nếu route không có middleware)
-    else {
-      console.log(
-        "⚠️ [UPDATE] Không có user từ middleware, tự decode token..."
-      );
-
-      const authHeader = req.headers.authorization;
-      if (!authHeader || !authHeader.startsWith("Bearer ")) {
-        console.log("❌ [UPDATE] Không có token trong header");
-        return res.status(401).json({
-          success: false,
-          message: "Token không tồn tại. Vui lòng đăng nhập!",
-        });
-      }
-
-      const token = authHeader.split(" ")[1];
-      console.log(
-        "🔐 [UPDATE] Token nhận được:",
-        token.substring(0, 20) + "..."
-      );
-
-      try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        user = decoded;
-        console.log("✅ [UPDATE] User từ token decode:", {
-          MaTK: user.MaTK,
-          TenDangNhap: user.TenDangNhap,
-          role: user.role,
-        });
-      } catch (err) {
-        console.log("❌ [UPDATE] Token không hợp lệ:", err.message);
-        return res.status(401).json({
-          success: false,
-          message: "Token không hợp lệ hoặc đã hết hạn",
-        });
-      }
-    }
-
+    const user = req.user;
     if (!user || !user.MaTK) {
-      console.log("❌ [UPDATE] Không thể xác thực user");
+      await transaction.rollback();
       return res.status(401).json({
         success: false,
         message: "Chưa đăng nhập hoặc token không hợp lệ",
       });
     }
 
-    // 🟢 KIỂM TRA USER CÓ TỒN TẠI TRONG DATABASE KHÔNG
+    // 🟢 KIỂM TRA USER
     const userInDB = await taikhoan.findByPk(user.MaTK, {
       attributes: ["MaTK", "TenDangNhap", "Email", "TrangThai"],
+      transaction,
     });
 
-    if (!userInDB) {
-      console.log("❌ [UPDATE] User không tồn tại trong database:", user.MaTK);
+    if (!userInDB || userInDB.TrangThai !== "Hoạt động") {
+      await transaction.rollback();
       return res.status(401).json({
         success: false,
-        message: "Tài khoản không tồn tại",
+        message: "Tài khoản không tồn tại hoặc đã bị khóa",
       });
     }
-
-    if (userInDB.TrangThai !== "Hoạt động") {
-      console.log("❌ [UPDATE] Tài khoản bị khóa:", user.MaTK);
-      return res.status(401).json({
-        success: false,
-        message: "Tài khoản đã bị khóa",
-      });
-    }
-
-    console.log("✅ [UPDATE] User đã xác thực thành công:", {
-      MaTK: userInDB.MaTK,
-      TenDangNhap: userInDB.TenDangNhap,
-      TrangThai: userInDB.TrangThai,
-    });
-
-    // 🟢 LẤY DỮ LIỆU TỪ REQUEST BODY
-    const {
-      TenCH,
-      MoTa,
-      DCLayHang,
-      SLTheoDoi,
-      DiemDG,
-      MaHA_CuaHang,
-      LoaiHinhKD,
-      MaSoThue,
-    } = req.body;
-
-    console.log("📝 [UPDATE] Dữ liệu từ form:", {
-      TenCH,
-      MoTa: MoTa ? MoTa.substring(0, 50) + "..." : "null",
-      DCLayHang,
-      LoaiHinhKD,
-      MaSoThue,
-      MaHA_CuaHang,
-    });
 
     // 🟢 TÌM CỬA HÀNG
-    const item = await cuahang.findByPk(MaCH);
-    if (!item) {
-      console.log("❌ [UPDATE] Không tìm thấy cửa hàng:", MaCH);
+    const store = await cuahang.findByPk(MaCH, { transaction });
+    if (!store) {
+      await transaction.rollback();
       return res.status(404).json({
         success: false,
-        message: "Không tìm thấy gian hàng",
+        message: "Không tìm thấy cửa hàng",
       });
     }
 
-    console.log("🏪 [UPDATE] Thông tin cửa hàng hiện tại:", {
-      MaCH: item.MaCH,
-      TenCH: item.TenCH,
-      MaTK: item.MaTK,
-      MaHD: item.MaHD,
-    });
-
     // 🟢 KIỂM TRA QUYỀN SỞ HỮU
-    if (item.MaTK !== user.MaTK) {
-      console.log("❌ [UPDATE] Không có quyền sở hữu:", {
-        storeOwner: item.MaTK,
-        currentUser: user.MaTK,
-      });
+    if (store.MaTK !== user.MaTK) {
+      await transaction.rollback();
       return res.status(403).json({
         success: false,
         message: "Bạn không có quyền chỉnh sửa cửa hàng này",
       });
     }
 
-    console.log("✅ [UPDATE] Kiểm tra quyền sở hữu thành công");
+    const { TenCH, MoTa, DCLayHang, LoaiHinhKD, MaSoThue } = req.body;
 
-    // 🟢 KIỂM TRA HÌNH ẢNH TỒN TẠI (nếu có)
-    if (MaHA_CuaHang) {
-      const existingHA = await hinhanh.findByPk(MaHA_CuaHang);
-      if (!existingHA) {
-        console.log("❌ [UPDATE] Hình ảnh không tồn tại:", MaHA_CuaHang);
-        return res.status(400).json({
-          success: false,
-          message: "Hình ảnh không tồn tại",
-        });
+    // 🟢 XỬ LÝ HÌNH ẢNH MỚI (PHẦN THÊM MỚI)
+    let newImage = null;
+    if (req.file) {
+      try {
+        const MaHA = await generateMaHA();
+        const imageUrl = handleFileUpload(req.file, "stores");
+
+        newImage = await hinhanh.create(
+          {
+            MaHA,
+            URL: imageUrl,
+            MoTa: `Hình ảnh cửa hàng ${TenCH || store.TenCH}`,
+          },
+          { transaction }
+        );
+        console.log("✅ Đã upload hình ảnh mới:", MaHA);
+
+        // 🟢 XÓA HÌNH ẢNH CŨ NẾU CÓ
+        if (store.MaHA_CuaHang) {
+          const oldImage = await hinhanh.findByPk(store.MaHA_CuaHang, {
+            transaction,
+          });
+          if (oldImage) {
+            await hinhanh.destroy({
+              where: { MaHA: store.MaHA_CuaHang },
+              transaction,
+            });
+            deletePhysicalFile(oldImage.URL);
+            console.log("✅ Đã xóa hình ảnh cũ:", store.MaHA_CuaHang);
+          }
+        }
+      } catch (imageError) {
+        console.error("❌ Lỗi upload ảnh mới:", imageError);
+        // Vẫn tiếp tục cập nhật thông tin khác
       }
-      console.log("✅ [UPDATE] Hình ảnh tồn tại:", MaHA_CuaHang);
     }
 
     // 🟢 CẬP NHẬT THÔNG TIN CỬA HÀNG
-    const updateData = {
-      TenCH: TenCH !== undefined ? TenCH : item.TenCH,
-      MoTa: MoTa !== undefined ? MoTa : item.MoTa,
-      DCLayHang: DCLayHang !== undefined ? DCLayHang : item.DCLayHang,
-      SLTheoDoi: SLTheoDoi !== undefined ? SLTheoDoi : item.SLTheoDoi,
-      DiemDG: DiemDG !== undefined ? DiemDG : item.DiemDG,
-      MaHA_CuaHang:
-        MaHA_CuaHang !== undefined ? MaHA_CuaHang : item.MaHA_CuaHang,
-    };
+    const updateData = {};
+    if (TenCH !== undefined) updateData.TenCH = TenCH.trim();
+    if (MoTa !== undefined) updateData.MoTa = MoTa?.trim() || null;
+    if (DCLayHang !== undefined) updateData.DCLayHang = DCLayHang;
+    if (newImage) updateData.MaHA_CuaHang = newImage.MaHA;
 
-    // Loại bỏ các trường undefined
-    Object.keys(updateData).forEach((key) => {
-      if (updateData[key] === undefined) {
-        delete updateData[key];
-      }
-    });
+    if (Object.keys(updateData).length > 0) {
+      await store.update(updateData, { transaction });
+    }
 
-    console.log("📝 [UPDATE] Dữ liệu cập nhật cửa hàng:", updateData);
-
-    // Thực hiện update
-    await item.update(updateData);
-    console.log("✅ [UPDATE] Cập nhật cửa hàng thành công");
-
-    // 🟢 CẬP NHẬT THÔNG TIN HỢP ĐỒNG NẾU CÓ
+    // 🟢 CẬP NHẬT THÔNG TIN HỢP ĐỒNG
     if (LoaiHinhKD !== undefined || MaSoThue !== undefined) {
-      try {
-        const hdbanhangItem = await hdbanhang.findOne({
-          where: { MaHD: item.MaHD },
-        });
+      const contract = await hdbanhang.findOne({
+        where: { MaHD: store.MaHD },
+        transaction,
+      });
 
-        if (hdbanhangItem) {
-          const hdUpdateData = {};
-          if (LoaiHinhKD !== undefined) hdUpdateData.LoaiHinhKD = LoaiHinhKD;
-          if (MaSoThue !== undefined) hdUpdateData.MaSoThue = MaSoThue;
+      if (contract) {
+        const contractUpdate = {};
+        if (LoaiHinhKD !== undefined) contractUpdate.LoaiHinhKD = LoaiHinhKD;
+        if (MaSoThue !== undefined) contractUpdate.MaSoThue = MaSoThue;
 
-          // Loại bỏ các trường undefined
-          Object.keys(hdUpdateData).forEach((key) => {
-            if (hdUpdateData[key] === undefined) {
-              delete hdUpdateData[key];
-            }
-          });
-
-          if (Object.keys(hdUpdateData).length > 0) {
-            console.log("📝 [UPDATE] Dữ liệu cập nhật hợp đồng:", hdUpdateData);
-            await hdbanhangItem.update(hdUpdateData);
-            console.log("✅ [UPDATE] Cập nhật hợp đồng thành công");
-          }
-        } else {
-          console.log("⚠️ [UPDATE] Không tìm thấy hợp đồng:", item.MaHD);
+        if (Object.keys(contractUpdate).length > 0) {
+          await contract.update(contractUpdate, { transaction });
         }
-      } catch (hdError) {
-        console.warn(
-          "⚠️ [UPDATE] Không thể cập nhật hợp đồng:",
-          hdError.message
-        );
-        // Không throw error vì đây không phải lỗi nghiêm trọng
       }
     }
+
+    await transaction.commit();
 
     // 🟢 LẤY LẠI THÔNG TIN CỬA HÀNG SAU KHI UPDATE
     const updatedStore = await cuahang.findByPk(MaCH, {
@@ -595,7 +598,7 @@ export const updateCuahang = async (req, res) => {
       ],
     });
 
-    console.log("✅ [UPDATE] Cập nhật hoàn tất");
+    console.log("✅ Cập nhật cửa hàng thành công");
 
     res.json({
       success: true,
@@ -603,11 +606,107 @@ export const updateCuahang = async (req, res) => {
       data: updatedStore,
     });
   } catch (err) {
-    console.error("❌ [UPDATE] Lỗi khi cập nhật gian hàng:", err);
+    await transaction.rollback();
+    console.error("❌ Lỗi cập nhật gian hàng:", err);
     res.status(500).json({
       success: false,
-      message: "Lỗi khi cập nhật gian hàng",
-      error: err.message,
+      message: "Lỗi server: " + err.message,
+    });
+  }
+};
+
+// 🟢 THÊM HÌNH ẢNH CHO CỬA HÀNG (PHẦN THÊM MỚI)
+export const addStoreImage = async (req, res) => {
+  const transaction = await sequelize.transaction();
+
+  try {
+    const { MaCH } = req.params;
+    const { MoTa } = req.body;
+
+    const user = req.user;
+    if (!user) {
+      await transaction.rollback();
+      return res.status(401).json({
+        success: false,
+        message: "Chưa đăng nhập",
+      });
+    }
+
+    // 🟢 KIỂM TRA CỬA HÀNG VÀ QUYỀN SỞ HỮU
+    const store = await cuahang.findByPk(MaCH, { transaction });
+    if (!store) {
+      await transaction.rollback();
+      return res.status(404).json({
+        success: false,
+        message: "Không tìm thấy cửa hàng",
+      });
+    }
+
+    if (store.MaTK !== user.MaTK) {
+      await transaction.rollback();
+      return res.status(403).json({
+        success: false,
+        message: "Bạn không có quyền thêm hình ảnh cho cửa hàng này",
+      });
+    }
+
+    // 🟢 KIỂM TRA FILE UPLOAD
+    if (!req.file) {
+      await transaction.rollback();
+      return res.status(400).json({
+        success: false,
+        message: "Vui lòng chọn hình ảnh để upload",
+      });
+    }
+
+    // 🟢 XÓA HÌNH ẢNH CŨ NẾU CÓ
+    if (store.MaHA_CuaHang) {
+      const oldImage = await hinhanh.findByPk(store.MaHA_CuaHang, {
+        transaction,
+      });
+      if (oldImage) {
+        await hinhanh.destroy({
+          where: { MaHA: store.MaHA_CuaHang },
+          transaction,
+        });
+        deletePhysicalFile(oldImage.URL);
+      }
+    }
+
+    // 🟢 TẠO HÌNH ẢNH MỚI
+    const MaHA = await generateMaHA();
+    const imageUrl = handleFileUpload(req.file, "stores");
+
+    const newImage = await hinhanh.create(
+      {
+        MaHA,
+        URL: imageUrl,
+        MoTa: MoTa || `Hình ảnh cửa hàng ${store.TenCH}`,
+      },
+      { transaction }
+    );
+
+    // 🟢 CẬP NHẬT CỬA HÀNG VỚI HÌNH ẢNH MỚI
+    await store.update(
+      {
+        MaHA_CuaHang: newImage.MaHA,
+      },
+      { transaction }
+    );
+
+    await transaction.commit();
+
+    res.status(201).json({
+      success: true,
+      message: "Thêm hình ảnh cửa hàng thành công",
+      data: newImage,
+    });
+  } catch (err) {
+    await transaction.rollback();
+    console.error("❌ Lỗi thêm hình ảnh cửa hàng:", err);
+    res.status(500).json({
+      success: false,
+      message: "Lỗi server: " + err.message,
     });
   }
 };
@@ -621,22 +720,25 @@ export const deleteCuahang = async (req, res) => {
     const user = req.user;
 
     if (!user) {
+      await transaction.rollback();
       return res.status(401).json({
         success: false,
         message: "Chưa đăng nhập",
       });
     }
 
-    const item = await cuahang.findByPk(MaCH);
-    if (!item) {
+    const store = await cuahang.findByPk(MaCH, { transaction });
+    if (!store) {
+      await transaction.rollback();
       return res.status(404).json({
         success: false,
-        message: "Không tìm thấy gian hàng",
+        message: "Không tìm thấy cửa hàng",
       });
     }
 
     // 🟢 KIỂM TRA QUYỀN SỞ HỮU
-    if (item.MaTK !== user.MaTK) {
+    if (store.MaTK !== user.MaTK) {
+      await transaction.rollback();
       return res.status(403).json({
         success: false,
         message: "Bạn không có quyền xóa cửa hàng này",
@@ -646,16 +748,40 @@ export const deleteCuahang = async (req, res) => {
     // 🚨 KIỂM TRA CÓ SẢN PHẨM THUỘC CỬA HÀNG KHÔNG
     const productsCount = await sanpham.count({
       where: { MaCH: MaCH },
+      transaction,
     });
 
     if (productsCount > 0) {
+      await transaction.rollback();
       return res.status(400).json({
         success: false,
         message: `Không thể xóa cửa hàng. Còn ${productsCount} sản phẩm thuộc cửa hàng này. Hãy xóa hoặc chuyển sản phẩm trước.`,
       });
     }
 
-    await item.destroy({ transaction });
+    // 🟢 XÓA HÌNH ẢNH CỬA HÀNG NẾU CÓ (PHẦN THÊM MỚI)
+    if (store.MaHA_CuaHang) {
+      const storeImage = await hinhanh.findByPk(store.MaHA_CuaHang, {
+        transaction,
+      });
+      if (storeImage) {
+        await hinhanh.destroy({
+          where: { MaHA: store.MaHA_CuaHang },
+          transaction,
+        });
+        deletePhysicalFile(storeImage.URL);
+      }
+    }
+
+    // 🟢 XÓA HỢP ĐỒNG
+    await hdbanhang.destroy({
+      where: { MaHD: store.MaHD },
+      transaction,
+    });
+
+    // 🟢 XÓA CỬA HÀNG
+    await store.destroy({ transaction });
+
     await transaction.commit();
 
     res.json({
@@ -688,7 +814,7 @@ export const getMyCuahang = async (req, res) => {
       include: [
         {
           model: taikhoan,
-          as: "MaTK_taikhoan", // ✅ SỬA: Thêm alias
+          as: "MaTK_taikhoan",
           attributes: ["MaTK", "TenDangNhap", "Email"],
         },
         {
@@ -698,7 +824,7 @@ export const getMyCuahang = async (req, res) => {
         },
         {
           model: hdbanhang,
-          as: "MaHD_hdbanhang", // ✅ SỬA: Thêm alias
+          as: "MaHD_hdbanhang",
           attributes: [
             "MaHD",
             "NgayLap",
@@ -801,6 +927,147 @@ export const updateTheoDoi = async (req, res) => {
       success: false,
       message: "Lỗi khi cập nhật số lượng theo dõi",
       error: err.message,
+    });
+  }
+};
+
+// 📊 THỐNG KÊ CỬA HÀNG (FUNCTION BỊ THIẾU)
+export const getStoreStats = async (req, res) => {
+  try {
+    const user = req.user;
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: "Chưa đăng nhập",
+      });
+    }
+
+    const store = await cuahang.findOne({
+      where: { MaTK: user.MaTK },
+    });
+
+    if (!store) {
+      return res.status(404).json({
+        success: false,
+        message: "Bạn không có cửa hàng",
+      });
+    }
+
+    // 🟢 THỐNG KÊ SẢN PHẨM
+    const totalProducts = await sanpham.count({
+      where: { MaCH: store.MaCH },
+    });
+
+    const activeProducts = await sanpham.count({
+      where: {
+        MaCH: store.MaCH,
+        TrangThai: "Đang bán",
+      },
+    });
+
+    const outOfStockProducts = await sanpham.count({
+      where: {
+        MaCH: store.MaCH,
+        SLTon: 0,
+      },
+    });
+
+    const totalInventoryValue = await sanpham.sum("GiaBan", {
+      where: { MaCH: store.MaCH },
+    });
+
+    // 🟢 THỐNG KÊ ĐÁNH GIÁ
+    const averageRating = store.DiemDG || 0;
+    const followerCount = store.SLTheoDoi || 0;
+
+    res.json({
+      success: true,
+      message: "Lấy thống kê cửa hàng thành công",
+      data: {
+        storeInfo: {
+          MaCH: store.MaCH,
+          TenCH: store.TenCH,
+          NgayTao: store.createdAt,
+        },
+        productStats: {
+          totalProducts,
+          activeProducts,
+          outOfStockProducts,
+          totalInventoryValue: totalInventoryValue || 0,
+        },
+        engagementStats: {
+          averageRating,
+          followerCount,
+        },
+      },
+    });
+  } catch (err) {
+    console.error("❌ Lỗi lấy thống kê cửa hàng:", err);
+    res.status(500).json({
+      success: false,
+      message: "Lỗi server: " + err.message,
+    });
+  }
+};
+
+// 🏆 TOP CỬA HÀNG (FUNCTION BỊ THIẾU)
+export const getTopStores = async (req, res) => {
+  try {
+    const { type = "rating", limit = 10 } = req.query;
+
+    let order = [];
+    switch (type) {
+      case "rating":
+        order = [["DiemDG", "DESC"]];
+        break;
+      case "followers":
+        order = [["SLTheoDoi", "DESC"]];
+        break;
+      case "newest":
+        order = [["createdAt", "DESC"]];
+        break;
+      default:
+        order = [["DiemDG", "DESC"]];
+    }
+
+    const topStores = await cuahang.findAll({
+      include: [
+        {
+          model: hinhanh,
+          as: "MaHA_CuaHang_hinhanh",
+          attributes: ["MaHA", "URL", "MoTa"],
+        },
+      ],
+      order,
+      limit: parseInt(limit),
+    });
+
+    // 🟢 THÊM SỐ LƯỢNG SẢN PHẨM
+    const storesWithProductCount = await Promise.all(
+      topStores.map(async (store) => {
+        const productCount = await sanpham.count({
+          where: { MaCH: store.MaCH },
+        });
+        return {
+          ...store.toJSON(),
+          SoLuongSanPham: productCount,
+        };
+      })
+    );
+
+    res.json({
+      success: true,
+      message: `Lấy top ${limit} cửa hàng thành công`,
+      data: {
+        type,
+        stores: storesWithProductCount,
+      },
+    });
+  } catch (err) {
+    console.error("❌ Lỗi lấy top cửa hàng:", err);
+    res.status(500).json({
+      success: false,
+      message: "Lỗi server: " + err.message,
     });
   }
 };

@@ -1,6 +1,5 @@
 // src/pages/HomePage.tsx
-
-import React from "react"; // Đảm bảo React được import
+import React from "react";
 import { Header } from "@/components/layout/Header";
 import { HeroSection } from "@/components/home/HeroSection";
 import { Footer } from "@/components/layout/Footer";
@@ -11,16 +10,22 @@ import { productService } from "@/services/productService";
 import { useState, useEffect } from "react";
 import type { Product } from "@/services/productService";
 import ShopList from "@/components/home/ShopList";
+import { useNavigate } from "react-router-dom";
 
-// Khai báo component như một hàm bình thường
 const HomePage: React.FC = () => {
   const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
+
+  // Debug: kiểm tra navigate có hoạt động không
+  useEffect(() => {
+    console.log("🔍 DEBUG: HomePage mounted");
+    console.log("🔍 DEBUG: useNavigate hook:", navigate);
+  }, [navigate]);
 
   useEffect(() => {
     const loadProducts = async () => {
       try {
-        // Đảm bảo productService.getFeaturedProducts() có tồn tại và trả về đúng kiểu Product[]
         const data = await productService.getFeaturedProducts();
         setFeaturedProducts(data);
       } catch (err) {
@@ -32,11 +37,26 @@ const HomePage: React.FC = () => {
     loadProducts();
   }, []);
 
+  // Hàm xử lý khi click vào nút "Xem tất cả sản phẩm"
+  const handleViewAllProducts = () => {
+    console.log("🔄 DEBUG: Đang click vào nút Xem tất cả sản phẩm");
+    console.log("📍 DEBUG: Current path:", window.location.pathname);
+
+    try {
+      navigate("/san-pham");
+      console.log("✅ DEBUG: Navigate function được gọi");
+    } catch (error) {
+      console.error("❌ DEBUG: Lỗi navigate:", error);
+      // Fallback nếu navigate không hoạt động
+      window.location.href = "/san-pham";
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
       <Header />
 
-      <div className="flex flex-1 ">
+      <div className="flex flex-1">
         {/* Sidebar - Fixed position */}
         <aside className="w-64 flex-shrink-0">
           <div className="sticky top-0">
@@ -46,37 +66,54 @@ const HomePage: React.FC = () => {
 
         {/* Main Content */}
         <main className="flex-1 bg-gray-100 flex flex-col space-y-4 p-2">
-          <div className="card rounded-xl bg-white p-2 ">
+          <div className="card rounded-xl bg-white p-2">
             <BannerCarousel />
           </div>
 
-          <div className="bg-gray-100 p-2 ">
+          <div className="bg-gray-100 p-2">
             <HeroSection />
           </div>
 
-          <div className="bg-gray-100 p-2 ">
+          <div className="bg-gray-100 p-2">
             <ShopList />
           </div>
 
-          {loading ? (
-            <div className="text-center py-8">Đang tải sản phẩm...</div>
-          ) : (
-            <ProductList products={featuredProducts} title="Gợi ý hôm nay" />
-          )}
-
-          {/* Featured Products Section
-          <section className="py-16">
-            <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-              <h2 className="text-3xl font-bold text-center mb-12">
-                Featured Products
+          {/* Phần Gợi ý hôm nay với nút Xem tất cả */}
+          <div className="bg-white rounded-xl p-6 shadow-sm">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold text-gray-900">
+                Gợi ý hôm nay
               </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <div className="text-center p-8 border border-gray-200 rounded-lg bg-white">
-                  <p className="text-gray-500">Product cards coming soon...</p>
-                </div>
-              </div>
+              <button
+                onClick={handleViewAllProducts}
+                className="bg-purple-500 hover:bg-purple-600 text-white px-6 py-2 rounded-lg font-medium transition-colors duration-200 flex items-center gap-2"
+              >
+                <span>Xem tất cả sản phẩm</span>
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 5l7 7-7 7"
+                  />
+                </svg>
+              </button>
             </div>
-          </section> */}
+
+            {loading ? (
+              <div className="text-center py-8">
+                <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500"></div>
+                <p className="mt-2 text-gray-600">Đang tải sản phẩm...</p>
+              </div>
+            ) : (
+              <ProductList products={featuredProducts} />
+            )}
+          </div>
         </main>
       </div>
 

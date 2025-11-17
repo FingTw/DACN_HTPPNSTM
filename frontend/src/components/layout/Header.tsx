@@ -1,3 +1,4 @@
+// src/components/Header.tsx
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
@@ -5,9 +6,8 @@ import cartService from "@/services/cartService";
 
 export const Header: React.FC = () => {
   const [cartCount, setCartCount] = useState(0);
-  const { user, logout, loading } = useAuth(); // Thêm loading từ AuthContext
+  const { user, logout, loading } = useAuth();
 
-  // Lấy số lượng giỏ hàng khi user thay đổi
   useEffect(() => {
     const fetchCartCount = async () => {
       if (user) {
@@ -15,7 +15,7 @@ export const Header: React.FC = () => {
           const { count } = await cartService.getCartCount();
           setCartCount(count);
         } catch (error) {
-          console.error('Lỗi lấy số lượng giỏ hàng:', error);
+          console.error("Lỗi lấy số lượng giỏ hàng:", error);
           setCartCount(0);
         }
       } else {
@@ -27,16 +27,16 @@ export const Header: React.FC = () => {
   }, [user]);
 
   const categories = [
-    "Sản Phẩm ",
-    "Nông sản",
-    "Sữa & Trứng",
-    "Đặc sản vùng miền",
-    "Hoa quả & Hạt",
-    "rau cũa & Cây trồng",
-    " Mới & Theo mùa",
-    " Đặc Trước",
+    { name: "Sản Phẩm", path: "/products" },
+    { name: "Nông sản", path: "/category/nong-san" },
+    { name: "Sữa & Trứng", path: "/category/sua-trung" },
+    { name: "Đặc sản vùng miền", path: "/category/dac-san" },
+    { name: "Hoa quả & Hạt", path: "/category/hoa-qua-hat" },
+    { name: "Rau củ & Cây trồng", path: "/category/rau-cu" },
+    { name: "Mới & Theo mùa", path: "/category/moi-theo-mua" },
+    { name: "🌾 Đặc Trước", path: "/marketplace", highlight: true }, // ✅ THÊM LINK MỚI
   ];
- 
+
   const benefits = [
     {
       icon: (
@@ -112,7 +112,6 @@ export const Header: React.FC = () => {
     },
   ];
 
-  // Hiển thị skeleton loading khi đang kiểm tra auth
   if (loading) {
     return (
       <header className="w-full">
@@ -136,7 +135,6 @@ export const Header: React.FC = () => {
           </div>
         </div>
 
-        {/* Main Header Skeleton */}
         <div className="bg-white border-gray-100 sticky top-0 z-50 shadow-sm">
           <div className="max-w-7xl mx-auto px-4">
             <div className="flex items-center justify-between py-4">
@@ -147,11 +145,11 @@ export const Header: React.FC = () => {
                   <div className="w-20 h-3 bg-gray-200 rounded animate-pulse"></div>
                 </div>
               </div>
-              
+
               <div className="flex-1 max-w-2xl mx-8">
                 <div className="w-full h-12 bg-gray-200 rounded-full animate-pulse"></div>
               </div>
-              
+
               <div className="flex items-center gap-4">
                 <div className="w-24 h-10 bg-gray-200 rounded animate-pulse"></div>
                 <div className="w-12 h-12 bg-gray-200 rounded-full animate-pulse"></div>
@@ -161,12 +159,14 @@ export const Header: React.FC = () => {
           </div>
         </div>
 
-        {/* Categories Skeleton */}
         <div className="bg-gray-50">
           <div className="max-w-7xl mx-auto px-4">
             <div className="flex gap-4 py-3">
               {[1, 2, 3, 4, 5, 6, 7, 8].map((item) => (
-                <div key={item} className="w-20 h-6 bg-gray-200 rounded animate-pulse"></div>
+                <div
+                  key={item}
+                  className="w-20 h-6 bg-gray-200 rounded animate-pulse"
+                ></div>
               ))}
             </div>
           </div>
@@ -178,7 +178,7 @@ export const Header: React.FC = () => {
   return (
     <header className="w-full">
       {/* Top Banner */}
-      <div className="bg-gradient-to-r from-green-50 to-emerald-50 ">
+      <div className="bg-gradient-to-r from-green-50 to-emerald-50">
         <div className="max-w-7xl mx-auto px-4 py-2">
           <div className="flex items-center justify-between text-sm">
             <div className="flex items-center gap-6">
@@ -193,9 +193,7 @@ export const Header: React.FC = () => {
               ))}
             </div>
 
-            {/* User Actions */}
             <div className="flex items-center gap-4">
-              {/* Nút Cửa hàng */}
               <Link
                 to="/viewshop"
                 className="flex items-center gap-1 text-green-700 hover:text-green-900 font-medium transition-colors"
@@ -218,7 +216,6 @@ export const Header: React.FC = () => {
 
               <span className="text-green-300">|</span>
 
-              {/* Nút Đăng ký bán hàng */}
               <Link
                 to="/signupshop"
                 className="flex items-center gap-1 text-green-700 hover:text-green-900 font-medium transition-colors"
@@ -247,21 +244,18 @@ export const Header: React.FC = () => {
       <div className="bg-white border-gray-100 sticky top-0 z-50 shadow-sm">
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex items-center justify-between py-4">
-            {/* Logo */}
             <Link to="/" className="flex items-center gap-2 group">
               <img
                 src="/logo.png"
                 alt="SAP Logo"
                 className="h-20 w-auto group-hover:scale-105 transition-transform"
               />
-
               <div className="flex flex-col">
                 <span className="text-2xl font-bold text-green-700">SAP</span>
-                <span className="text-xs text-green-600">NÔNG SẢN vIỆT</span>
+                <span className="text-xs text-green-600">NÔNG SẢN VIỆT</span>
               </div>
             </Link>
 
-            {/* Search Bar */}
             <div className="flex-1 max-w-2xl mx-8">
               <div className="relative">
                 <input
@@ -270,7 +264,6 @@ export const Header: React.FC = () => {
                   className="w-full px-5 py-3 pr-24 border-1 border-gray-100 rounded-full text-sm focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-200 transition-all"
                 />
 
-                {/* Nút upload hình ảnh */}
                 <button
                   className="absolute right-15 top-1/2 -translate-y-1/2 text-gray-700 p-2 rounded-full transition-all duration-300"
                   title="Tìm kiếm bằng hình ảnh"
@@ -296,7 +289,6 @@ export const Header: React.FC = () => {
                   </svg>
                 </button>
 
-                {/* Nút tìm kiếm */}
                 <button className="absolute right-2 top-1/2 -translate-y-1/2 bg-green-600 hover:bg-green-700 text-white p-2 rounded-full transition-colors">
                   <svg
                     className="w-4 h-4"
@@ -315,9 +307,7 @@ export const Header: React.FC = () => {
               </div>
             </div>
 
-            {/* Right Actions */}
             <div className="flex items-center gap-4">
-              {/* Location */}
               <Link
                 to="/location"
                 className="flex items-center gap-2 text-gray-700 hover:text-green-600 transition-colors group"
@@ -347,7 +337,6 @@ export const Header: React.FC = () => {
                 </div>
               </Link>
 
-              {/* Cart */}
               <Link
                 to="/cart"
                 className="relative p-3 bg-green-50 hover:bg-green-100 text-green-700 rounded-full transition-all hover:scale-120 group"
@@ -372,21 +361,18 @@ export const Header: React.FC = () => {
                 )}
               </Link>
 
-              {/* User Avatar */}
               <div className="relative group transition-transform duration-500 hover:scale-130">
                 <button className="flex items-center gap-2 h-10 px-3 bg-white rounded-full transition-all duration-200">
                   {user ? (
-                    // Khi đã đăng nhập: Hiển thị avatar + tên (SAFE ACCESS)
                     <>
                       <div className="w-10 h-10 bg-gradient-to-br from-green-400 to-green-600 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-md ring-2 ring-white">
-                        {user?.TenDangNhap?.charAt(0)?.toUpperCase() || 'U'}
+                        {user?.TenDangNhap?.charAt(0)?.toUpperCase() || "U"}
                       </div>
                       <span className="hidden md:block text-green-600 font-medium pr-2">
-                        {user?.TenDangNhap || 'User'}
+                        {user?.TenDangNhap || "User"}
                       </span>
                     </>
                   ) : (
-                    // Khi chưa đăng nhập: Hiển thị icon user
                     <div className="w-10 h-10 bg-gradient-to-br from-green-400 to-green-600 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-md ring-2 ring-white">
                       <svg
                         className="w-9 h-9 text-white"
@@ -404,8 +390,7 @@ export const Header: React.FC = () => {
                     </div>
                   )}
                 </button>
-                
-                {/* Dropdown - Hiện khi hover */}
+
                 <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 border">
                   <div className="py-2">
                     {user ? (
@@ -461,13 +446,14 @@ export const Header: React.FC = () => {
             {categories.map((item, index) => (
               <React.Fragment key={index}>
                 <Link
-                  to={`/category/${item
-                    .toLowerCase()
-                    .replace(/&/g, "and")
-                    .replace(/\s+/g, "-")}`}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-green-600 hover:bg-green-50 rounded-lg whitespace-nowrap transition-all"
+                  to={item.path}
+                  className={`px-4 py-2 text-sm font-medium whitespace-nowrap transition-all rounded-lg ${
+                    item.highlight
+                      ? "bg-gradient-to-r from-green-500 to-blue-500 text-white hover:from-green-600 hover:to-blue-600 shadow-md hover:shadow-lg transform hover:scale-105 animate-pulse"
+                      : "text-gray-700 hover:text-green-600 hover:bg-green-50"
+                  }`}
                 >
-                  {item}
+                  {item.name}
                 </Link>
                 {(index === 0 || index === 5) && (
                   <span className="text-gray-300 mx-1">|</span>

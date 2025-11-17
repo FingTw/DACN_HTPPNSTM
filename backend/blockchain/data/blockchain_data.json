@@ -1,0 +1,207 @@
+{
+  "chain": [
+    {
+      "index": 0,
+      "timestamp": 1762533022667,
+      "data": {
+        "productId": "GENESIS",
+        "productName": "Genesis Product",
+        "status": "Khởi tạo blockchain",
+        "location": "System",
+        "actor": "System",
+        "role": "Admin",
+        "action": "initialize"
+      },
+      "previousHash": "0",
+      "nonce": 475,
+      "hash": "00d18e221217cce937d56323bec3ec68a63d0e7597a5ae4a809747d8bb5187d9"
+    },
+    {
+      "index": 1,
+      "timestamp": 1762615380966,
+      "data": {
+        "productId": "dưa hấu",
+        "eventType": "planting",
+        "location": "hcm",
+        "notes": "",
+        "quantity": null,
+        "quality": "A",
+        "price": null,
+        "batchNumber": null,
+        "fromLocation": null,
+        "toLocation": null,
+        "seedType": "mp2",
+        "area": 122.9,
+        "yield": null,
+        "waterSource": null,
+        "fertilizerType": null,
+        "harvestDate": "2025-11-08",
+        "saleDate": null,
+        "duration": null,
+        "temperature": null,
+        "customerType": null,
+        "imageUrl": "/uploads/image-1762615380931-396080570.jpg",
+        "actor": "bang",
+        "role": "Farmer",
+        "timestamp": "2025-11-08T15:23:00.939Z"
+      },
+      "previousHash": "00d18e221217cce937d56323bec3ec68a63d0e7597a5ae4a809747d8bb5187d9",
+      "nonce": 54,
+      "hash": "00b78b820a5fa643157be974ae49b947bac8092ca30814ea8d5dd3d19fe0c7b2"
+    },
+    {
+      "index": 2,
+      "timestamp": 1762931356122,
+      "data": {
+        "productId": "dưa lưới",
+        "eventType": "planting",
+        "location": "hcm",
+        "notes": "",
+        "quantity": null,
+        "quality": "A",
+        "price": null,
+        "batchNumber": null,
+        "fromLocation": null,
+        "toLocation": null,
+        "seedType": "MF2",
+        "area": 1000,
+        "yield": null,
+        "waterSource": null,
+        "fertilizerType": null,
+        "harvestDate": "2025-11-12",
+        "saleDate": null,
+        "duration": null,
+        "temperature": null,
+        "customerType": null,
+        "imageUrl": "/uploads/image-1762931356095-302010303.jpg",
+        "actor": "bang",
+        "timestamp": "2025-11-12T07:09:16.109Z"
+      },
+      "previousHash": "00b78b820a5fa643157be974ae49b947bac8092ca30814ea8d5dd3d19fe0c7b2",
+      "nonce": 0,
+      "hash": "04f91ffdd2130957a43459901a97e210d20ac4b96c2bbf806a823ceb116fa4c5"
+    },
+    {
+      "index": 3,
+      "timestamp": 1762935393929,
+      "data": {
+        "productId": "dưa hấu",
+        "eventType": "quality_check",
+        "location": "hcm",
+        "actor": "bang",
+        "action": "view",
+        "timestamp": "2025-11-12T08:16:33.924Z",
+        "version": "1.0",
+        "quality": "B",
+        "imageUrl": "/uploads/image-1762935393879-216081389.jpg"
+      },
+      "previousHash": "04f91ffdd2130957a43459901a97e210d20ac4b96c2bbf806a823ceb116fa4c5",
+      "nonce": 153,
+      "hash": "0071a145dd2ec54353f74d839b71a11cf9b8544ae8053b3232057a4484a428a6"
+    },
+    {
+      "index": 4,
+      "timestamp": 1762938313671,
+      "data": {
+        "productId": "dưa hấu",
+        "eventType": "quality_check",
+        "location": "hcm",
+        "actor": "bang",
+        "action": "view",
+        "timestamp": "2025-11-12T09:05:13.665Z",
+        "version": "1.0",
+        "quality": "A",
+        "imageUrl": "/uploads/image-1762938313648-638620772.jpg"
+      },
+      "previousHash": "0071a145dd2ec54353f74d839b71a11cf9b8544ae8053b3232057a4484a428a6",
+      "nonce": 0,
+      "hash": "2f91b414e6ffc396fc2594802ace0f067f81176e36ba0ec728c45a65f7ab46fa"
+    },
+    {
+      "index": 5,
+      "timestamp": 1762939044046,
+      "data": {
+        "productId": "dưa hấu",
+        "eventType": "harvesting",
+        "location": "hcm",
+        "actor": "bang",
+        "action": "view",
+        "timestamp": "2025-11-12T09:17:24.044Z",
+        "version": "1.0",
+        "quantity": 122,
+        "quality": "A",
+        "harvestDate": "2025-11-12",
+        "imageUrl": "/uploads/image-1762939044032-206440613.jpg"
+      },
+      "previousHash": "2f91b414e6ffc396fc2594802ace0f067f81176e36ba0ec728c45a65f7ab46fa",
+      "nonce": 0,
+      "hash": "b9849b5f92a6f540bd31a64e1427e9bdabdd117bc4140e4380e9f21a9a8288c8"
+    },
+    {
+      "index": 6,
+      "timestamp": 1762940240618,
+      "data": {
+        "productId": "dưa hấu",
+        "eventType": "harvesting",
+        "location": "hcm",
+        "actor": "bang",
+        "action": "view",
+        "timestamp": "2025-11-12T09:37:20.615Z",
+        "version": "1.0",
+        "quantity": 123,
+        "quality": "A",
+        "harvestDate": "2025-11-12",
+        "imageUrl": "/uploads/image-1762940240583-18598209.jpg"
+      },
+      "previousHash": "b9849b5f92a6f540bd31a64e1427e9bdabdd117bc4140e4380e9f21a9a8288c8",
+      "nonce": 0,
+      "hash": "a2489225027c3f04973f5703921c3011e52e3527ed83dff2522fa23e4f30cae9"
+    },
+    {
+      "index": 7,
+      "timestamp": 1762941483419,
+      "data": {
+        "productId": "cà chua vụ 3-5",
+        "eventType": "planting",
+        "location": "hcm",
+        "actor": "bang",
+        "action": "view",
+        "timestamp": "2025-11-12T09:58:03.416Z",
+        "version": "1.0",
+        "quality": "A",
+        "seedType": "mhn",
+        "area": 1234,
+        "harvestDate": "2025-11-12",
+        "imageUrl": "/uploads/image-1762941483374-60538436.png"
+      },
+      "previousHash": "a2489225027c3f04973f5703921c3011e52e3527ed83dff2522fa23e4f30cae9",
+      "nonce": 0,
+      "hash": "18fc3bbbbb8f4fd52549d181523b1904c2c1bda7cfe35ccefe387b4949d678ed"
+    },
+    {
+      "index": 8,
+      "timestamp": 1762941659463,
+      "data": {
+        "productId": "Cà phê",
+        "eventType": "planting",
+        "location": "hcm",
+        "actor": "bang",
+        "action": "view",
+        "timestamp": "2025-11-12T10:00:59.461Z",
+        "version": "1.0",
+        "quality": "A",
+        "seedType": "ngg",
+        "area": 1112,
+        "harvestDate": "2025-11-12",
+        "imageUrl": "/uploads/image-1762941659446-751841384.jpg"
+      },
+      "previousHash": "18fc3bbbbb8f4fd52549d181523b1904c2c1bda7cfe35ccefe387b4949d678ed",
+      "nonce": 0,
+      "hash": "4eb50df2de5d5132573e903f121f2a2d33bf7d6566009b09a55befef12f029d2"
+    }
+  ],
+  "pendingTransactions": [],
+  "difficulty": 2,
+  "lastUpdated": "2025-11-12T10:00:59.463Z",
+  "totalBlocks": 9
+}

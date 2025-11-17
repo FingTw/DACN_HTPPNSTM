@@ -1,3 +1,4 @@
+// routes/orderRoutes.js
 import express from "express";
 import {
   checkout,
@@ -6,7 +7,10 @@ import {
   orderSuccess,
   updateOrderStatus,
   getShippingMethods,
-  getPaymentMethods
+  getPaymentMethods,
+  getAllOrder,
+  getOrdersByStatus,
+  calculateShipping // 🆕 THÊM DÒNG NÀY
 } from "../controllers/orderController.js";
 
 const router = express.Router();
@@ -26,8 +30,17 @@ router.get("/order-success/:MaDH", orderSuccess);
 // Cập nhật trạng thái đơn hàng (admin)
 router.put("/update-status/:MaDH", updateOrderStatus);
 
-// Thêm vào routes/orderRoutes.js
+// 🆕 Tính toán phí vận chuyển theo khoảng cách thực tế
+router.post("/calculate-shipping", calculateShipping);
+
+// Lấy phương thức vận chuyển
 router.get("/shipping-methods", getShippingMethods);
+
+// Lấy phương thức thanh toán
 router.get("/payment-methods", getPaymentMethods);
+
+// Lấy tất cả đơn hàng
+router.get("/all", getAllOrder);
+router.get("/status/:status", getOrdersByStatus);
 
 export default router;

@@ -1,4 +1,3 @@
-// src/context/AuthContext.tsx - SỬA LẠI
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { authAPI } from "../services/authService";
 
@@ -6,6 +5,8 @@ interface User {
   MaTK: string;
   TenDangNhap: string;
   role: string;
+  HoTen: string;
+  MaCH?: string;
 }
 
 interface AuthContextType {
@@ -13,6 +14,7 @@ interface AuthContextType {
   loading: boolean;
   login: (token: string, user: User) => void;
   logout: () => void;
+  isAuthenticated: () => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -28,6 +30,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       const token = localStorage.getItem("token");
       const storedUser = localStorage.getItem("user");
 
+      // DANH SÁCH CÁC ROUTE ĐƯỢC PHÉP TRUY CẬP KHI CHƯA LOGIN
+      const publicRoutes = ['/signin', '/signup', '/', '/product', '/cart'];
+      const currentPath = window.location.pathname;
+
       if (token && storedUser) {
         try {
           const parsedUser = JSON.parse(storedUser);
@@ -40,13 +46,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         }
       } else {
         setUser(null);
+        
+        // CHỈ REDIRECT NẾU ĐANG Ở TRANG KHÔNG PHẢI PUBLIC ROUTE
+        const isPublicRoute = publicRoutes.some(route => 
+          currentPath === route || currentPath.startsWith(route + '/')
+        );
+        
+        if (!token && !isPublicRoute) {
+          window.location.href = '/signin';
+        }
       }
       setLoading(false);
     };
 
     initializeAuth();
 
-    // Lắng nghe khi login/logout
     const handleAuthChange = () => {
       initializeAuth();
     };
@@ -79,8 +93,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
+  const isAuthenticated = (): boolean => {
+    return !!localStorage.getItem("token");
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, isAuthenticated }}>
       {children}
     </AuthContext.Provider>
   );

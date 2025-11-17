@@ -1,9 +1,11 @@
-// controllers/sanphamController.js
+// src/controllers/sanphamController.js
 import { initModels } from "../models/init-models.js";
 import sequelize from "../config/db.js";
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
 import { Op } from "sequelize";
+import path from "path";
+import fs from "fs";
 
 dotenv.config();
 
@@ -19,7 +21,7 @@ const {
   danhgiasanpham,
 } = models;
 
-// 🟢 HÀM XÁC THỰC JWT (CẢI THIỆN)
+// 🟢 HÀM XÁC THỰC JWT
 const authenticateUser = async (req) => {
   const authHeader = req.headers.authorization;
 
@@ -36,7 +38,6 @@ const authenticateUser = async (req) => {
     throw new Error("Token không hợp lệ hoặc đã hết hạn");
   }
 
-  // Kiểm tra user có tồn tại trong database không
   const user = await taikhoan.findByPk(decoded.MaTK, {
     attributes: ["MaTK", "TenDangNhap", "Email", "TrangThai"],
   });
@@ -56,28 +57,152 @@ const authenticateUser = async (req) => {
   };
 };
 
-// 🟢 Lấy tất cả sản phẩm - CÓ PHÂN TRANG VÀ LỌC
+// 🟢 TẠO THƯ MỤC UPLOAD
+const ensureUploadDir = (type = "products") => {
+  const uploadDir = path.join(process.cwd(), "public", "uploads", type);
+  if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+  }
+  return uploadDir;
+};
+
+// 🟢 XỬ LÝ UPLOAD FILE
+const handleFileUpload = (file, type = "products") => {
+  ensureUploadDir(type);
+  const uploadDir = path.join(process.cwd(), "public", "uploads", type);
+
+  const fileExt = path.extname(file.originalname);
+  const fileName = `${type}_${Date.now()}_${Math.random()
+    .toString(36)
+    .substring(7)}${fileExt}`;
+  const filePath = path.join(uploadDir, fileName);
+
+  if (!file.buffer) {
+    const sourcePath = file.path;
+    if (sourcePath && fs.existsSync(sourcePath)) {
+      fs.copyFileSync(sourcePath, filePath);
+    } else {
+      throw new Error("File data không hợp lệ");
+    }
+  } else {
+    fs.writeFileSync(filePath, file.buffer);
+  }
+
+  return `/uploads/${type}/${fileName}`;
+};
+
+// 🟢 TẠO MÃ HÌNH ẢNH
+const generateMaHA = async () => {
+  const now = new Date();
+  const imagePrefix =
+    "HA" +
+    now.getFullYear().toString().slice(2) +
+    String(now.getMonth() + 1).padStart(2, "0");
+
+  const lastImage = await hinhanh.findOne({
+    where: { MaHA: { [Op.like]: `${imagePrefix}%` } },
+    order: [["MaHA", "DESC"]],
+  });
+
+  let newImageId = imagePrefix + "0001";
+  if (lastImage) {
+    const lastNum = parseInt(lastImage.MaHA.slice(6)) || 0;
+    newImageId = imagePrefix + String(lastNum + 1).padStart(4, "0");
+  }
+
+  return newImageId;
+};
+
+// 🟢 TẠO MÃ SẢN PHẨM
+const generateMaSP = async () => {
+  const now = new Date();
+  const productPrefix =
+    "SP" +
+    now.getFullYear().toString().slice(2) +
+    String(now.getMonth() + 1).padStart(2, "0");
+
+  const lastProduct = await sanpham.findOne({
+    where: { MaSP: { [Op.like]: `${productPrefix}%` } },
+    order: [["MaSP", "DESC"]],
+  });
+
+  let newProductId = productPrefix + "0001";
+  if (lastProduct) {
+    const lastNum = parseInt(lastProduct.MaSP.slice(6)) || 0;
+    newProductId = productPrefix + String(lastNum + 1).padStart(4, "0");
+  }
+
+  return newProductId;
+};
+
+// 🟢 XỬ LÝ FORM DATA
+const processFormData = (req) => {
+  const body = { ...req.body };
+
+  if (body.danhMucIds) {
+    if (typeof body.danhMucIds === "string") {
+      try {
+        body.danhMucIds = JSON.parse(body.danhMucIds);
+      } catch {
+        body.danhMucIds = [body.danhMucIds];
+      }
+    }
+  }
+
+  if (body.xoaHinhAnhIds) {
+    if (typeof body.xoaHinhAnhIds === "string") {
+      try {
+        body.xoaHinhAnhIds = JSON.parse(body.xoaHinhAnhIds);
+      } catch {
+        body.xoaHinhAnhIds = [body.xoaHinhAnhIds];
+      }
+    }
+  }
+
+  return body;
+};
+
+// 🟢 XÓA FILE VẬT LÝ
+const deletePhysicalFile = (filePath) => {
+  try {
+    const fullPath = path.join(process.cwd(), "public", filePath);
+    if (fs.existsSync(fullPath)) {
+      fs.unlinkSync(fullPath);
+      console.log(`✅ Đã xóa file: ${filePath}`);
+    }
+  } catch (error) {
+    console.warn(`⚠️ Không thể xóa file: ${filePath}`, error.message);
+  }
+};
+
+// 🟢 LẤY DANH SÁCH SẢN PHẨM VỚI BỘ LỌC
 export const getAllSanpham = async (req, res) => {
   try {
     const {
       page = 1,
-      limit = 10,
+      limit = 12,
       search,
       minPrice,
       maxPrice,
       minRating,
+      danhMuc,
+      loaiSanPham, // 🟢 THÊM FILTER LOẠI SẢN PHẨM
+      sortBy = "newest",
       include,
+      MaCH,
     } = req.query;
 
     const offset = (page - 1) * limit;
     let whereCondition = {};
     let includeOptions = [];
+    let order = [];
 
-    // 🟢 TÌM KIẾM THEO TÊN
+    // 🟢 TÌM KIẾM THEO TÊN VÀ MÔ TẢ
     if (search) {
-      whereCondition.TenSP = {
-        [Op.like]: `%${search}%`,
-      };
+      whereCondition[Op.or] = [
+        { TenSP: { [Op.like]: `%${search}%` } },
+        { MoTa: { [Op.like]: `%${search}%` } },
+      ];
     }
 
     // 🟢 LỌC THEO GIÁ
@@ -91,71 +216,139 @@ export const getAllSanpham = async (req, res) => {
 
     // 🟢 LỌC THEO ĐIỂM ĐÁNH GIÁ
     if (minRating !== undefined) {
-      whereCondition.DiemDG_SP = {
-        [Op.gte]: parseFloat(minRating),
-      };
+      whereCondition.DiemDG_SP = { [Op.gte]: parseFloat(minRating) };
+    }
+
+    // 🟢 LỌC THEO CỬA HÀNG
+    if (MaCH) {
+      whereCondition.MaCH = MaCH;
+    }
+
+    // 🟢 LỌC THEO DANH MỤC (DANHMUC HIỆN CÓ)
+    if (danhMuc) {
+      const categoryIds = Array.isArray(danhMuc) ? danhMuc : [danhMuc];
+      includeOptions.push({
+        model: danhmuc,
+        as: "MaDM_danhmucs",
+        where: { MaDM: { [Op.in]: categoryIds } },
+        through: { attributes: [] },
+        required: true,
+      });
+    } else {
+      includeOptions.push({
+        model: danhmuc,
+        as: "MaDM_danhmucs",
+        through: { attributes: [] },
+        required: false,
+      });
+    }
+
+    // 🟢 LỌC THEO LOẠI SẢN PHẨM (TÌM THEO TÊN SẢN PHẨM)
+    if (loaiSanPham) {
+      const loaiSanPhamIds = Array.isArray(loaiSanPham)
+        ? loaiSanPham
+        : [loaiSanPham];
+
+      // Map từ mã loại sang từ khóa tìm kiếm tiếng Việt
+      const searchKeywords = loaiSanPhamIds.map((loai) => {
+        const keywordMap = {
+          mango: "xoài",
+          banana: "chuối",
+          "thanh-long": "thanh long",
+          watermelon: "dưa hấu",
+          orange: "cam",
+          apple: "táo",
+          grapes: "nho",
+          pineapple: "dứa",
+          cucumber: "dưa chuột",
+          tomato: "cà chua",
+          carrot: "cà rốt",
+          potato: "khoai tây",
+          // ... thêm các mapping khác từ AI model
+        };
+        return keywordMap[loai] || loai;
+      });
+
+      // Thêm điều kiện tìm kiếm theo tên sản phẩm
+      whereCondition[Op.or] = [
+        ...(whereCondition[Op.or] || []), // Giữ các điều kiện tìm kiếm cũ
+        ...searchKeywords.map((keyword) => ({
+          TenSP: {
+            [Op.like]: `%${keyword}%`,
+          },
+        })),
+      ];
+    }
+
+    // 🟢 SẮP XẾP
+    switch (sortBy) {
+      case "price_asc":
+        order = [["GiaBan", "ASC"]];
+        break;
+      case "price_desc":
+        order = [["GiaBan", "DESC"]];
+        break;
+      case "rating":
+        order = [["DiemDG_SP", "DESC"]];
+        break;
+      case "name":
+        order = [["TenSP", "ASC"]];
+        break;
+      case "newest":
+      default:
+        order = [["MaSP", "DESC"]];
+        break;
     }
 
     // 🟢 INCLUDE OPTIONS
     if (include) {
       const includes = include.split(",");
 
+      if (includes.includes("hinhanh")) {
+        includeOptions.push({
+          model: hinhanh,
+          as: "hinhanhs",
+          attributes: ["MaHA", "URL", "MoTa"],
+          through: { attributes: [] },
+          required: false,
+        });
+      }
+
       if (includes.includes("cuahang")) {
         includeOptions.push({
           model: cuahang,
           as: "cuahang",
-          attributes: ["MaCH", "TenCH", "DiemDG", "SLTheoDoi"],
-        });
-      }
-
-      if (includes.includes("hinhanh")) {
-        includeOptions.push({
-          model: hinhanh,
-          as: "hinhanhs", // ← PHẢI KHỚP VỚI as trong init-models
-          attributes: ["MaHA", "URL", "MoTa"],
-          through: { attributes: [] },
-        });
-      }
-
-      if (includes.includes("danhmuc")) {
-        includeOptions.push({
-          model: danhmuc,
-          as: "sanpham_danhmucs", // ← FIX TƯƠNG TỰ, KHỚP AS
-          attributes: ["MaDM", "TenDM"],
-          through: { attributes: [] },
-        });
-      }
-
-      if (includes.includes("danhgia")) {
-        includeOptions.push({
-          model: danhgiasanpham,
-          as: "danhgias", // ← FIX: THÊM AS NẾU LÀ HASMANY
-          attributes: ["MaDG", "Diem", "NoiDung", "NgayDG", "HieuLuc"],
-          include: [
-            {
-              model: taikhoan,
-              as: "nguoidanhgia",
-              attributes: ["MaTK", "TenDangNhap"],
-            },
-          ],
-          where: { HieuLuc: true }, // Optional: Lọc đánh giá hợp lệ
-          required: false, // Không bắt buộc nếu sản phẩm chưa có đánh giá
+          attributes: ["MaCH", "TenCH", "DiemDG"],
+          required: false,
         });
       }
     }
-    const { count, rows: data } = await sanpham.findAndCountAll({
+
+    console.log("🔍 Filter conditions:", {
+      loaiSanPham,
+      danhMuc,
+      search,
+      minPrice,
+      maxPrice,
+      minRating,
+    });
+
+    const { count, rows: products } = await sanpham.findAndCountAll({
       where: whereCondition,
       include: includeOptions,
-      order: [["MaSP", "ASC"]],
+      order,
       limit: parseInt(limit),
       offset: parseInt(offset),
+      distinct: true,
     });
+
+    console.log(`📊 Found ${count} products with filters`);
 
     res.json({
       success: true,
       message: "Lấy danh sách sản phẩm thành công",
       data: {
-        products: data,
+        products,
         pagination: {
           page: parseInt(page),
           limit: parseInt(limit),
@@ -173,6 +366,48 @@ export const getAllSanpham = async (req, res) => {
   }
 };
 
+// 🟢 LẤY DANH MỤC VỚI SỐ LƯỢNG SẢN PHẨM
+export const getCategoriesWithCount = async (req, res) => {
+  try {
+    const categories = await danhmuc.findAll({
+      include: [
+        {
+          model: sanpham,
+          as: "MaSP_sanpham_sanpham_danhmucs",
+          attributes: [],
+          through: { attributes: [] },
+        },
+      ],
+      attributes: {
+        include: [
+          [
+            sequelize.fn(
+              "COUNT",
+              sequelize.col("MaSP_sanpham_sanpham_danhmucs.MaSP")
+            ),
+            "SoLuongSP",
+          ],
+        ],
+      },
+      group: ["danhmuc.MaDM"],
+      order: [["TenDM", "ASC"]],
+    });
+
+    res.json({
+      success: true,
+      message: "Lấy danh mục thành công",
+      data: { categories },
+    });
+  } catch (error) {
+    console.error("❌ Lỗi lấy danh mục:", error);
+    res.status(500).json({
+      success: false,
+      message: "Lỗi server: " + error.message,
+    });
+  }
+};
+
+// 🟢 LẤY CHI TIẾT SẢN PHẨM
 export const getSanphamById = async (req, res) => {
   try {
     const { MaSP } = req.params;
@@ -182,57 +417,34 @@ export const getSanphamById = async (req, res) => {
       {
         model: cuahang,
         as: "cuahang",
-        attributes: ["MaCH", "TenCH", "DiemDG", "SLTheoDoi"],
+        attributes: ["MaCH", "TenCH", "DiemDG"],
+      },
+      {
+        model: hinhanh,
+        as: "hinhanhs",
+        attributes: ["MaHA", "URL", "MoTa"],
+        through: { attributes: [] },
       },
     ];
 
     if (include) {
       const includes = include.split(",");
 
-      // 🟢 HÌNH ẢNH - ĐÚNG
-      if (includes.includes("hinhanh")) {
-        includeOptions.push({
-          model: hinhanh,
-          as: "hinhanhs",
-          attributes: ["MaHA", "URL", "MoTa"],
-          through: { attributes: [] },
-        });
-      }
-
-      // 🟢 DANH MỤC - SỬA LẠI
       if (includes.includes("danhmuc")) {
         includeOptions.push({
           model: danhmuc,
-          as: "MaDM_danhmucs", // ← SỬA THÀNH ALIAS NÀY
-          attributes: ["MaDM", "TenDM"],
-          through: { attributes: [] }, // Ẩn bảng trung gian
-        });
-      }
-
-      // 🟢 ĐÁNH GIÁ - SỬA LẠI
-      if (includes.includes("danhgia")) {
-        includeOptions.push({
-          model: danhgiasanpham,
-          as: "danhgias", // ← ĐÚNG
-          attributes: ["MaDG", "Diem", "NoiDung", "NgayDG", "HieuLuc"],
-          include: [
-            {
-              model: taikhoan,
-              as: "nguoidanhgia", // ← ĐÚNG
-              attributes: ["MaTK", "TenDangNhap"],
-            },
-          ],
-          where: { HieuLuc: true },
-          required: false,
+          as: "MaDM_danhmucs",
+          attributes: ["MaDM", "TenDM", "MoTa"],
+          through: { attributes: [] },
         });
       }
     }
 
-    const item = await sanpham.findByPk(MaSP, {
+    const product = await sanpham.findByPk(MaSP, {
       include: includeOptions,
     });
 
-    if (!item) {
+    if (!product) {
       return res.status(404).json({
         success: false,
         message: "Không tìm thấy sản phẩm",
@@ -242,7 +454,7 @@ export const getSanphamById = async (req, res) => {
     res.json({
       success: true,
       message: "Lấy thông tin sản phẩm thành công",
-      data: item,
+      data: product,
     });
   } catch (err) {
     console.error("❌ Lỗi lấy thông tin sản phẩm:", err);
@@ -253,11 +465,19 @@ export const getSanphamById = async (req, res) => {
   }
 };
 
-// 🟢 Lấy sản phẩm theo cửa hàng
+// 🟢 LẤY SẢN PHẨM THEO CỬA HÀNG
 export const getSanphamByCuaHang = async (req, res) => {
   try {
     const { MaCH } = req.params;
-    const { page = 1, limit = 10, include } = req.query;
+    const {
+      page = 1,
+      limit = 10,
+      include,
+      search,
+      danhMuc,
+      trangThai,
+    } = req.query;
+
     const offset = (page - 1) * limit;
 
     // Kiểm tra cửa hàng tồn tại
@@ -269,25 +489,59 @@ export const getSanphamByCuaHang = async (req, res) => {
       });
     }
 
+    let whereCondition = { MaCH };
     let includeOptions = [];
-    if (include && include.includes("hinhanh")) {
+
+    // 🟢 LỌC THEO TÌM KIẾM
+    if (search) {
+      whereCondition[Op.or] = [
+        { TenSP: { [Op.like]: `%${search}%` } },
+        { MoTa: { [Op.like]: `%${search}%` } },
+      ];
+    }
+
+    // 🟢 LỌC THEO TRẠNG THÁI
+    if (trangThai) {
+      whereCondition.TrangThai = trangThai;
+    }
+
+    // 🟢 LỌC THEO DANH MỤC
+    if (danhMuc) {
+      const categoryIds = Array.isArray(danhMuc) ? danhMuc : [danhMuc];
       includeOptions.push({
-        model: sanpham_hinhanh,
-        include: [
-          {
-            model: hinhanh,
-            attributes: ["MaHA", "URL", "MoTa"],
-          },
-        ],
+        model: danhmuc,
+        as: "MaDM_danhmucs",
+        where: { MaDM: { [Op.in]: categoryIds } },
+        through: { attributes: [] },
+        required: true,
+      });
+    } else {
+      includeOptions.push({
+        model: danhmuc,
+        as: "MaDM_danhmucs",
+        through: { attributes: [] },
+        required: false,
       });
     }
 
-    const { count, rows: data } = await sanpham.findAndCountAll({
-      where: { MaCH },
+    // 🟢 INCLUDE HÌNH ẢNH
+    if (include && include.includes("hinhanh")) {
+      includeOptions.push({
+        model: hinhanh,
+        as: "hinhanhs",
+        attributes: ["MaHA", "URL", "MoTa"],
+        through: { attributes: [] },
+        required: false,
+      });
+    }
+
+    const { count, rows: products } = await sanpham.findAndCountAll({
+      where: whereCondition,
       include: includeOptions,
       order: [["TenSP", "ASC"]],
       limit: parseInt(limit),
       offset: parseInt(offset),
+      distinct: true,
     });
 
     res.json({
@@ -298,7 +552,7 @@ export const getSanphamByCuaHang = async (req, res) => {
           MaCH: cuaHang.MaCH,
           TenCH: cuaHang.TenCH,
         },
-        products: data,
+        products,
         pagination: {
           page: parseInt(page),
           limit: parseInt(limit),
@@ -316,7 +570,7 @@ export const getSanphamByCuaHang = async (req, res) => {
   }
 };
 
-// 🟢 Thêm sản phẩm - CẢI THIỆN VALIDATION
+// 🟢 TẠO SẢN PHẨM MỚI VỚI NHIỀU HÌNH ẢNH
 export const createSanpham = async (req, res) => {
   const transaction = await sequelize.transaction();
 
@@ -325,7 +579,45 @@ export const createSanpham = async (req, res) => {
 
     // 🟢 XÁC THỰC USER
     const user = await authenticateUser(req);
-    console.log(`👤 Authenticated user: ${user.MaTK}`);
+
+    // 🟢 XỬ LÝ FORM DATA
+    const processedBody = processFormData(req);
+    const {
+      TenSP,
+      MoTa,
+      DVT,
+      HSD,
+      TrangThai = "Đang bán",
+      GiaBan,
+      NguonGoc,
+      SLTon,
+      danhMucIds,
+    } = processedBody;
+
+    // VALIDATION
+    if (!TenSP || TenSP.trim() === "") {
+      await transaction.rollback();
+      return res.status(400).json({
+        success: false,
+        message: "Tên sản phẩm không được để trống",
+      });
+    }
+
+    if (!GiaBan || parseFloat(GiaBan) < 0) {
+      await transaction.rollback();
+      return res.status(400).json({
+        success: false,
+        message: "Giá bán không hợp lệ",
+      });
+    }
+
+    if (!SLTon || parseInt(SLTon) < 0) {
+      await transaction.rollback();
+      return res.status(400).json({
+        success: false,
+        message: "Số lượng tồn không hợp lệ",
+      });
+    }
 
     // Tìm cửa hàng của user
     const cuaHang = await cuahang.findOne({
@@ -341,80 +633,142 @@ export const createSanpham = async (req, res) => {
       });
     }
 
-    const { TenSP, MoTa, DVT, HSD, TrangThai, GiaBan, NguonGoc, SLTon } =
-      req.body;
-
-    // 🟢 VALIDATION CƠ BẢN
-    if (!TenSP || TenSP.trim() === "") {
-      await transaction.rollback();
-      return res.status(400).json({
-        success: false,
-        message: "Tên sản phẩm không được để trống",
-      });
-    }
-
-    if (GiaBan && GiaBan < 0) {
-      await transaction.rollback();
-      return res.status(400).json({
-        success: false,
-        message: "Giá bán không được âm",
-      });
-    }
-
-    if (SLTon && SLTon < 0) {
-      await transaction.rollback();
-      return res.status(400).json({
-        success: false,
-        message: "Số lượng tồn không được âm",
-      });
-    }
-
     // 🟢 TẠO MÃ SẢN PHẨM TỰ ĐỘNG
-    const now = new Date();
-    const productPrefix =
-      "SP" +
-      now.getFullYear().toString().slice(2) +
-      String(now.getMonth() + 1).padStart(2, "0");
+    const MaSP = await generateMaSP();
 
-    const lastProduct = await sanpham.findOne({
-      where: { MaSP: { [Op.like]: `${productPrefix}%` } },
-      order: [["MaSP", "DESC"]],
-      transaction,
-    });
-
-    let newProductId = productPrefix + "0001";
-    if (lastProduct) {
-      const num = parseInt(lastProduct.MaSP.slice(6)) + 1;
-      newProductId = productPrefix + num.toString().padStart(4, "0");
-    }
-
-    // Tạo sản phẩm mới
+    // 🟢 TẠO SẢN PHẨM MỚI
     const newProduct = await sanpham.create(
       {
-        MaSP: newProductId,
+        MaSP,
         MaCH: cuaHang.MaCH,
         TenSP: TenSP.trim(),
-        MoTa: MoTa || null,
-        DVT: DVT || null,
+        MoTa: MoTa?.trim() || null,
+        DVT: DVT?.trim() || "cái",
         HSD: HSD || null,
-        TrangThai: TrangThai || "Đang bán",
-        GiaBan: GiaBan || 0,
-        NguonGoc: NguonGoc || null,
-        SLTon: SLTon || 0,
+        TrangThai: TrangThai,
+        GiaBan: parseFloat(GiaBan),
+        NguonGoc: NguonGoc?.trim() || null,
+        SLTon: parseInt(SLTon),
         DiemDG_SP: 0,
         SoLuongDanhGia_SP: 0,
       },
       { transaction }
     );
 
+    console.log("✅ Product created:", newProduct.MaSP);
+
+    // 🟢 XỬ LÝ HÌNH ẢNH - NHIỀU ẢNH
+    let uploadedImages = [];
+    if (req.files && (req.files.images || req.files.hinhAnh)) {
+      const files = req.files.images || req.files.hinhAnh;
+      const imageFiles = Array.isArray(files) ? files : [files];
+
+      console.log(`📸 Uploading ${imageFiles.length} images...`);
+
+      for (let i = 0; i < imageFiles.length; i++) {
+        const file = imageFiles[i];
+
+        try {
+          const MaHA = await generateMaHA();
+          const imageUrl = handleFileUpload(file, "products");
+
+          const newImage = await hinhanh.create(
+            {
+              MaHA,
+              URL: imageUrl,
+              MoTa: `Hình ảnh ${i + 1} của sản phẩm ${TenSP}`,
+            },
+            { transaction }
+          );
+
+          await sanpham_hinhanh.create(
+            {
+              MaSP: newProduct.MaSP,
+              MaHA: newImage.MaHA,
+            },
+            { transaction }
+          );
+
+          uploadedImages.push({
+            MaHA: newImage.MaHA,
+            URL: imageUrl,
+            MoTa: newImage.MoTa,
+          });
+
+          console.log(`✅ Uploaded image ${i + 1}: ${MaHA}`);
+        } catch (imageError) {
+          console.error(`❌ Lỗi upload ảnh ${i + 1}:`, imageError);
+          // Continue with other images even if one fails
+        }
+      }
+    }
+
+    // 🟢 XỬ LÝ DANH MỤC
+    let assignedCategories = [];
+    if (danhMucIds && danhMucIds.length > 0) {
+      const categoryIds = Array.isArray(danhMucIds)
+        ? danhMucIds
+        : typeof danhMucIds === "string"
+        ? [danhMucIds]
+        : [];
+
+      const validCategoryIds = categoryIds.filter(
+        (id) => !id.startsWith("CUSTOM_")
+      );
+
+      if (validCategoryIds.length > 0) {
+        const existingCategories = await danhmuc.findAll({
+          where: { MaDM: { [Op.in]: validCategoryIds } },
+          transaction,
+        });
+
+        const validCategoryAssociations = existingCategories.map((cat) => ({
+          MaSP: newProduct.MaSP,
+          MaDM: cat.MaDM,
+        }));
+
+        if (validCategoryAssociations.length > 0) {
+          await sanpham_danhmuc.bulkCreate(validCategoryAssociations, {
+            transaction,
+          });
+          assignedCategories = existingCategories.map((cat) => ({
+            MaDM: cat.MaDM,
+            TenDM: cat.TenDM,
+            MoTa: cat.MoTa,
+          }));
+        }
+      }
+    }
+
     await transaction.commit();
 
-    console.log("✅ Product created successfully:", newProduct.MaSP);
+    // 🟢 LẤY LẠI SẢN PHẨM VỚI THÔNG TIN ĐẦY ĐỦ
+    const productWithDetails = await sanpham.findByPk(newProduct.MaSP, {
+      include: [
+        {
+          model: danhmuc,
+          as: "MaDM_danhmucs",
+          attributes: ["MaDM", "TenDM", "MoTa"],
+          through: { attributes: [] },
+        },
+        {
+          model: hinhanh,
+          as: "hinhanhs",
+          attributes: ["MaHA", "URL", "MoTa"],
+          through: { attributes: [] },
+        },
+        {
+          model: cuahang,
+          as: "cuahang",
+          attributes: ["MaCH", "TenCH", "DiemDG"],
+        },
+      ],
+    });
 
     res.status(201).json({
       success: true,
       message: "Tạo sản phẩm thành công",
-      data: newProduct,
+      data: productWithDetails,
     });
   } catch (err) {
     await transaction.rollback();
@@ -427,18 +781,6 @@ export const createSanpham = async (req, res) => {
       });
     }
 
-    if (err.name === "SequelizeValidationError") {
-      const validationErrors = err.errors.map((error) => ({
-        field: error.path,
-        message: error.message,
-      }));
-      return res.status(400).json({
-        success: false,
-        message: "Lỗi validation dữ liệu",
-        errors: validationErrors,
-      });
-    }
-
     res.status(500).json({
       success: false,
       message: "Lỗi server: " + err.message,
@@ -446,7 +788,7 @@ export const createSanpham = async (req, res) => {
   }
 };
 
-// 🟢 Cập nhật sản phẩm - CẢI THIỆN
+// 🟢 CẬP NHẬT SẢN PHẨM VỚI QUẢN LÝ HÌNH ẢNH
 export const updateSanpham = async (req, res) => {
   const transaction = await sequelize.transaction();
 
@@ -457,8 +799,8 @@ export const updateSanpham = async (req, res) => {
     const user = await authenticateUser(req);
 
     // Tìm sản phẩm
-    const item = await sanpham.findByPk(MaSP, { transaction });
-    if (!item) {
+    const product = await sanpham.findByPk(MaSP, { transaction });
+    if (!product) {
       await transaction.rollback();
       return res.status(404).json({
         success: false,
@@ -480,8 +822,8 @@ export const updateSanpham = async (req, res) => {
       });
     }
 
-    // 🚨 KIỂM TRA QUYỀN SỞ HỮU
-    if (item.MaCH !== cuaHang.MaCH) {
+    // KIỂM TRA QUYỀN SỞ HỮU
+    if (product.MaCH !== cuaHang.MaCH) {
       await transaction.rollback();
       return res.status(403).json({
         success: false,
@@ -489,9 +831,22 @@ export const updateSanpham = async (req, res) => {
       });
     }
 
-    // 🟢 VALIDATION DỮ LIỆU CẬP NHẬT
-    const { TenSP, GiaBan, SLTon } = req.body;
+    // 🟢 XỬ LÝ FORM DATA
+    const processedBody = processFormData(req);
+    const {
+      TenSP,
+      MoTa,
+      DVT,
+      HSD,
+      TrangThai,
+      GiaBan,
+      NguonGoc,
+      SLTon,
+      danhMucIds,
+      xoaHinhAnhIds,
+    } = processedBody;
 
+    // VALIDATION
     if (TenSP !== undefined && TenSP.trim() === "") {
       await transaction.rollback();
       return res.status(400).json({
@@ -500,7 +855,7 @@ export const updateSanpham = async (req, res) => {
       });
     }
 
-    if (GiaBan !== undefined && GiaBan < 0) {
+    if (GiaBan !== undefined && parseFloat(GiaBan) < 0) {
       await transaction.rollback();
       return res.status(400).json({
         success: false,
@@ -508,7 +863,7 @@ export const updateSanpham = async (req, res) => {
       });
     }
 
-    if (SLTon !== undefined && SLTon < 0) {
+    if (SLTon !== undefined && parseInt(SLTon) < 0) {
       await transaction.rollback();
       return res.status(400).json({
         success: false,
@@ -516,17 +871,162 @@ export const updateSanpham = async (req, res) => {
       });
     }
 
-    // Cập nhật sản phẩm
-    await item.update(req.body, { transaction });
+    // 🟢 CẬP NHẬT THÔNG TIN SẢN PHẨM
+    const updateData = {};
+    if (TenSP !== undefined) updateData.TenSP = TenSP.trim();
+    if (MoTa !== undefined) updateData.MoTa = MoTa?.trim() || null;
+    if (DVT !== undefined) updateData.DVT = DVT?.trim() || "cái";
+    if (HSD !== undefined) updateData.HSD = HSD;
+    if (TrangThai !== undefined) updateData.TrangThai = TrangThai;
+    if (GiaBan !== undefined) updateData.GiaBan = parseFloat(GiaBan);
+    if (NguonGoc !== undefined) updateData.NguonGoc = NguonGoc?.trim() || null;
+    if (SLTon !== undefined) updateData.SLTon = parseInt(SLTon);
+
+    await product.update(updateData, { transaction });
+
+    // 🟢 XỬ LÝ XÓA HÌNH ẢNH
+    if (xoaHinhAnhIds && xoaHinhAnhIds.length > 0) {
+      const deleteIds = Array.isArray(xoaHinhAnhIds)
+        ? xoaHinhAnhIds
+        : [xoaHinhAnhIds];
+
+      console.log(`🗑️ Deleting ${deleteIds.length} images...`);
+
+      // Lấy thông tin hình ảnh để xóa file vật lý
+      const imagesToDelete = await hinhanh.findAll({
+        where: { MaHA: { [Op.in]: deleteIds } },
+        transaction,
+      });
+
+      // Xóa liên kết với sản phẩm
+      await sanpham_hinhanh.destroy({
+        where: {
+          MaSP: MaSP,
+          MaHA: { [Op.in]: deleteIds },
+        },
+        transaction,
+      });
+
+      // Xóa bản ghi hình ảnh
+      await hinhanh.destroy({
+        where: {
+          MaHA: { [Op.in]: deleteIds },
+        },
+        transaction,
+      });
+
+      // Xóa file vật lý
+      imagesToDelete.forEach((image) => {
+        deletePhysicalFile(image.URL);
+      });
+    }
+
+    // 🟢 XỬ LÝ THÊM HÌNH ẢNH MỚI
+    if (req.files && (req.files.images || req.files.hinhAnhMoi)) {
+      const files = req.files.images || req.files.hinhAnhMoi;
+      const imageFiles = Array.isArray(files) ? files : [files];
+
+      console.log(`📸 Adding ${imageFiles.length} new images...`);
+
+      for (let i = 0; i < imageFiles.length; i++) {
+        const file = imageFiles[i];
+
+        try {
+          const MaHA = await generateMaHA();
+          const imageUrl = handleFileUpload(file, "products");
+
+          const newImage = await hinhanh.create(
+            {
+              MaHA,
+              URL: imageUrl,
+              MoTa: `Hình ảnh mới của sản phẩm ${product.TenSP}`,
+            },
+            { transaction }
+          );
+
+          await sanpham_hinhanh.create(
+            {
+              MaSP: MaSP,
+              MaHA: newImage.MaHA,
+            },
+            { transaction }
+          );
+
+          console.log(`✅ Added new image ${i + 1}: ${MaHA}`);
+        } catch (imageError) {
+          console.error(`❌ Lỗi upload ảnh mới ${i + 1}:`, imageError);
+        }
+      }
+    }
+
+    // 🟢 CẬP NHẬT DANH MỤC
+    if (danhMucIds !== undefined) {
+      await sanpham_danhmuc.destroy({
+        where: { MaSP: MaSP },
+        transaction,
+      });
+
+      const categoryIds = Array.isArray(danhMucIds)
+        ? danhMucIds
+        : danhMucIds
+        ? [danhMucIds]
+        : [];
+      const validCategoryIds = categoryIds.filter(
+        (id) => !id.startsWith("CUSTOM_")
+      );
+
+      if (validCategoryIds.length > 0) {
+        const existingCategories = await danhmuc.findAll({
+          where: { MaDM: { [Op.in]: validCategoryIds } },
+          transaction,
+        });
+
+        const validCategoryAssociations = existingCategories.map((cat) => ({
+          MaSP: MaSP,
+          MaDM: cat.MaDM,
+        }));
+
+        if (validCategoryAssociations.length > 0) {
+          await sanpham_danhmuc.bulkCreate(validCategoryAssociations, {
+            transaction,
+          });
+        }
+      }
+    }
+
     await transaction.commit();
+
+    // 🟢 LẤY LẠI SẢN PHẨM VỚI THÔNG TIN ĐẦY ĐỦ
+    const updatedProduct = await sanpham.findByPk(MaSP, {
+      include: [
+        {
+          model: danhmuc,
+          as: "MaDM_danhmucs",
+          attributes: ["MaDM", "TenDM", "MoTa"],
+          through: { attributes: [] },
+        },
+        {
+          model: hinhanh,
+          as: "hinhanhs",
+          attributes: ["MaHA", "URL", "MoTa"],
+          through: { attributes: [] },
+        },
+        {
+          model: cuahang,
+          as: "cuahang",
+          attributes: ["MaCH", "TenCH", "DiemDG"],
+        },
+      ],
+    });
 
     res.json({
       success: true,
       message: "Cập nhật sản phẩm thành công",
-      data: item,
+      data: updatedProduct,
     });
   } catch (err) {
     await transaction.rollback();
+    console.error("❌ Lỗi cập nhật sản phẩm:", err);
 
     if (err.message.includes("Token")) {
       return res.status(401).json({
@@ -535,7 +1035,6 @@ export const updateSanpham = async (req, res) => {
       });
     }
 
-    console.error("❌ Lỗi cập nhật sản phẩm:", err);
     res.status(500).json({
       success: false,
       message: "Lỗi server: " + err.message,
@@ -543,7 +1042,7 @@ export const updateSanpham = async (req, res) => {
   }
 };
 
-// 🟢 Xóa sản phẩm - GIỮ NGUYÊN (ĐÃ TỐT)
+// 🟢 XÓA SẢN PHẨM
 export const deleteSanpham = async (req, res) => {
   const transaction = await sequelize.transaction();
 
@@ -554,21 +1053,12 @@ export const deleteSanpham = async (req, res) => {
     const user = await authenticateUser(req);
 
     // Tìm sản phẩm
-    const item = await sanpham.findByPk(MaSP, { transaction });
-    if (!item) {
+    const product = await sanpham.findByPk(MaSP, { transaction });
+    if (!product) {
       await transaction.rollback();
       return res.status(404).json({
         success: false,
         message: "Không tìm thấy sản phẩm",
-      });
-    }
-
-    // 🚨 KHÔNG CHO XÓA SẢN PHẨM KHÔNG CÓ CỬA HÀNG
-    if (item.MaCH === null) {
-      await transaction.rollback();
-      return res.status(403).json({
-        success: false,
-        message: "Không thể xóa sản phẩm hệ thống",
       });
     }
 
@@ -586,8 +1076,8 @@ export const deleteSanpham = async (req, res) => {
       });
     }
 
-    // 🚨 KIỂM TRA QUYỀN SỞ HỮU
-    if (item.MaCH !== cuaHang.MaCH) {
+    // KIỂM TRA QUYỀN SỞ HỮU
+    if (product.MaCH !== cuaHang.MaCH) {
       await transaction.rollback();
       return res.status(403).json({
         success: false,
@@ -595,31 +1085,38 @@ export const deleteSanpham = async (req, res) => {
       });
     }
 
+    // Lấy danh sách hình ảnh để xóa file vật lý
+    const productImages = await hinhanh.findAll({
+      include: [
+        {
+          model: sanpham,
+          as: "MaSP_sanpham_sanpham_hinhanhs",
+          where: { MaSP: MaSP },
+          through: { attributes: [] },
+        },
+      ],
+      transaction,
+    });
+
     // Xóa dữ liệu liên quan
-    if (sanpham_danhmuc) {
-      await sanpham_danhmuc.destroy({
-        where: { MaSP: MaSP },
-        transaction,
-      });
-    }
+    await sanpham_danhmuc.destroy({
+      where: { MaSP: MaSP },
+      transaction,
+    });
 
-    if (sanpham_hinhanh) {
-      await sanpham_hinhanh.destroy({
-        where: { MaSP: MaSP },
-        transaction,
-      });
-    }
-
-    // Xóa đánh giá sản phẩm
-    if (danhgiasanpham) {
-      await danhgiasanpham.destroy({
-        where: { MaSP: MaSP },
-        transaction,
-      });
-    }
+    await sanpham_hinhanh.destroy({
+      where: { MaSP: MaSP },
+      transaction,
+    });
 
     // Xóa sản phẩm
-    await item.destroy({ transaction });
+    await product.destroy({ transaction });
+
+    // Xóa file hình ảnh vật lý
+    productImages.forEach((image) => {
+      deletePhysicalFile(image.URL);
+    });
+
     await transaction.commit();
 
     res.json({
@@ -628,6 +1125,7 @@ export const deleteSanpham = async (req, res) => {
       data: {
         deletedProduct: MaSP,
         store: cuaHang.MaCH,
+        deletedImages: productImages.length,
       },
     });
   } catch (err) {
@@ -648,7 +1146,7 @@ export const deleteSanpham = async (req, res) => {
   }
 };
 
-// 🟢 Lấy sản phẩm của cửa hàng tôi - CẢI THIỆN
+// 🟢 LẤY SẢN PHẨM CỦA CỬA HÀNG TÔI
 export const getMySanpham = async (req, res) => {
   try {
     // 🟢 XÁC THỰC USER
@@ -666,28 +1164,69 @@ export const getMySanpham = async (req, res) => {
       });
     }
 
-    const { page = 1, limit = 10, include } = req.query;
+    const {
+      page = 1,
+      limit = 10,
+      include,
+      search,
+      danhMuc,
+      trangThai,
+    } = req.query;
     const offset = (page - 1) * limit;
 
+    let whereCondition = { MaCH: cuaHang.MaCH };
     let includeOptions = [];
-    if (include && include.includes("hinhanh")) {
+
+    // 🟢 LỌC THEO TÌM KIẾM
+    if (search) {
+      whereCondition[Op.or] = [
+        { TenSP: { [Op.like]: `%${search}%` } },
+        { MoTa: { [Op.like]: `%${search}%` } },
+      ];
+    }
+
+    // 🟢 LỌC THEO TRẠNG THÁI
+    if (trangThai) {
+      whereCondition.TrangThai = trangThai;
+    }
+
+    // 🟢 LỌC THEO DANH MỤC
+    if (danhMuc) {
+      const categoryIds = Array.isArray(danhMuc) ? danhMuc : [danhMuc];
       includeOptions.push({
-        model: sanpham_hinhanh,
-        include: [
-          {
-            model: hinhanh,
-            attributes: ["MaHA", "URL", "MoTa"],
-          },
-        ],
+        model: danhmuc,
+        as: "MaDM_danhmucs",
+        where: { MaDM: { [Op.in]: categoryIds } },
+        through: { attributes: [] },
+        required: true,
+      });
+    } else {
+      includeOptions.push({
+        model: danhmuc,
+        as: "MaDM_danhmucs",
+        through: { attributes: [] },
+        required: false,
       });
     }
 
-    const { count, rows: data } = await sanpham.findAndCountAll({
-      where: { MaCH: cuaHang.MaCH },
+    // 🟢 INCLUDE HÌNH ẢNH
+    if (include && include.includes("hinhanh")) {
+      includeOptions.push({
+        model: hinhanh,
+        as: "hinhanhs",
+        attributes: ["MaHA", "URL", "MoTa"],
+        through: { attributes: [] },
+        required: false,
+      });
+    }
+
+    const { count, rows: products } = await sanpham.findAndCountAll({
+      where: whereCondition,
       include: includeOptions,
-      order: [["TenSP", "ASC"]],
+      order: [["MaSP", "DESC"]],
       limit: parseInt(limit),
       offset: parseInt(offset),
+      distinct: true,
     });
 
     res.json({
@@ -698,7 +1237,7 @@ export const getMySanpham = async (req, res) => {
           MaCH: cuaHang.MaCH,
           TenCH: cuaHang.TenCH,
         },
-        products: data,
+        products,
         pagination: {
           page: parseInt(page),
           limit: parseInt(limit),
@@ -732,14 +1271,18 @@ export const searchSanpham = async (req, res) => {
       maxPrice,
       minRating,
       MaCH,
+      danhMuc,
       page = 1,
-      limit = 10,
+      limit = 12,
+      sortBy = "newest",
     } = req.query;
 
     const offset = (page - 1) * limit;
     let whereCondition = {};
+    let includeOptions = [];
+    let order = [];
 
-    // Tìm kiếm theo từ khóa
+    // 🟢 TÌM KIẾM THEO TỪ KHÓA
     if (keyword) {
       whereCondition[Op.or] = [
         { TenSP: { [Op.like]: `%${keyword}%` } },
@@ -748,7 +1291,7 @@ export const searchSanpham = async (req, res) => {
       ];
     }
 
-    // Lọc theo giá
+    // 🟢 LỌC THEO GIÁ
     if (minPrice !== undefined || maxPrice !== undefined) {
       whereCondition.GiaBan = {};
       if (minPrice !== undefined)
@@ -757,37 +1300,78 @@ export const searchSanpham = async (req, res) => {
         whereCondition.GiaBan[Op.lte] = parseFloat(maxPrice);
     }
 
-    // Lọc theo điểm đánh giá
+    // 🟢 LỌC THEO ĐIỂM ĐÁNH GIÁ
     if (minRating !== undefined) {
       whereCondition.DiemDG_SP = { [Op.gte]: parseFloat(minRating) };
     }
 
-    // Lọc theo cửa hàng
+    // 🟢 LỌC THEO CỬA HÀNG
     if (MaCH) {
       whereCondition.MaCH = MaCH;
     }
 
-    const { count, rows: data } = await sanpham.findAndCountAll({
+    // 🟢 LỌC THEO DANH MỤC
+    if (danhMuc) {
+      const categoryIds = Array.isArray(danhMuc) ? danhMuc : [danhMuc];
+      includeOptions.push({
+        model: danhmuc,
+        as: "MaDM_danhmucs",
+        where: { MaDM: { [Op.in]: categoryIds } },
+        through: { attributes: [] },
+        required: true,
+      });
+    }
+
+    // 🟢 SẮP XẾP
+    switch (sortBy) {
+      case "price_asc":
+        order = [["GiaBan", "ASC"]];
+        break;
+      case "price_desc":
+        order = [["GiaBan", "DESC"]];
+        break;
+      case "rating":
+        order = [["DiemDG_SP", "DESC"]];
+        break;
+      case "name":
+        order = [["TenSP", "ASC"]];
+        break;
+      case "newest":
+      default:
+        order = [["MaSP", "DESC"]];
+        break;
+    }
+
+    // 🟢 INCLUDE THÔNG TIN BỔ SUNG
+    includeOptions.push(
+      {
+        model: cuahang,
+        as: "cuahang",
+        attributes: ["MaCH", "TenCH", "DiemDG"],
+      },
+      {
+        model: hinhanh,
+        as: "hinhanhs",
+        attributes: ["MaHA", "URL", "MoTa"],
+        through: { attributes: [] },
+        required: false,
+      }
+    );
+
+    const { count, rows: products } = await sanpham.findAndCountAll({
       where: whereCondition,
-      include: [
-        {
-          model: cuahang,
-          attributes: ["MaCH", "TenCH", "DiemDG"],
-        },
-      ],
-      order: [
-        ["DiemDG_SP", "DESC"],
-        ["TenSP", "ASC"],
-      ],
+      include: includeOptions,
+      order,
       limit: parseInt(limit),
       offset: parseInt(offset),
+      distinct: true,
     });
 
     res.json({
       success: true,
       message: "Tìm kiếm sản phẩm thành công",
       data: {
-        products: data,
+        products,
         pagination: {
           page: parseInt(page),
           limit: parseInt(limit),
@@ -798,6 +1382,313 @@ export const searchSanpham = async (req, res) => {
     });
   } catch (err) {
     console.error("❌ Lỗi tìm kiếm sản phẩm:", err);
+    res.status(500).json({
+      success: false,
+      message: "Lỗi server: " + err.message,
+    });
+  }
+};
+
+// 🟢 THỐNG KÊ SẢN PHẨM
+export const getProductStats = async (req, res) => {
+  try {
+    const user = await authenticateUser(req);
+
+    const cuaHang = await cuahang.findOne({
+      where: { MaTK: user.MaTK },
+    });
+
+    if (!cuaHang) {
+      return res.status(404).json({
+        success: false,
+        message: "Bạn không có cửa hàng",
+      });
+    }
+
+    const totalProducts = await sanpham.count({
+      where: { MaCH: cuaHang.MaCH },
+    });
+
+    const activeProducts = await sanpham.count({
+      where: {
+        MaCH: cuaHang.MaCH,
+        TrangThai: "Đang bán",
+      },
+    });
+
+    const outOfStockProducts = await sanpham.count({
+      where: {
+        MaCH: cuaHang.MaCH,
+        SLTon: 0,
+      },
+    });
+
+    const totalValue = await sanpham.sum("GiaBan", {
+      where: { MaCH: cuaHang.MaCH },
+    });
+
+    // Thống kê hình ảnh
+    const productsWithImages = await sanpham.findAll({
+      where: { MaCH: cuaHang.MaCH },
+      include: [
+        {
+          model: hinhanh,
+          as: "hinhanhs",
+          attributes: ["MaHA"],
+          through: { attributes: [] },
+        },
+      ],
+    });
+
+    const totalImages = productsWithImages.reduce((total, product) => {
+      return total + product.hinhanhs.length;
+    }, 0);
+
+    const productsWithoutImages = productsWithImages.filter(
+      (product) => product.hinhanhs.length === 0
+    ).length;
+
+    res.json({
+      success: true,
+      message: "Lấy thống kê sản phẩm thành công",
+      data: {
+        totalProducts,
+        activeProducts,
+        outOfStockProducts,
+        totalValue: totalValue || 0,
+        images: {
+          totalImages,
+          productsWithoutImages,
+          averageImagesPerProduct:
+            totalProducts > 0 ? (totalImages / totalProducts).toFixed(2) : 0,
+        },
+      },
+    });
+  } catch (err) {
+    if (err.message.includes("Token")) {
+      return res.status(401).json({
+        success: false,
+        message: err.message,
+      });
+    }
+
+    console.error("❌ Lỗi lấy thống kê sản phẩm:", err);
+    res.status(500).json({
+      success: false,
+      message: "Lỗi server: " + err.message,
+    });
+  }
+};
+
+// 🟢 THÊM HÌNH ẢNH CHO SẢN PHẨM
+export const addImagesToProduct = async (req, res) => {
+  const transaction = await sequelize.transaction();
+
+  try {
+    const { MaSP } = req.params;
+    const { MoTa } = req.body;
+
+    // 🟢 XÁC THỰC USER
+    const user = await authenticateUser(req);
+
+    // Kiểm tra sản phẩm tồn tại và quyền sở hữu
+    const product = await sanpham.findByPk(MaSP, {
+      include: [
+        {
+          model: cuahang,
+          as: "cuahang",
+          attributes: ["MaCH", "MaTK"],
+        },
+      ],
+      transaction,
+    });
+
+    if (!product) {
+      await transaction.rollback();
+      return res.status(404).json({
+        success: false,
+        message: "Không tìm thấy sản phẩm",
+      });
+    }
+
+    // Kiểm tra quyền sở hữu
+    if (product.cuahang.MaTK !== user.MaTK) {
+      await transaction.rollback();
+      return res.status(403).json({
+        success: false,
+        message: "Bạn không có quyền thêm hình ảnh cho sản phẩm này",
+      });
+    }
+
+    // Kiểm tra file upload
+    if (!req.files || (!req.files.images && !req.files.hinhAnh)) {
+      await transaction.rollback();
+      return res.status(400).json({
+        success: false,
+        message: "Vui lòng chọn hình ảnh để upload",
+      });
+    }
+
+    const files = req.files.images || req.files.hinhAnh;
+    const imageFiles = Array.isArray(files) ? files : [files];
+
+    let uploadedImages = [];
+
+    for (let i = 0; i < imageFiles.length; i++) {
+      const file = imageFiles[i];
+
+      try {
+        const MaHA = await generateMaHA();
+        const imageUrl = handleFileUpload(file, "products");
+
+        const newImage = await hinhanh.create(
+          {
+            MaHA,
+            URL: imageUrl,
+            MoTa: MoTa || `Hình ảnh ${i + 1} của sản phẩm ${product.TenSP}`,
+          },
+          { transaction }
+        );
+
+        await sanpham_hinhanh.create(
+          {
+            MaSP: product.MaSP,
+            MaHA: newImage.MaHA,
+          },
+          { transaction }
+        );
+
+        uploadedImages.push({
+          MaHA: newImage.MaHA,
+          URL: imageUrl,
+          MoTa: newImage.MoTa,
+        });
+      } catch (imageError) {
+        console.error(`❌ Lỗi upload ảnh ${i + 1}:`, imageError);
+      }
+    }
+
+    await transaction.commit();
+
+    res.status(201).json({
+      success: true,
+      message: `Thêm ${uploadedImages.length} hình ảnh cho sản phẩm thành công`,
+      data: uploadedImages,
+    });
+  } catch (err) {
+    await transaction.rollback();
+    console.error("❌ Lỗi thêm hình ảnh cho sản phẩm:", err);
+
+    if (err.message.includes("Token")) {
+      return res.status(401).json({
+        success: false,
+        message: err.message,
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      message: "Lỗi server: " + err.message,
+    });
+  }
+};
+
+// 🟢 XÓA HÌNH ẢNH CỦA SẢN PHẨM
+export const deleteProductImage = async (req, res) => {
+  const transaction = await sequelize.transaction();
+
+  try {
+    const { MaSP, MaHA } = req.params;
+
+    // 🟢 XÁC THỰC USER
+    const user = await authenticateUser(req);
+
+    // Kiểm tra sản phẩm tồn tại và quyền sở hữu
+    const product = await sanpham.findByPk(MaSP, {
+      include: [
+        {
+          model: cuahang,
+          as: "cuahang",
+          attributes: ["MaCH", "MaTK"],
+        },
+      ],
+      transaction,
+    });
+
+    if (!product) {
+      await transaction.rollback();
+      return res.status(404).json({
+        success: false,
+        message: "Không tìm thấy sản phẩm",
+      });
+    }
+
+    // Kiểm tra quyền sở hữu
+    if (product.cuahang.MaTK !== user.MaTK) {
+      await transaction.rollback();
+      return res.status(403).json({
+        success: false,
+        message: "Bạn không có quyền xóa hình ảnh của sản phẩm này",
+      });
+    }
+
+    // Kiểm tra hình ảnh tồn tại và thuộc về sản phẩm
+    const imageAssociation = await sanpham_hinhanh.findOne({
+      where: { MaSP, MaHA },
+      include: [
+        {
+          model: hinhanh,
+          as: "MaHA_hinhanh",
+        },
+      ],
+      transaction,
+    });
+
+    if (!imageAssociation) {
+      await transaction.rollback();
+      return res.status(404).json({
+        success: false,
+        message:
+          "Không tìm thấy hình ảnh hoặc hình ảnh không thuộc về sản phẩm này",
+      });
+    }
+
+    // Xóa liên kết
+    await sanpham_hinhanh.destroy({
+      where: { MaSP, MaHA },
+      transaction,
+    });
+
+    // Xóa bản ghi hình ảnh
+    await hinhanh.destroy({
+      where: { MaHA },
+      transaction,
+    });
+
+    // Xóa file vật lý
+    deletePhysicalFile(imageAssociation.MaHA_hinhanh.URL);
+
+    await transaction.commit();
+
+    res.json({
+      success: true,
+      message: "Xóa hình ảnh thành công",
+      data: {
+        deletedImage: MaHA,
+        product: MaSP,
+      },
+    });
+  } catch (err) {
+    await transaction.rollback();
+
+    if (err.message.includes("Token")) {
+      return res.status(401).json({
+        success: false,
+        message: err.message,
+      });
+    }
+
+    console.error("❌ Lỗi xóa hình ảnh sản phẩm:", err);
     res.status(500).json({
       success: false,
       message: "Lỗi server: " + err.message,

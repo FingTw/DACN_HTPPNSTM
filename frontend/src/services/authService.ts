@@ -2,6 +2,61 @@ import axios from "axios";
 
 const API_BASE_URL = "http://localhost:3000/api";
 
+// Types
+export interface SignupData {
+  TenDangNhap: string;
+  Email: string;
+  MatKhau: string;
+  confirmPassword?: string;
+}
+
+export interface LoginData {
+  TenDangNhap: string;
+  MatKhau: string;
+}
+
+export interface AuthResponse {
+  message: string;
+  token?: string;
+  user?: {
+    MaTK: string;
+    TenDangNhap: string;
+    role: string;
+  };
+}
+
+export interface UserProfile {
+  MaTK: string;
+  TenDangNhap: string;
+  HoTen?: string;
+  SDT?: string;
+  Email?: string;
+  MaHA_Avatar?: string;
+  Avatar?: {
+    MaHA: string;
+    URL: string;
+    MoTa?: string;
+  };
+}
+
+export interface UpdateProfileData {
+  HoTen?: string;
+  SDT?: string;
+  Email?: string;
+  TenDangNhap?: string;
+  AvtURL?: string;
+  AvtMoTa?: string;
+  AvtMaHA?: string;
+}
+
+export interface UploadAvatarResponse {
+  message: string;
+  data: {
+    avatarURL: string;
+    avatarId: string;
+  };
+}
+
 export const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
@@ -40,7 +95,7 @@ api.interceptors.response.use(
 // API endpoints
 export const authAPI = {
   register: (userData: SignupData) => api.post("/auth/register", userData),
-  // src/services/authService.ts
+  
   login: async (credentials: LoginData) => {
     const response = await api.post<AuthResponse>("/auth/login", credentials);
     const { token, user } = response.data;
@@ -55,31 +110,22 @@ export const authAPI = {
 
     return response;
   },
+  
   logout: () => api.get("/auth/logout"),
-  getProfile: () => api.get("/auth/update-personal-info"),
+
+  // API lấy thông tin profile từ server
+  getProfile: () => api.get("/auth/profile"),
+  
+  updatePersonalInfo: (data: UpdateProfileData) => 
+    api.put("/auth/update-personal-info", data),
+  
+  // API upload avatar
+  uploadAvatar: (formData: FormData) => 
+    api.post("/auth/upload-avatar", formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    }),
 };
-
-// Types
-export interface SignupData {
-  TenDangNhap: string;
-  Email: string;
-  MatKhau: string;
-  confirmPassword?: string;
-}
-
-export interface LoginData {
-  TenDangNhap: string;
-  MatKhau: string;
-}
-
-export interface AuthResponse {
-  message: string;
-  token?: string;
-  user?: {
-    MaTK: string;
-    TenDangNhap: string;
-    role: string;
-  };
-}
 
 export default api;

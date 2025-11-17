@@ -523,6 +523,47 @@ function initModels(sequelize) {
     as: "khuyenmai_taikhoans",
     foreignKey: "MaTK",
   });
+
+  yeucaudathang.belongsTo(taikhoan, {
+    as: "MaTK_Buyer_taikhoan",
+    foreignKey: "MaTK_Buyer",
+  });
+
+  denghicungcap.belongsTo(yeucaudathang, {
+    as: "MaYCDH_yeucaudathang",
+    foreignKey: "MaYCDH",
+  });
+
+  denghicungcap.belongsTo(taikhoan, {
+    as: "MaTK_Seller_taikhoan",
+    foreignKey: "MaTK_Seller",
+  });
+
+  denghicungcap.belongsTo(sanpham, {
+    as: "MaSP_sanpham",
+    foreignKey: "MaSP",
+  });
+
+  chitietchapnhan.belongsTo(denghicungcap, {
+    as: "MaDNCC_denghicungcap",
+    foreignKey: "MaDNCC",
+  });
+
+  chitietchapnhan.belongsTo(donhang, {
+    as: "MaDH_donhang",
+    foreignKey: "MaDH",
+  });
+
+  yeucaudathang.hasMany(denghicungcap, {
+    as: "denghicungcaps",
+    foreignKey: "MaYCDH",
+  });
+
+  denghicungcap.hasMany(chitietchapnhan, {
+    as: "chitietchapnhans",
+    foreignKey: "MaDNCC",
+  });
+
   // ======================================
   // 📤 RETURN TẤT CẢ MODELS
   // ======================================
