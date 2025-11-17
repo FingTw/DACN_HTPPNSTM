@@ -7,6 +7,7 @@ export interface Product {
   GiaBan: number;
   SLTon: number;
   MoTa: string;
+  SLTonKho: number; // 🟢 THÊM DÒNG NÀY
   NguonGoc: string;
   DiemDG_SP: number;
   MaCH: string;

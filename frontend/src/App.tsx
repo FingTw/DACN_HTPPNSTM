@@ -10,12 +10,13 @@ import { Toaster } from "sonner";
 import StoreRegistrationPage from "./components/shop/StoreRegistrationPage";
 import StoreDetailsPage from "./components/shop/StoreDetailPage";
 import ProductOverview from "./components/product/ProductOverview";
-import CuahangDetailPage from "./pages/CuahangDetailPage"; // 🟢 THÊM IMPORT NÀY
+import CuahangDetailPage from "./pages/CuahangDetailPage";
 import { CartProvider } from "@/context/CartContext";
 import CheckoutPage from "./pages/CheckoutPage";
 import OrderSuccessPage from "./pages/OrderSuccessPage";
 import { AddressProvider } from "@/context/AddressContext";
 import { RequestsMarketplace } from "./pages/RequestsMarketplace";
+import SanPhamPage from "./pages/SanPhamPage"; // 🟢 THÊM IMPORT NÀY
 
 function App() {
   return (
@@ -35,6 +36,9 @@ function App() {
               <Route path="/product/:id" element={<ProductOverview />} />
 
               <Route path="/marketplace" element={<RequestsMarketplace />} />
+              {/* 🟢 THÊM ROUTE SẢN PHẨM */}
+              <Route path="/san-pham" element={<SanPhamPage />} />
+
               {/* 🟢 THÊM ROUTE CỬA HÀNG */}
               <Route path="/cuahang/:MaCH" element={<CuahangDetailPage />} />
 
