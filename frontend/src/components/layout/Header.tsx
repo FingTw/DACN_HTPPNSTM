@@ -27,14 +27,14 @@ export const Header: React.FC = () => {
   }, [user]);
 
   const categories = [
-    { name: "Sản Phẩm", path: "/products" },
+    { name: "Sản Phẩm", path: "/san-pham" },
     { name: "Nông sản", path: "/category/nong-san" },
     { name: "Sữa & Trứng", path: "/category/sua-trung" },
     { name: "Đặc sản vùng miền", path: "/category/dac-san" },
     { name: "Hoa quả & Hạt", path: "/category/hoa-qua-hat" },
     { name: "Rau củ & Cây trồng", path: "/category/rau-cu" },
-    { name: "Mới & Theo mùa", path: "/category/moi-theo-mua" },
-    { name: "🌾 Đặc Trước", path: "/marketplace", highlight: true }, // ✅ THÊM LINK MỚI
+    { name: "Khuyến Mãi", path: "/khuyen-mai", highlight: true },
+    { name: "Mua theo yêu cầu", path: "/marketplace", highlight: true },
   ];
 
   const benefits = [

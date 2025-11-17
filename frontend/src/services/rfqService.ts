@@ -12,7 +12,7 @@ export interface BuyerRequest {
   TenSP_YeuCau: string;
   SoLuongYeuCau: number;
   ChatLuongYeuCau?: string;
-  GiaMongMuon?: number;
+  GiaMongMuon: number;
   NgayTao: string;
   ThoiHan: string;
   TrangThai: "Open" | "PartiallyFilled" | "Completed" | "Expired" | "Cancelled";

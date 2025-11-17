@@ -16,6 +16,7 @@ import CheckoutPage from "./pages/CheckoutPage";
 import OrderSuccessPage from "./pages/OrderSuccessPage";
 import { AddressProvider } from "@/context/AddressContext";
 import { RequestsMarketplace } from "./pages/RequestsMarketplace";
+import { BuyerRFQDashboard } from "./components/rfq/BuyerRFQDashboard";
 import SanPhamPage from "./pages/SanPhamPage"; // 🟢 THÊM IMPORT NÀY
 import Dashboard from "@/pages/Blockchain/Dashboard";
 import Admin from "@/pages/Blockchain/Admin";
@@ -60,7 +61,7 @@ function App() {
                 element={<OrderSuccessPage />}
               />
 
-              <Route path="/marketplace" element={<RequestsMarketplace />} />
+              <Route path="/marketplace" element={<BuyerRFQDashboard />} />
 
               {/* User */}
               <Route path="/profile" element={<ProfilePage />} />
@@ -77,7 +78,6 @@ function App() {
                 element={<KhuyenMaiDaNhanPage />}
               />
 
-              {/* Route này bị trùng → giữ 1 cái và bọc PrivateRoute */}
               <Route
                 path="/quan-ly-khuyen-mai"
                 element={
