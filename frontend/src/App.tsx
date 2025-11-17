@@ -17,40 +17,75 @@ import OrderSuccessPage from "./pages/OrderSuccessPage";
 import { AddressProvider } from "@/context/AddressContext";
 import { RequestsMarketplace } from "./pages/RequestsMarketplace";
 import SanPhamPage from "./pages/SanPhamPage"; // 🟢 THÊM IMPORT NÀY
+import Dashboard from "@/pages/Blockchain/Dashboard";
+import Admin from "@/pages/Blockchain/Admin";
+import ProfilePage from "./pages/ProfilePage";
+import OrdersPage from "./pages/OrdersPage";
+import KhuyenMaiPage from "./pages/KhuyenMaiPage";
+import KhuyenMaiDaNhanPage from "./pages/KhuyenMaiDaNhanPage";
+import QuanLyKhuyenMaiPage from "./pages/QuanLyKhuyenMaiPage";
+
+// ✅ Import PrivateRoute
+import PrivateRoute from "./components/PrivateRoute";
 
 function App() {
   return (
     <AuthProvider>
       <CartProvider>
         <AddressProvider>
-          {" "}
+          {/* Toaster đặt 1 lần duy nhất */}
           <Toaster richColors />
+
+          {/* Router chính */}
           <BrowserRouter>
             <Routes>
-              {/* Public routes - ai cũng vào được */}
+              {/* Public routes */}
               <Route path="/" element={<HomePage />} />
               <Route path="/signin" element={<SignInPage />} />
               <Route path="/signup" element={<SignUpPage />} />
+
               <Route path="/signupshop" element={<StoreRegistrationPage />} />
               <Route path="/viewshop" element={<StoreDetailsPage />} />
-              <Route path="/product/:id" element={<ProductOverview />} />
 
-              <Route path="/marketplace" element={<RequestsMarketplace />} />
-              {/* 🟢 THÊM ROUTE SẢN PHẨM */}
+              <Route path="/product/:id" element={<ProductOverview />} />
               <Route path="/san-pham" element={<SanPhamPage />} />
 
-              {/* 🟢 THÊM ROUTE CỬA HÀNG */}
               <Route path="/cuahang/:MaCH" element={<CuahangDetailPage />} />
 
               <Route path="/cart" element={<CartPage />} />
-              <Route path="/product/:id" element={<ProductDetailPage />} />
               <Route path="/checkout" element={<CheckoutPage />} />
+
               <Route
                 path="/order-success/:MaDH"
                 element={<OrderSuccessPage />}
               />
-              {/* Private routes - thêm sau */}
-              {/* <Route path="/profile" element={<PrivateRoute><ProfilePage /></PrivateRoute>} /> */}
+
+              <Route path="/marketplace" element={<RequestsMarketplace />} />
+
+              {/* User */}
+              <Route path="/profile" element={<ProfilePage />} />
+              <Route path="/orders" element={<OrdersPage />} />
+
+              {/* Blockchain */}
+              <Route path="/blockchain/dashboard" element={<Dashboard />} />
+              <Route path="/blockchain/admin" element={<Admin />} />
+
+              {/* Khuyến mãi */}
+              <Route path="/khuyen-mai" element={<KhuyenMaiPage />} />
+              <Route
+                path="/khuyen-mai-da-nhan"
+                element={<KhuyenMaiDaNhanPage />}
+              />
+
+              {/* Route này bị trùng → giữ 1 cái và bọc PrivateRoute */}
+              <Route
+                path="/quan-ly-khuyen-mai"
+                element={
+                  <PrivateRoute allowedRoles={["Admin", "Cửa Hàng"]}>
+                    <QuanLyKhuyenMaiPage />
+                  </PrivateRoute>
+                }
+              />
             </Routes>
           </BrowserRouter>
         </AddressProvider>

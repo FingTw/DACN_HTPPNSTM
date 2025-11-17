@@ -1,23 +1,37 @@
-import express from "express";
-import {
-  createKhuyenMai,
-  getAllKhuyenMai,
-  updateKhuyenMai,
-  deleteKhuyenMai,
-  assignKhuyenMaiToUser,
-  getUserKhuyenMai
-} from "../controllers/khuyenmaiController.js";
+  import express from "express";
+  import {
+    createKhuyenMai,
+    getAllKhuyenMai,
+    updateKhuyenMai,
+    deleteKhuyenMai,
+    assignKhuyenMaiToUser,
+    getUserKhuyenMai,
+    nhanKhuyenMai,
+    getKhuyenMaiForCustomer,
+    getKhuyenMaiByCuaHang
+  } from "../controllers/khuyenmaiController.js";
 
-const router = express.Router();
+  const router = express.Router();
 
-router.post("/create", createKhuyenMai);         // Tạo mới
-router.get("/getall", getAllKhuyenMai);          // Lấy tất cả
-router.put("/:MaKM", updateKhuyenMai);     // Cập nhật
-router.delete("/:MaKM", deleteKhuyenMai);  // Xoá
-// ✅ Admin gán mã KM cho user
-router.post("/assign", assignKhuyenMaiToUser);
+  // 🔥 SỬA LẠI CÁC ROUTES CHO ĐÚNG VỚI FRONTEND
 
-// 📋 User lấy danh sách KM đã được gán cho mình
-router.get("/my", getUserKhuyenMai);
+  // Routes cơ bản - SỬA LẠI PATH
+  router.post("/create", createKhuyenMai);                   
+  router.get("/manage/all", getAllKhuyenMai);                    
 
-export default router;
+  // Routes quản lý
+  router.get("/cua-hang/my", getKhuyenMaiByCuaHang);   
+
+  // Routes CRUD
+  router.put("/:MaKM", updateKhuyenMai);               
+  router.delete("/:MaKM", deleteKhuyenMai);            
+
+  // Routes cho khách hàng
+  router.post("/nhan-khuyen-mai", nhanKhuyenMai);       
+  router.get("/khach-hang/khuyen-mai", getKhuyenMaiForCustomer); 
+  router.get("/user-khuyen-mai", getUserKhuyenMai);     
+
+  // Routes bổ sung
+  router.post("/assign", assignKhuyenMaiToUser);        
+
+  export default router;
