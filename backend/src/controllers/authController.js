@@ -14,154 +14,171 @@ const models = initModels(sequelize);
 // console.log(models.taikhoan);
 // console.log("JWT_SECRET:", process.env.JWT_SECRET);
 
-
-const { taikhoan, sanpham, donhang, vaitro, taikhoan_vaitro, password_reset_token, hinhanh, cuahang } = models;
+const {
+  taikhoan,
+  sanpham,
+  donhang,
+  vaitro,
+  taikhoan_vaitro,
+  password_reset_token,
+  hinhanh,
+  cuahang,
+} = models;
 
 import { sendEmail } from "../services/emailService.js";
 import { Op } from "sequelize";
 
 const authController = {
   // Trong authController.js - Thêm API mới
-getProfile: async (req, res) => {
-  try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return res.status(401).json({ message: "Không có token" });
-    }
-
-    const token = authHeader.split(" ")[1];
-    let decoded;
+  getProfile: async (req, res) => {
     try {
-      decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const authHeader = req.headers.authorization;
+      if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        return res.status(401).json({ message: "Không có token" });
+      }
+
+      const token = authHeader.split(" ")[1];
+      let decoded;
+      try {
+        decoded = jwt.verify(token, process.env.JWT_SECRET);
+      } catch (err) {
+        return res.status(401).json({ message: "Token không hợp lệ" });
+      }
+
+      const { MaTK } = decoded;
+
+      // Lấy thông tin tài khoản từ database
+      const account = await taikhoan.findByPk(MaTK, {
+        include: [
+          {
+            model: hinhanh,
+            as: "MaHA_Avatar_hinhanh",
+            attributes: ["MaHA", "URL", "MoTa"],
+          },
+        ],
+      });
+
+      if (!account) {
+        return res.status(404).json({ message: "Không tìm thấy tài khoản" });
+      }
+
+      // Format response
+      const profileData = {
+        MaTK: account.MaTK,
+        TenDangNhap: account.TenDangNhap,
+        HoTen: account.HoTen,
+        SDT: account.SDT,
+        Email: account.Email,
+        MaHA_Avatar: account.MaHA_Avatar,
+        Avatar: account.MaHA_Avatar_hinhanh
+          ? {
+              MaHA: account.MaHA_Avatar_hinhanh.MaHA,
+              URL: account.MaHA_Avatar_hinhanh.URL,
+              MoTa: account.MaHA_Avatar_hinhanh.MoTa,
+            }
+          : null,
+      };
+
+      return res.json({
+        message: "Lấy thông tin profile thành công",
+        data: profileData,
+      });
     } catch (err) {
-      return res.status(401).json({ message: "Token không hợp lệ" });
+      console.error("❌ Lỗi lấy thông tin profile:", err);
+      return res.status(500).json({ message: err.message });
     }
-
-    const { MaTK } = decoded;
-
-    // Lấy thông tin tài khoản từ database
-    const account = await taikhoan.findByPk(MaTK, {
-      include: [{
-        model: hinhanh,
-        as: 'MaHA_Avatar_hinhanh',
-        attributes: ['MaHA', 'URL', 'MoTa']
-      }]
-    });
-
-    if (!account) {
-      return res.status(404).json({ message: "Không tìm thấy tài khoản" });
-    }
-
-    // Format response
-    const profileData = {
-      MaTK: account.MaTK,
-      TenDangNhap: account.TenDangNhap,
-      HoTen: account.HoTen,
-      SDT: account.SDT,
-      Email: account.Email,
-      MaHA_Avatar: account.MaHA_Avatar,
-      Avatar: account.MaHA_Avatar_hinhanh ? {
-        MaHA: account.MaHA_Avatar_hinhanh.MaHA,
-        URL: account.MaHA_Avatar_hinhanh.URL,
-        MoTa: account.MaHA_Avatar_hinhanh.MoTa
-      } : null
-    };
-
-    return res.json({
-      message: "Lấy thông tin profile thành công",
-      data: profileData
-    });
-  } catch (err) {
-    console.error("❌ Lỗi lấy thông tin profile:", err);
-    return res.status(500).json({ message: err.message });
-  }
-},
+  },
   // API upload ảnh
-uploadAvatar: async (req, res) => {
-  try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return res.status(401).json({ message: "Không có token" });
-    }
-
-    const token = authHeader.split(" ")[1];
-    let decoded;
+  uploadAvatar: async (req, res) => {
     try {
-      decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const authHeader = req.headers.authorization;
+      if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        return res.status(401).json({ message: "Không có token" });
+      }
+
+      const token = authHeader.split(" ")[1];
+      let decoded;
+      try {
+        decoded = jwt.verify(token, process.env.JWT_SECRET);
+      } catch (err) {
+        return res.status(401).json({ message: "Token không hợp lệ" });
+      }
+
+      const { MaTK } = decoded;
+
+      if (!req.file) {
+        return res.status(400).json({ message: "Không có file được upload" });
+      }
+
+      // Tìm tài khoản
+      const account = await taikhoan.findByPk(MaTK);
+      if (!account) {
+        return res.status(404).json({ message: "Không tìm thấy tài khoản" });
+      }
+
+      // Tạo URL cho file
+      const fileUrl = `/uploads/${req.file.filename}`;
+
+      // Tạo bản ghi ảnh mới
+      const now = new Date();
+      const prefix =
+        "HA" +
+        now.getFullYear().toString().slice(2) +
+        String(now.getMonth() + 1).padStart(2, "0");
+
+      const lastImage = await hinhanh.findOne({
+        where: { MaHA: { [Op.like]: `${prefix}%` } },
+        order: [["MaHA", "DESC"]],
+      });
+
+      let newId = prefix + "0001";
+      if (lastImage) {
+        const num = parseInt(lastImage.MaHA.slice(6)) + 1;
+        newId = prefix + num.toString().padStart(4, "0");
+      }
+
+      const newImage = await hinhanh.create({
+        MaHA: newId,
+        URL: fileUrl,
+        MoTa: `Avatar của ${account.TenDangNhap}`,
+      });
+
+      // Cập nhật avatar cho tài khoản
+      account.MaHA_Avatar = newImage.MaHA;
+      await account.save();
+
+      // Lấy thông tin tài khoản đã cập nhật (KHÔNG DÙNG INCLUDE)
+      const updatedAccount = await taikhoan.findByPk(MaTK);
+
+      // Lấy thông tin ảnh riêng biệt
+      const avatarInfo = await hinhanh.findByPk(newImage.MaHA);
+
+      // Format response thủ công
+      const responseData = {
+        MaTK: updatedAccount.MaTK,
+        TenDangNhap: updatedAccount.TenDangNhap,
+        HoTen: updatedAccount.HoTen,
+        SDT: updatedAccount.SDT,
+        Email: updatedAccount.Email,
+        MaHA_Avatar: updatedAccount.MaHA_Avatar,
+        Avatar: avatarInfo
+          ? {
+              MaHA: avatarInfo.MaHA,
+              URL: avatarInfo.URL,
+              MoTa: avatarInfo.MoTa,
+            }
+          : null,
+      };
+
+      return res.json({
+        message: "Upload avatar thành công",
+        data: responseData,
+      });
     } catch (err) {
-      return res.status(401).json({ message: "Token không hợp lệ" });
+      console.error("❌ Lỗi upload avatar:", err);
+      return res.status(500).json({ message: err.message });
     }
-
-    const { MaTK } = decoded;
-    
-    if (!req.file) {
-      return res.status(400).json({ message: "Không có file được upload" });
-    }
-
-    // Tìm tài khoản
-    const account = await taikhoan.findByPk(MaTK);
-    if (!account) {
-      return res.status(404).json({ message: "Không tìm thấy tài khoản" });
-    }
-
-    // Tạo URL cho file
-    const fileUrl = `/uploads/${req.file.filename}`;
-
-    // Tạo bản ghi ảnh mới
-    const now = new Date();
-    const prefix = "HA" + now.getFullYear().toString().slice(2) + String(now.getMonth() + 1).padStart(2, "0");
-
-    const lastImage = await hinhanh.findOne({
-      where: { MaHA: { [Op.like]: `${prefix}%` } },
-      order: [["MaHA", "DESC"]],
-    });
-
-    let newId = prefix + "0001";
-    if (lastImage) {
-      const num = parseInt(lastImage.MaHA.slice(6)) + 1;
-      newId = prefix + num.toString().padStart(4, "0");
-    }
-
-    const newImage = await hinhanh.create({
-      MaHA: newId,
-      URL: fileUrl,
-      MoTa: `Avatar của ${account.TenDangNhap}`,
-    });
-
-    // Cập nhật avatar cho tài khoản
-    account.MaHA_Avatar = newImage.MaHA;
-    await account.save();
-
-    // Lấy thông tin tài khoản đã cập nhật (KHÔNG DÙNG INCLUDE)
-    const updatedAccount = await taikhoan.findByPk(MaTK);
-    
-    // Lấy thông tin ảnh riêng biệt
-    const avatarInfo = await hinhanh.findByPk(newImage.MaHA);
-
-    // Format response thủ công
-    const responseData = {
-      MaTK: updatedAccount.MaTK,
-      TenDangNhap: updatedAccount.TenDangNhap,
-      HoTen: updatedAccount.HoTen,
-      SDT: updatedAccount.SDT,
-      Email: updatedAccount.Email,
-      MaHA_Avatar: updatedAccount.MaHA_Avatar,
-      Avatar: avatarInfo ? {
-        MaHA: avatarInfo.MaHA,
-        URL: avatarInfo.URL,
-        MoTa: avatarInfo.MoTa
-      } : null
-    };
-
-    return res.json({
-      message: "Upload avatar thành công",
-      data: responseData
-    });
-  } catch (err) {
-    console.error("❌ Lỗi upload avatar:", err);
-    return res.status(500).json({ message: err.message });
-  }
-},
+  },
   // ==============================
   // Cập nhật thông tin cá nhân
   // ==============================
@@ -181,7 +198,8 @@ uploadAvatar: async (req, res) => {
       }
 
       const { MaTK } = decoded; // lấy từ token hoặc body khi test
-      const { HoTen, SDT, Email, TenDangNhap, AvtURL, AvtMoTa, AvtMaHA } = req.body;
+      const { HoTen, SDT, Email, TenDangNhap, AvtURL, AvtMoTa, AvtMaHA } =
+        req.body;
 
       const account = await taikhoan.findByPk(MaTK);
       if (!account) {
@@ -195,13 +213,18 @@ uploadAvatar: async (req, res) => {
         // Nếu client gửi sẵn mã ảnh
         const avatar = await hinhanh.findByPk(AvtMaHA);
         if (!avatar) {
-          return res.status(400).json({ message: `Không tìm thấy ảnh với mã ${AvtMaHA}` });
+          return res
+            .status(400)
+            .json({ message: `Không tìm thấy ảnh với mã ${AvtMaHA}` });
         }
         account.MaHA_Avatar = AvtMaHA;
       } else if (AvtURL) {
         // Nếu client gửi URL mới => tạo bản ghi ảnh mới
         const now = new Date();
-        const prefix = "HA" + now.getFullYear().toString().slice(2) + String(now.getMonth() + 1).padStart(2, "0");
+        const prefix =
+          "HA" +
+          now.getFullYear().toString().slice(2) +
+          String(now.getMonth() + 1).padStart(2, "0");
 
         const lastImage = await hinhanh.findOne({
           where: { MaHA: { [Op.like]: `${prefix}%` } },
@@ -232,7 +255,7 @@ uploadAvatar: async (req, res) => {
       if (TenDangNhap !== undefined) account.TenDangNhap = TenDangNhap;
 
       await account.save();
-      
+
       // Lấy thông tin avatar nếu có
       let avatarInfo = null;
       if (account.MaHA_Avatar) {
@@ -247,11 +270,13 @@ uploadAvatar: async (req, res) => {
         SDT: account.SDT,
         Email: account.Email,
         MaHA_Avatar: account.MaHA_Avatar,
-        Avatar: avatarInfo ? {
-          MaHA: avatarInfo.MaHA,
-          URL: avatarInfo.URL,
-          MoTa: avatarInfo.MoTa
-        } : null
+        Avatar: avatarInfo
+          ? {
+              MaHA: avatarInfo.MaHA,
+              URL: avatarInfo.URL,
+              MoTa: avatarInfo.MoTa,
+            }
+          : null,
       };
 
       return res.json({
@@ -334,46 +359,49 @@ uploadAvatar: async (req, res) => {
 
       // ✅ Kiểm tra dữ liệu đầu vào
       if (!TenDangNhap || !MatKhau) {
-        return res.status(400).json({ message: "Thiếu tên đăng nhập hoặc mật khẩu" });
+        return res
+          .status(400)
+          .json({ message: "Thiếu tên đăng nhập hoặc mật khẩu" });
       }
 
       // 🔍 Tìm user theo TenDangNhap hoặc Email, kèm vai trò
       const user = await taikhoan.findOne({
         where: {
-          [Op.or]: [
-            { TenDangNhap: TenDangNhap },
-            { Email: TenDangNhap }
-          ]
+          [Op.or]: [{ TenDangNhap: TenDangNhap }, { Email: TenDangNhap }],
         },
         include: [
           {
             model: taikhoan_vaitro,
-            as: "taikhoan_vaitros", 
+            as: "taikhoan_vaitros",
             include: [
               {
                 model: vaitro,
-                as: "vaitro", 
-                attributes: ["MaVT", "TenVT"]
-              }
-            ]        
+                as: "vaitro",
+                attributes: ["MaVT", "TenVT"],
+              },
+            ],
           },
           {
             model: cuahang,
-            as: 'cuahangs', 
-            attributes: ['MaCH']
-          }
-        ]
+            as: "cuahangs",
+            attributes: ["MaCH"],
+          },
+        ],
       });
 
       if (!user) {
-        return res.status(401).json({ message: "Sai tên đăng nhập hoặc mật khẩu" });
+        return res
+          .status(401)
+          .json({ message: "Sai tên đăng nhập hoặc mật khẩu" });
       }
 
       // 🔐 Kiểm tra mật khẩu
       const isMatch = await bcrypt.compare(MatKhau, user.MatKhau);
       // const isMatch = MatKhau === user.MatKhau; // (nếu chưa hash)
       if (!isMatch) {
-        return res.status(401).json({ message: "Sai tên đăng nhập hoặc mật khẩu" });
+        return res
+          .status(401)
+          .json({ message: "Sai tên đăng nhập hoặc mật khẩu" });
       }
 
       // 📝 Lấy vai trò từ bảng liên kết
@@ -389,7 +417,7 @@ uploadAvatar: async (req, res) => {
           MaTK: user.MaTK,
           TenDangNhap: user.TenDangNhap,
           role: roleName,
-          MaCH: user.MaCH_cuahang ? user.MaCH_cuahang.MaCH : null
+          MaCH: user.MaCH_cuahang ? user.MaCH_cuahang.MaCH : null,
         },
         process.env.JWT_SECRET,
         { expiresIn: "1h" }
@@ -403,8 +431,8 @@ uploadAvatar: async (req, res) => {
           MaTK: user.MaTK,
           TenDangNhap: user.TenDangNhap,
           role: roleName,
-          MaCH: user.MaCH_cuahang ? user.MaCH_cuahang.MaCH : null
-        }
+          MaCH: user.MaCH_cuahang ? user.MaCH_cuahang.MaCH : null,
+        },
       });
     } catch (err) {
       console.error("Lỗi login:", err);
@@ -417,84 +445,84 @@ uploadAvatar: async (req, res) => {
     return res.json({ message: "Đăng xuất thành công (xóa token ở client)" });
   },
 
-    // Quên mật khẩu
-    forgotPassword: async (req, res) => {
-      const { Email } = req.body;
-      const user = await taikhoan.findOne({ where: { Email } });
-      if (!user) return res.status(404).json({ message: "Email không tồn tại" });
+  // Quên mật khẩu
+  forgotPassword: async (req, res) => {
+    const { Email } = req.body;
+    const user = await taikhoan.findOne({ where: { Email } });
+    if (!user) return res.status(404).json({ message: "Email không tồn tại" });
 
-      const resetToken = crypto.randomBytes(32).toString("hex");
+    const resetToken = crypto.randomBytes(32).toString("hex");
 
-      await password_reset_token.create({
-        MaTK: user.MaTK,
-        resetToken,
-        tokenExpiry: new Date(Date.now() + 60 * 60 * 1000),
-      });
+    await password_reset_token.create({
+      MaTK: user.MaTK,
+      resetToken,
+      tokenExpiry: new Date(Date.now() + 60 * 60 * 1000),
+    });
 
-      const link = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
-      await sendEmail(
-        Email,
-        "Khôi phục mật khẩu",
-        `Nhấn vào link để đặt lại mật khẩu: ${link}`
-      );
+    const link = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
+    await sendEmail(
+      Email,
+      "Khôi phục mật khẩu",
+      `Nhấn vào link để đặt lại mật khẩu: ${link}`
+    );
 
-      return res.json({ message: "Đã gửi email khôi phục mật khẩu" });
-    },
+    return res.json({ message: "Đã gửi email khôi phục mật khẩu" });
+  },
 
-    // Reset mật khẩu
-    resetPassword: async (req, res) => {
-      const { token, newPassword } = req.body;
+  // Reset mật khẩu
+  resetPassword: async (req, res) => {
+    const { token, newPassword } = req.body;
 
-      const reset = await password_reset_token.findOne({
-        where: { resetToken: token },
-      });
+    const reset = await password_reset_token.findOne({
+      where: { resetToken: token },
+    });
 
-      if (!reset || reset.tokenExpiry < new Date()) {
-        return res
-          .status(400)
-          .json({ message: "Token không hợp lệ hoặc đã hết hạn" });
-      }
+    if (!reset || reset.tokenExpiry < new Date()) {
+      return res
+        .status(400)
+        .json({ message: "Token không hợp lệ hoặc đã hết hạn" });
+    }
 
-      const user = await taikhoan.findByPk(reset.MaTK);
-      if (!user) {
-        return res.status(404).json({ message: "Tài khoản không tồn tại" });
-      }
+    const user = await taikhoan.findByPk(reset.MaTK);
+    if (!user) {
+      return res.status(404).json({ message: "Tài khoản không tồn tại" });
+    }
 
-      user.MatKhau = await bcrypt.hash(newPassword, 10);
+    user.MatKhau = await bcrypt.hash(newPassword, 10);
 
-      await user.save();
-      await reset.destroy();
+    await user.save();
+    await reset.destroy();
 
-      return res.json({ message: "Đặt lại mật khẩu thành công" });
-    },
+    return res.json({ message: "Đặt lại mật khẩu thành công" });
+  },
 
-    // Đổi mật khẩu
-    changePassword: async (req, res) => {
-       // Lấy token trực tiếp từ header
-      const authHeader = req.headers.authorization;
-      if (!authHeader) {
-        return res.status(401).json({ message: "Thiếu token" });
-      }
+  // Đổi mật khẩu
+  changePassword: async (req, res) => {
+    // Lấy token trực tiếp từ header
+    const authHeader = req.headers.authorization;
+    if (!authHeader) {
+      return res.status(401).json({ message: "Thiếu token" });
+    }
 
-      const token = authHeader.split(" ")[1];
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const token = authHeader.split(" ")[1];
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-      const { MaTK } = decoded; // lấy từ JWT middleware
-      const { currentPassword, newPassword } = req.body;
+    const { MaTK } = decoded; // lấy từ JWT middleware
+    const { currentPassword, newPassword } = req.body;
 
-      const user = await taikhoan.findByPk(MaTK);
-      if (!user)
-        return res.status(404).json({ message: "Người dùng không tồn tại" });
+    const user = await taikhoan.findByPk(MaTK);
+    if (!user)
+      return res.status(404).json({ message: "Người dùng không tồn tại" });
 
-      if (!(await bcrypt.compare(currentPassword, user.MatKhau))) {
-        return res.status(400).json({ message: "Mật khẩu cũ không chính xác" });
-      }
+    if (!(await bcrypt.compare(currentPassword, user.MatKhau))) {
+      return res.status(400).json({ message: "Mật khẩu cũ không chính xác" });
+    }
 
-      user.MatKhau = await bcrypt.hash(newPassword, 10);
-      await user.save();
+    user.MatKhau = await bcrypt.hash(newPassword, 10);
+    await user.save();
 
-      return res.json({ message: "Đổi mật khẩu thành công" });
-    },
+    return res.json({ message: "Đổi mật khẩu thành công" });
+  },
 };
 
 export default authController;
