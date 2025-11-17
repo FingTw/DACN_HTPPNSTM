@@ -15,6 +15,7 @@ import { CartProvider } from "@/context/CartContext";
 import CheckoutPage from "./pages/CheckoutPage";
 import OrderSuccessPage from "./pages/OrderSuccessPage";
 import { AddressProvider } from "@/context/AddressContext";
+import { RequestsMarketplace } from "./pages/RequestsMarketplace";
 
 function App() {
   return (
@@ -33,6 +34,7 @@ function App() {
               <Route path="/viewshop" element={<StoreDetailsPage />} />
               <Route path="/product/:id" element={<ProductOverview />} />
 
+              <Route path="/marketplace" element={<RequestsMarketplace />} />
               {/* 🟢 THÊM ROUTE CỬA HÀNG */}
               <Route path="/cuahang/:MaCH" element={<CuahangDetailPage />} />
 

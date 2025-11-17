@@ -1,7 +1,9 @@
+// controllers/rfqController.js
 import jwt from "jsonwebtoken";
-import { Op } from "sequelize";
+import { v4 as uuidv4 } from "uuid";
 import { initModels } from "../models/init-models.js";
 import sequelize from "../config/db.js";
+import { Op } from "sequelize";
 
 const models = initModels(sequelize);
 const {
@@ -20,63 +22,44 @@ const {
 } = models;
 
 /* ============================
- 🛡️ Helper: Xác thực token và lấy thông tin user
-============================ */
-const verifyToken = (req) => {
-  const authHeader = req.headers.authorization;
-  if (!authHeader?.startsWith("Bearer ")) {
-    throw new Error("Không có token");
-  }
-  const token = authHeader.split(" ")[1];
-  return jwt.verify(token, process.env.JWT_SECRET);
-};
-
-/* ============================
- 🛡️ Helper: Kiểm tra vai trò
-============================ */
-const checkRole = async (MaTK, requiredRole) => {
-  const roleRecord = await taikhoan_vaitro.findOne({
-    where: { MaTK },
-    include: [
-      {
-        model: vaitro,
-        as: "vaitro",
-        where: { TenVT: requiredRole },
-      },
-    ],
-  });
-  return !!roleRecord;
-};
-
-/* ============================
- 🛡️ Helper: Tạo mã tự động
-============================ */
-const generateCode = async (model, prefix, codeField) => {
-  const latest = await model.findOne({
-    order: [[codeField, "DESC"]],
-  });
-  if (!latest) return `${prefix}000001`;
-  const num = parseInt(latest[codeField].slice(prefix.length)) + 1;
-  return `${prefix}${String(num).padStart(6, "0")}`;
-};
-
-/* ============================
  📋 1. NGƯỜI MUA - TẠO YÊU CẦU MUA HÀNG
 ============================ */
 export const createBuyerRequest = async (req, res) => {
   const transaction = await sequelize.transaction();
   try {
-    // 🛡️ Xác thực token
-    const decoded = verifyToken(req);
+    // 🛡️ Xác thực JWT
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return res.status(401).json({ message: "Không có token" });
+    }
+
+    const token = authHeader.split(" ")[1];
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (err) {
+      return res.status(401).json({ message: "Token không hợp lệ" });
+    }
+
     const MaTK_Buyer = decoded.MaTK;
 
-    // 🛡️ Kiểm tra vai trò Buyer
-    const isBuyer = await checkRole(MaTK_Buyer, "Buyer");
-    if (!isBuyer && decoded.role !== "Admin") {
-      return res.status(403).json({
-        success: false,
-        message: "Chỉ người mua mới có thể tạo yêu cầu",
-      });
+    // 📌 Kiểm tra vai trò Buyer
+    const userRole = await taikhoan_vaitro.findOne({
+      where: { MaTK: MaTK_Buyer },
+      include: [
+        {
+          model: vaitro,
+          as: "vaitro",
+          where: { TenVT: { [Op.in]: ["Buyer", "Admin"] } },
+        },
+      ],
+      transaction,
+    });
+
+    if (!userRole) {
+      return res
+        .status(403)
+        .json({ message: "Chỉ người mua mới có thể tạo yêu cầu" });
     }
 
     const {
@@ -91,22 +74,36 @@ export const createBuyerRequest = async (req, res) => {
     // 📌 Validate
     if (!TenSP_YeuCau || !SoLuongYeuCau) {
       return res.status(400).json({
-        success: false,
         message: "Vui lòng nhập tên sản phẩm và số lượng cần mua",
       });
     }
 
     if (SoLuongYeuCau <= 0) {
       return res.status(400).json({
-        success: false,
         message: "Số lượng phải lớn hơn 0",
       });
     }
 
     // 📌 Tạo mã YCDH tự động
-    const newId = await generateCode(yeucaudathang, "YCDH", "MaYCDH");
+    const now = new Date();
+    const prefix =
+      "YCDH" +
+      now.getFullYear().toString().slice(2) +
+      String(now.getMonth() + 1).padStart(2, "0");
 
-    // 📌 Tính thời hạn mặc định (3 ngày cho nông sản tươi)
+    const lastRequest = await yeucaudathang.findOne({
+      where: { MaYCDH: { [Op.like]: `${prefix}%` } },
+      order: [["MaYCDH", "DESC"]],
+      transaction,
+    });
+
+    let newId = prefix + "0001";
+    if (lastRequest) {
+      const num = parseInt(lastRequest.MaYCDH.slice(8)) + 1;
+      newId = prefix + num.toString().padStart(4, "0");
+    }
+
+    // 📌 Tính thời hạn mặc định (3 ngày)
     const defaultDeadline = new Date();
     defaultDeadline.setDate(defaultDeadline.getDate() + 3);
 
@@ -140,7 +137,6 @@ export const createBuyerRequest = async (req, res) => {
     await transaction.rollback();
     console.error("🔥 createBuyerRequest:", err);
     return res.status(500).json({
-      success: false,
       message: "Lỗi tạo yêu cầu mua hàng",
       error: err.message,
     });
@@ -152,10 +148,21 @@ export const createBuyerRequest = async (req, res) => {
 ============================ */
 export const getMyRequests = async (req, res) => {
   try {
-    // 🛡️ Xác thực token
-    const decoded = verifyToken(req);
-    const MaTK_Buyer = decoded.MaTK;
+    // 🛡️ Xác thực JWT
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return res.status(401).json({ message: "Không có token" });
+    }
 
+    const token = authHeader.split(" ")[1];
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (err) {
+      return res.status(401).json({ message: "Token không hợp lệ" });
+    }
+
+    const MaTK_Buyer = decoded.MaTK;
     const { TrangThai, page = 1, limit = 10 } = req.query;
 
     // 📌 Build where clause
@@ -199,15 +206,6 @@ export const getMyRequests = async (req, res) => {
                 "Gia",
                 "SoLuongTonKho",
                 "DonViTinh",
-              ],
-              include: [
-                {
-                  model: hinhanh,
-                  as: "hinhanhs",
-                  through: { attributes: [] },
-                  attributes: ["MaHA", "URL"],
-                  limit: 1,
-                },
               ],
             },
           ],
@@ -253,7 +251,6 @@ export const getMyRequests = async (req, res) => {
   } catch (err) {
     console.error("🔥 getMyRequests:", err);
     return res.status(500).json({
-      success: false,
       message: "Lỗi lấy danh sách yêu cầu",
       error: err.message,
     });
@@ -335,7 +332,6 @@ export const getAllOpenRequests = async (req, res) => {
   } catch (err) {
     console.error("🔥 getAllOpenRequests:", err);
     return res.status(500).json({
-      success: false,
       message: "Lỗi lấy danh sách yêu cầu",
       error: err.message,
     });
@@ -348,17 +344,39 @@ export const getAllOpenRequests = async (req, res) => {
 export const submitProposal = async (req, res) => {
   const transaction = await sequelize.transaction();
   try {
-    // 🛡️ Xác thực token
-    const decoded = verifyToken(req);
+    // 🛡️ Xác thực JWT
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return res.status(401).json({ message: "Không có token" });
+    }
+
+    const token = authHeader.split(" ")[1];
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (err) {
+      return res.status(401).json({ message: "Token không hợp lệ" });
+    }
+
     const MaTK_Seller = decoded.MaTK;
 
-    // 🛡️ Kiểm tra vai trò Seller
-    const isSeller = await checkRole(MaTK_Seller, "Seller");
-    if (!isSeller && decoded.role !== "Admin") {
-      return res.status(403).json({
-        success: false,
-        message: "Chỉ người bán mới có thể gửi đề nghị",
-      });
+    // 📌 Kiểm tra vai trò Seller
+    const userRole = await taikhoan_vaitro.findOne({
+      where: { MaTK: MaTK_Seller },
+      include: [
+        {
+          model: vaitro,
+          as: "vaitro",
+          where: { TenVT: { [Op.in]: ["Seller", "Admin"] } },
+        },
+      ],
+      transaction,
+    });
+
+    if (!userRole) {
+      return res
+        .status(403)
+        .json({ message: "Chỉ người bán mới có thể gửi đề nghị" });
     }
 
     const { MaYCDH, MaSP, SoLuongCungCap, GiaDeNghi, ChatLuongDeNghi } =
@@ -367,14 +385,12 @@ export const submitProposal = async (req, res) => {
     // 📌 Validate
     if (!MaYCDH || !MaSP || !SoLuongCungCap || !GiaDeNghi) {
       return res.status(400).json({
-        success: false,
         message: "Thiếu thông tin bắt buộc",
       });
     }
 
     if (SoLuongCungCap <= 0 || GiaDeNghi <= 0) {
       return res.status(400).json({
-        success: false,
         message: "Số lượng và giá phải lớn hơn 0",
       });
     }
@@ -383,21 +399,18 @@ export const submitProposal = async (req, res) => {
     const request = await yeucaudathang.findByPk(MaYCDH, { transaction });
     if (!request) {
       return res.status(404).json({
-        success: false,
         message: "Không tìm thấy yêu cầu đặt hàng",
       });
     }
 
     if (!["Open", "PartiallyFilled"].includes(request.TrangThai)) {
       return res.status(400).json({
-        success: false,
         message: "Yêu cầu này đã đóng hoặc đã đủ số lượng",
       });
     }
 
     if (new Date() > new Date(request.ThoiHan)) {
       return res.status(400).json({
-        success: false,
         message: "Yêu cầu này đã hết hạn",
       });
     }
@@ -405,7 +418,6 @@ export const submitProposal = async (req, res) => {
     // 📌 Không thể cung cấp cho yêu cầu của chính mình
     if (request.MaTK_Buyer === MaTK_Seller) {
       return res.status(400).json({
-        success: false,
         message: "Không thể cung cấp cho yêu cầu của chính mình",
       });
     }
@@ -425,7 +437,6 @@ export const submitProposal = async (req, res) => {
 
     if (!product) {
       return res.status(403).json({
-        success: false,
         message: "Sản phẩm không tồn tại hoặc không thuộc về cửa hàng của bạn",
       });
     }
@@ -433,23 +444,24 @@ export const submitProposal = async (req, res) => {
     // 📌 Kiểm tra số lượng tồn kho
     if (product.SoLuongTonKho < SoLuongCungCap) {
       return res.status(400).json({
-        success: false,
         message: `Số lượng tồn kho không đủ. Còn lại: ${product.SoLuongTonKho}`,
       });
     }
 
     // 📌 Tính tổng số lượng đã được chấp nhận
-    const totalAccepted =
-      (await denghicungcap.sum("SoLuongCungCap", {
-        where: { MaYCDH, TrangThai: "Accepted" },
-        transaction,
-      })) || 0;
+    const acceptedProposals = await denghicungcap.findAll({
+      where: { MaYCDH, TrangThai: "Accepted" },
+      transaction,
+    });
 
+    const totalAccepted = acceptedProposals.reduce(
+      (sum, p) => sum + p.SoLuongCungCap,
+      0
+    );
     const remaining = request.SoLuongYeuCau - totalAccepted;
 
     if (remaining <= 0) {
       return res.status(400).json({
-        success: false,
         message: "Yêu cầu này đã đủ số lượng",
       });
     }
@@ -457,7 +469,6 @@ export const submitProposal = async (req, res) => {
     // 📌 Cảnh báo nếu cung cấp quá nhiều
     if (SoLuongCungCap > remaining) {
       return res.status(400).json({
-        success: false,
         message: `Số lượng cung cấp vượt quá số lượng còn thiếu (${remaining})`,
       });
     }
@@ -475,13 +486,28 @@ export const submitProposal = async (req, res) => {
 
     if (existingProposal) {
       return res.status(400).json({
-        success: false,
         message: "Bạn đã gửi đề nghị cho sản phẩm này rồi",
       });
     }
 
     // 📌 Tạo mã DNCC
-    const newId = await generateCode(denghicungcap, "DNCC", "MaDNCC");
+    const now = new Date();
+    const prefix =
+      "DNCC" +
+      now.getFullYear().toString().slice(2) +
+      String(now.getMonth() + 1).padStart(2, "0");
+
+    const lastProposal = await denghicungcap.findOne({
+      where: { MaDNCC: { [Op.like]: `${prefix}%` } },
+      order: [["MaDNCC", "DESC"]],
+      transaction,
+    });
+
+    let newId = prefix + "0001";
+    if (lastProposal) {
+      const num = parseInt(lastProposal.MaDNCC.slice(8)) + 1;
+      newId = prefix + num.toString().padStart(4, "0");
+    }
 
     // 📌 Tạo đề nghị cung cấp
     const proposal = await denghicungcap.create(
@@ -517,7 +543,6 @@ export const submitProposal = async (req, res) => {
     await transaction.rollback();
     console.error("🔥 submitProposal:", err);
     return res.status(500).json({
-      success: false,
       message: "Lỗi gửi đề nghị cung cấp",
       error: err.message,
     });
@@ -529,24 +554,33 @@ export const submitProposal = async (req, res) => {
 ============================ */
 export const getProposalsForRequest = async (req, res) => {
   try {
-    // 🛡️ Xác thực token
-    const decoded = verifyToken(req);
-    const MaTK_Buyer = decoded.MaTK;
+    // 🛡️ Xác thực JWT
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return res.status(401).json({ message: "Không có token" });
+    }
 
+    const token = authHeader.split(" ")[1];
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (err) {
+      return res.status(401).json({ message: "Token không hợp lệ" });
+    }
+
+    const MaTK_Buyer = decoded.MaTK;
     const { MaYCDH } = req.params;
 
     // 📌 Kiểm tra quyền
     const request = await yeucaudathang.findByPk(MaYCDH);
     if (!request) {
       return res.status(404).json({
-        success: false,
         message: "Không tìm thấy yêu cầu",
       });
     }
 
     if (request.MaTK_Buyer !== MaTK_Buyer && decoded.role !== "Admin") {
       return res.status(403).json({
-        success: false,
         message: "Không có quyền xem đề nghị này",
       });
     }
@@ -577,14 +611,6 @@ export const getProposalsForRequest = async (req, res) => {
             "Gia",
             "SoLuongTonKho",
             "DonViTinh",
-          ],
-          include: [
-            {
-              model: hinhanh,
-              as: "hinhanhs",
-              through: { attributes: [] },
-              attributes: ["MaHA", "URL"],
-            },
           ],
         },
         {
@@ -625,7 +651,6 @@ export const getProposalsForRequest = async (req, res) => {
   } catch (err) {
     console.error("🔥 getProposalsForRequest:", err);
     return res.status(500).json({
-      success: false,
       message: "Lỗi lấy danh sách đề nghị",
       error: err.message,
     });
@@ -638,15 +663,25 @@ export const getProposalsForRequest = async (req, res) => {
 export const acceptProposalAndCreateOrder = async (req, res) => {
   const transaction = await sequelize.transaction();
   try {
-    // 🛡️ Xác thực token
-    const decoded = verifyToken(req);
-    const MaTK_Buyer = decoded.MaTK;
+    // 🛡️ Xác thực JWT
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return res.status(401).json({ message: "Không có token" });
+    }
 
+    const token = authHeader.split(" ")[1];
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (err) {
+      return res.status(401).json({ message: "Token không hợp lệ" });
+    }
+
+    const MaTK_Buyer = decoded.MaTK;
     const { MaDNCC, SoLuongMua, GhiChu } = req.body;
 
     if (!MaDNCC) {
       return res.status(400).json({
-        success: false,
         message: "Thiếu mã đề nghị cung cấp",
       });
     }
@@ -668,7 +703,6 @@ export const acceptProposalAndCreateOrder = async (req, res) => {
 
     if (!proposal) {
       return res.status(404).json({
-        success: false,
         message: "Không tìm thấy đề nghị",
       });
     }
@@ -677,7 +711,6 @@ export const acceptProposalAndCreateOrder = async (req, res) => {
     const request = proposal.MaYCDH_yeucaudathang;
     if (request.MaTK_Buyer !== MaTK_Buyer && decoded.role !== "Admin") {
       return res.status(403).json({
-        success: false,
         message: "Không có quyền chấp nhận đề nghị này",
       });
     }
@@ -685,7 +718,6 @@ export const acceptProposalAndCreateOrder = async (req, res) => {
     // 📌 Kiểm tra trạng thái đề nghị
     if (proposal.TrangThai !== "Pending") {
       return res.status(400).json({
-        success: false,
         message: `Đề nghị này đã ${
           proposal.TrangThai === "Accepted" ? "được chấp nhận" : "bị từ chối"
         }`,
@@ -696,14 +728,12 @@ export const acceptProposalAndCreateOrder = async (req, res) => {
     const quantityToBuy = SoLuongMua || proposal.SoLuongCungCap;
     if (quantityToBuy > proposal.SoLuongCungCap) {
       return res.status(400).json({
-        success: false,
         message: "Số lượng mua vượt quá số lượng người bán cung cấp",
       });
     }
 
     if (quantityToBuy <= 0) {
       return res.status(400).json({
-        success: false,
         message: "Số lượng mua phải lớn hơn 0",
       });
     }
@@ -712,13 +742,29 @@ export const acceptProposalAndCreateOrder = async (req, res) => {
     const product = proposal.MaSP_sanpham;
     if (product.SoLuongTonKho < quantityToBuy) {
       return res.status(400).json({
-        success: false,
         message: `Sản phẩm không đủ hàng. Còn lại: ${product.SoLuongTonKho}`,
       });
     }
 
     // 📌 Tạo mã đơn hàng
-    const newOrderId = await generateCode(donhang, "DH", "MaDH");
+    const now = new Date();
+    const prefix =
+      "DH" +
+      now.getFullYear().toString().slice(2) +
+      String(now.getMonth() + 1).padStart(2, "0");
+
+    const lastOrder = await donhang.findOne({
+      where: { MaDH: { [Op.like]: `${prefix}%` } },
+      order: [["MaDH", "DESC"]],
+      transaction,
+    });
+
+    let newOrderId = prefix + "0001";
+    if (lastOrder) {
+      const num = parseInt(lastOrder.MaDH.slice(6)) + 1;
+      newOrderId = prefix + num.toString().padStart(4, "0");
+    }
+
     const totalAmount = proposal.GiaDeNghi * quantityToBuy;
 
     // 📌 Tạo đơn hàng
@@ -763,11 +809,23 @@ export const acceptProposalAndCreateOrder = async (req, res) => {
     );
 
     // 📌 Tạo chi tiết chấp nhận
-    const newAcceptanceId = await generateCode(
-      chitietchapnhan,
-      "CTCN",
-      "MaCTCN"
-    );
+    const now2 = new Date();
+    const prefix2 =
+      "CTCN" +
+      now2.getFullYear().toString().slice(2) +
+      String(now2.getMonth() + 1).padStart(2, "0");
+
+    const lastAcceptance = await chitietchapnhan.findOne({
+      where: { MaCTCN: { [Op.like]: `${prefix2}%` } },
+      order: [["MaCTCN", "DESC"]],
+      transaction,
+    });
+
+    let newAcceptanceId = prefix2 + "0001";
+    if (lastAcceptance) {
+      const num = parseInt(lastAcceptance.MaCTCN.slice(8)) + 1;
+      newAcceptanceId = prefix2 + num.toString().padStart(4, "0");
+    }
 
     await chitietchapnhan.create(
       {
@@ -783,17 +841,21 @@ export const acceptProposalAndCreateOrder = async (req, res) => {
     );
 
     // 📌 Cập nhật trạng thái yêu cầu
-    const totalAccepted =
-      (await denghicungcap.sum("SoLuongCungCap", {
-        where: {
-          MaYCDH: request.MaYCDH,
-          TrangThai: "Accepted",
-        },
-        transaction,
-      })) || 0;
+    const acceptedProposals = await denghicungcap.findAll({
+      where: {
+        MaYCDH: request.MaYCDH,
+        TrangThai: "Accepted",
+      },
+      transaction,
+    });
 
+    const totalAccepted = acceptedProposals.reduce(
+      (sum, p) => sum + p.SoLuongCungCap,
+      0
+    );
     const newStatus =
       totalAccepted >= request.SoLuongYeuCau ? "Completed" : "PartiallyFilled";
+
     await request.update({ TrangThai: newStatus }, { transaction });
 
     await transaction.commit();
@@ -826,7 +888,6 @@ export const acceptProposalAndCreateOrder = async (req, res) => {
     await transaction.rollback();
     console.error("🔥 acceptProposalAndCreateOrder:", err);
     return res.status(500).json({
-      success: false,
       message: "Lỗi chấp nhận đề nghị",
       error: err.message,
     });
@@ -838,10 +899,21 @@ export const acceptProposalAndCreateOrder = async (req, res) => {
 ============================ */
 export const rejectProposal = async (req, res) => {
   try {
-    // 🛡️ Xác thực token
-    const decoded = verifyToken(req);
-    const MaTK_Buyer = decoded.MaTK;
+    // 🛡️ Xác thực JWT
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return res.status(401).json({ message: "Không có token" });
+    }
 
+    const token = authHeader.split(" ")[1];
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (err) {
+      return res.status(401).json({ message: "Token không hợp lệ" });
+    }
+
+    const MaTK_Buyer = decoded.MaTK;
     const { MaDNCC } = req.params;
     const { LyDoTuChoi } = req.body;
 
@@ -857,7 +929,6 @@ export const rejectProposal = async (req, res) => {
 
     if (!proposal) {
       return res.status(404).json({
-        success: false,
         message: "Không tìm thấy đề nghị",
       });
     }
@@ -868,7 +939,6 @@ export const rejectProposal = async (req, res) => {
       decoded.role !== "Admin"
     ) {
       return res.status(403).json({
-        success: false,
         message: "Không có quyền từ chối đề nghị này",
       });
     }
@@ -876,7 +946,6 @@ export const rejectProposal = async (req, res) => {
     // 📌 Kiểm tra trạng thái
     if (proposal.TrangThai !== "Pending") {
       return res.status(400).json({
-        success: false,
         message: "Đề nghị này đã được xử lý",
       });
     }
@@ -897,7 +966,6 @@ export const rejectProposal = async (req, res) => {
   } catch (err) {
     console.error("🔥 rejectProposal:", err);
     return res.status(500).json({
-      success: false,
       message: "Lỗi từ chối đề nghị",
       error: err.message,
     });
@@ -909,10 +977,21 @@ export const rejectProposal = async (req, res) => {
 ============================ */
 export const getMyProposals = async (req, res) => {
   try {
-    // 🛡️ Xác thực token
-    const decoded = verifyToken(req);
-    const MaTK_Seller = decoded.MaTK;
+    // 🛡️ Xác thực JWT
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return res.status(401).json({ message: "Không có token" });
+    }
 
+    const token = authHeader.split(" ")[1];
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (err) {
+      return res.status(401).json({ message: "Token không hợp lệ" });
+    }
+
+    const MaTK_Seller = decoded.MaTK;
     const { TrangThai, page = 1, limit = 10 } = req.query;
 
     // 📌 Build where clause
@@ -978,7 +1057,6 @@ export const getMyProposals = async (req, res) => {
   } catch (err) {
     console.error("🔥 getMyProposals:", err);
     return res.status(500).json({
-      success: false,
       message: "Lỗi lấy danh sách đề nghị",
       error: err.message,
     });
@@ -990,10 +1068,21 @@ export const getMyProposals = async (req, res) => {
 ============================ */
 export const cancelProposal = async (req, res) => {
   try {
-    // 🛡️ Xác thực token
-    const decoded = verifyToken(req);
-    const MaTK_Seller = decoded.MaTK;
+    // 🛡️ Xác thực JWT
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return res.status(401).json({ message: "Không có token" });
+    }
 
+    const token = authHeader.split(" ")[1];
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (err) {
+      return res.status(401).json({ message: "Token không hợp lệ" });
+    }
+
+    const MaTK_Seller = decoded.MaTK;
     const { MaDNCC } = req.params;
 
     // 📌 Lấy đề nghị
@@ -1006,7 +1095,6 @@ export const cancelProposal = async (req, res) => {
 
     if (!proposal) {
       return res.status(404).json({
-        success: false,
         message: "Không tìm thấy đề nghị hoặc đề nghị không thuộc về bạn",
       });
     }
@@ -1014,7 +1102,6 @@ export const cancelProposal = async (req, res) => {
     // 📌 Kiểm tra trạng thái
     if (proposal.TrangThai !== "Pending") {
       return res.status(400).json({
-        success: false,
         message: "Không thể hủy đề nghị đã được xử lý",
       });
     }
@@ -1035,7 +1122,6 @@ export const cancelProposal = async (req, res) => {
   } catch (err) {
     console.error("🔥 cancelProposal:", err);
     return res.status(500).json({
-      success: false,
       message: "Lỗi hủy đề nghị",
       error: err.message,
     });
@@ -1048,10 +1134,21 @@ export const cancelProposal = async (req, res) => {
 export const updateProposal = async (req, res) => {
   const transaction = await sequelize.transaction();
   try {
-    // 🛡️ Xác thực token
-    const decoded = verifyToken(req);
-    const MaTK_Seller = decoded.MaTK;
+    // 🛡️ Xác thực JWT
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return res.status(401).json({ message: "Không có token" });
+    }
 
+    const token = authHeader.split(" ")[1];
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (err) {
+      return res.status(401).json({ message: "Token không hợp lệ" });
+    }
+
+    const MaTK_Seller = decoded.MaTK;
     const { MaDNCC } = req.params;
     const { SoLuongCungCap, GiaDeNghi, ChatLuongDeNghi } = req.body;
 
@@ -1076,7 +1173,6 @@ export const updateProposal = async (req, res) => {
 
     if (!proposal) {
       return res.status(404).json({
-        success: false,
         message: "Không tìm thấy đề nghị hoặc đề nghị không thuộc về bạn",
       });
     }
@@ -1084,7 +1180,6 @@ export const updateProposal = async (req, res) => {
     // 📌 Kiểm tra trạng thái
     if (proposal.TrangThai !== "Pending") {
       return res.status(400).json({
-        success: false,
         message: "Không thể cập nhật đề nghị đã được xử lý",
       });
     }
@@ -1092,14 +1187,12 @@ export const updateProposal = async (req, res) => {
     // 📌 Validate số lượng và giá
     if (SoLuongCungCap && SoLuongCungCap <= 0) {
       return res.status(400).json({
-        success: false,
         message: "Số lượng phải lớn hơn 0",
       });
     }
 
     if (GiaDeNghi && GiaDeNghi <= 0) {
       return res.status(400).json({
-        success: false,
         message: "Giá phải lớn hơn 0",
       });
     }
@@ -1110,27 +1203,28 @@ export const updateProposal = async (req, res) => {
       SoLuongCungCap > proposal.MaSP_sanpham.SoLuongTonKho
     ) {
       return res.status(400).json({
-        success: false,
         message: `Số lượng tồn kho không đủ. Còn lại: ${proposal.MaSP_sanpham.SoLuongTonKho}`,
       });
     }
 
     // 📌 Kiểm tra số lượng không vượt quá yêu cầu
     const request = proposal.MaYCDH_yeucaudathang;
-    const totalAccepted =
-      (await denghicungcap.sum("SoLuongCungCap", {
-        where: {
-          MaYCDH: request.MaYCDH,
-          TrangThai: "Accepted",
-        },
-        transaction,
-      })) || 0;
+    const acceptedProposals = await denghicungcap.findAll({
+      where: {
+        MaYCDH: request.MaYCDH,
+        TrangThai: "Accepted",
+      },
+      transaction,
+    });
 
+    const totalAccepted = acceptedProposals.reduce(
+      (sum, p) => sum + p.SoLuongCungCap,
+      0
+    );
     const remaining = request.SoLuongYeuCau - totalAccepted;
 
     if (SoLuongCungCap && SoLuongCungCap > remaining) {
       return res.status(400).json({
-        success: false,
         message: `Số lượng vượt quá số lượng còn thiếu (${remaining})`,
       });
     }
@@ -1155,7 +1249,6 @@ export const updateProposal = async (req, res) => {
     await transaction.rollback();
     console.error("🔥 updateProposal:", err);
     return res.status(500).json({
-      success: false,
       message: "Lỗi cập nhật đề nghị",
       error: err.message,
     });
@@ -1167,10 +1260,21 @@ export const updateProposal = async (req, res) => {
 ============================ */
 export const getMyProductsForProposal = async (req, res) => {
   try {
-    // 🛡️ Xác thực token
-    const decoded = verifyToken(req);
-    const MaTK_Seller = decoded.MaTK;
+    // 🛡️ Xác thực JWT
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return res.status(401).json({ message: "Không có token" });
+    }
 
+    const token = authHeader.split(" ")[1];
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (err) {
+      return res.status(401).json({ message: "Token không hợp lệ" });
+    }
+
+    const MaTK_Seller = decoded.MaTK;
     const { keyword, MaDM, page = 1, limit = 20 } = req.query;
 
     // 📌 Tìm cửa hàng của người bán
@@ -1181,7 +1285,6 @@ export const getMyProductsForProposal = async (req, res) => {
 
     if (!stores || stores.length === 0) {
       return res.status(404).json({
-        success: false,
         message: "Bạn chưa có cửa hàng. Vui lòng tạo cửa hàng trước.",
       });
     }
@@ -1208,20 +1311,6 @@ export const getMyProductsForProposal = async (req, res) => {
       where: whereClause,
       include: [
         {
-          model: hinhanh,
-          as: "hinhanhs",
-          through: { attributes: [] },
-          attributes: ["MaHA", "URL"],
-          limit: 1,
-        },
-        {
-          model: danhmuc,
-          as: "MaDM_danhmucs",
-          through: { attributes: [] },
-          attributes: ["MaDM", "TenDM"],
-          ...(MaDM && { where: { MaDM } }),
-        },
-        {
           model: cuahang,
           as: "cuahang",
           attributes: ["MaCH", "TenCH"],
@@ -1244,7 +1333,6 @@ export const getMyProductsForProposal = async (req, res) => {
   } catch (err) {
     console.error("🔥 getMyProductsForProposal:", err);
     return res.status(500).json({
-      success: false,
       message: "Lỗi lấy danh sách sản phẩm",
       error: err.message,
     });
@@ -1256,6 +1344,17 @@ export const getMyProductsForProposal = async (req, res) => {
 ============================ */
 export const getNewRequestsForSeller = async (req, res) => {
   try {
+    // 🛡️ Xác thực JWT (optional cho public endpoint)
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      const token = authHeader.split(" ")[1];
+      try {
+        jwt.verify(token, process.env.JWT_SECRET);
+      } catch (err) {
+        // Token không hợp lệ nhưng vẫn cho xem
+      }
+    }
+
     const { MaDM, limit = 10 } = req.query;
 
     // 📌 Build where clause
@@ -1299,7 +1398,6 @@ export const getNewRequestsForSeller = async (req, res) => {
   } catch (err) {
     console.error("🔥 getNewRequestsForSeller:", err);
     return res.status(500).json({
-      success: false,
       message: "Lỗi lấy yêu cầu mới",
       error: err.message,
     });
@@ -1311,74 +1409,79 @@ export const getNewRequestsForSeller = async (req, res) => {
 ============================ */
 export const getBuyerStatistics = async (req, res) => {
   try {
-    // 🛡️ Xác thực token
-    const decoded = verifyToken(req);
+    // 🛡️ Xác thực JWT
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return res.status(401).json({ message: "Không có token" });
+    }
+
+    const token = authHeader.split(" ")[1];
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (err) {
+      return res.status(401).json({ message: "Token không hợp lệ" });
+    }
+
     const MaTK_Buyer = decoded.MaTK;
 
-    // 📌 Thống kê
+    // 📌 Thống kê yêu cầu
+    const allRequests = await yeucaudathang.findAll({
+      where: { MaTK_Buyer },
+    });
+
     const stats = {
-      totalRequests: await yeucaudathang.count({
-        where: { MaTK_Buyer },
-      }),
-      openRequests: await yeucaudathang.count({
-        where: { MaTK_Buyer, TrangThai: "Open" },
-      }),
-      partiallyFilledRequests: await yeucaudathang.count({
-        where: { MaTK_Buyer, TrangThai: "PartiallyFilled" },
-      }),
-      completedRequests: await yeucaudathang.count({
-        where: { MaTK_Buyer, TrangThai: "Completed" },
-      }),
-      totalProposalsReceived: await denghicungcap.count({
-        include: [
-          {
-            model: yeucaudathang,
-            as: "MaYCDH_yeucaudathang",
-            where: { MaTK_Buyer },
-            attributes: [],
-          },
-        ],
-      }),
-      pendingProposals: await denghicungcap.count({
-        where: { TrangThai: "Pending" },
-        include: [
-          {
-            model: yeucaudathang,
-            as: "MaYCDH_yeucaudathang",
-            where: { MaTK_Buyer },
-            attributes: [],
-          },
-        ],
-      }),
-      acceptedProposals: await denghicungcap.count({
-        where: { TrangThai: "Accepted" },
-        include: [
-          {
-            model: yeucaudathang,
-            as: "MaYCDH_yeucaudathang",
-            where: { MaTK_Buyer },
-            attributes: [],
-          },
-        ],
-      }),
-      totalSpent:
-        (await chitietchapnhan.sum("GiaChapNhan", {
+      totalRequests: allRequests.length,
+      openRequests: allRequests.filter((r) => r.TrangThai === "Open").length,
+      partiallyFilledRequests: allRequests.filter(
+        (r) => r.TrangThai === "PartiallyFilled"
+      ).length,
+      completedRequests: allRequests.filter((r) => r.TrangThai === "Completed")
+        .length,
+    };
+
+    // 📌 Thống kê đề nghị
+    const allProposals = await denghicungcap.findAll({
+      include: [
+        {
+          model: yeucaudathang,
+          as: "MaYCDH_yeucaudathang",
+          where: { MaTK_Buyer },
+          attributes: [],
+        },
+      ],
+    });
+
+    stats.totalProposalsReceived = allProposals.length;
+    stats.pendingProposals = allProposals.filter(
+      (p) => p.TrangThai === "Pending"
+    ).length;
+    stats.acceptedProposals = allProposals.filter(
+      (p) => p.TrangThai === "Accepted"
+    ).length;
+
+    // 📌 Tổng tiền đã chi
+    const acceptances = await chitietchapnhan.findAll({
+      include: [
+        {
+          model: denghicungcap,
+          as: "MaDNCC_denghicungcap",
           include: [
             {
-              model: denghicungcap,
-              as: "MaDNCC_denghicungcap",
-              include: [
-                {
-                  model: yeucaudathang,
-                  as: "MaYCDH_yeucaudathang",
-                  where: { MaTK_Buyer },
-                  attributes: [],
-                },
-              ],
+              model: yeucaudathang,
+              as: "MaYCDH_yeucaudathang",
+              where: { MaTK_Buyer },
+              attributes: [],
             },
           ],
-        })) || 0,
-    };
+        },
+      ],
+    });
+
+    stats.totalSpent = acceptances.reduce(
+      (sum, a) => sum + a.SoLuongChapNhan * a.GiaChapNhan,
+      0
+    );
 
     return res.json({
       success: true,
@@ -1387,7 +1490,6 @@ export const getBuyerStatistics = async (req, res) => {
   } catch (err) {
     console.error("🔥 getBuyerStatistics:", err);
     return res.status(500).json({
-      success: false,
       message: "Lỗi lấy thống kê",
       error: err.message,
     });
@@ -1399,50 +1501,37 @@ export const getBuyerStatistics = async (req, res) => {
 ============================ */
 export const getSellerStatistics = async (req, res) => {
   try {
-    // 🛡️ Xác thực token
-    const decoded = verifyToken(req);
+    // 🛡️ Xác thực JWT
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return res.status(401).json({ message: "Không có token" });
+    }
+
+    const token = authHeader.split(" ")[1];
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (err) {
+      return res.status(401).json({ message: "Token không hợp lệ" });
+    }
+
     const MaTK_Seller = decoded.MaTK;
 
-    // 📌 Thống kê cơ bản
-    const totalProposals = await denghicungcap.count({
+    // 📌 Thống kê đề nghị
+    const allProposals = await denghicungcap.findAll({
       where: { MaTK_Seller },
     });
 
-    const pendingProposals = await denghicungcap.count({
-      where: { MaTK_Seller, TrangThai: "Pending" },
-    });
-
-    const acceptedProposals = await denghicungcap.count({
-      where: { MaTK_Seller, TrangThai: "Accepted" },
-    });
-
-    const rejectedProposals = await denghicungcap.count({
-      where: { MaTK_Seller, TrangThai: "Rejected" },
-    });
-
-    const totalRevenue =
-      (await chitietchapnhan.sum("GiaChapNhan", {
-        include: [
-          {
-            model: denghicungcap,
-            as: "MaDNCC_denghicungcap",
-            where: { MaTK_Seller },
-            attributes: [],
-          },
-        ],
-      })) || 0;
-
-    const totalQuantitySold =
-      (await chitietchapnhan.sum("SoLuongChapNhan", {
-        include: [
-          {
-            model: denghicungcap,
-            as: "MaDNCC_denghicungcap",
-            where: { MaTK_Seller },
-            attributes: [],
-          },
-        ],
-      })) || 0;
+    const totalProposals = allProposals.length;
+    const pendingProposals = allProposals.filter(
+      (p) => p.TrangThai === "Pending"
+    ).length;
+    const acceptedProposals = allProposals.filter(
+      (p) => p.TrangThai === "Accepted"
+    ).length;
+    const rejectedProposals = allProposals.filter(
+      (p) => p.TrangThai === "Rejected"
+    ).length;
 
     // 📌 Tính tỷ lệ chấp nhận
     const totalSubmitted = acceptedProposals + rejectedProposals;
@@ -1450,6 +1539,27 @@ export const getSellerStatistics = async (req, res) => {
       totalSubmitted > 0
         ? ((acceptedProposals / totalSubmitted) * 100).toFixed(2)
         : 0;
+
+    // 📌 Doanh thu
+    const acceptances = await chitietchapnhan.findAll({
+      include: [
+        {
+          model: denghicungcap,
+          as: "MaDNCC_denghicungcap",
+          where: { MaTK_Seller },
+          attributes: [],
+        },
+      ],
+    });
+
+    const totalRevenue = acceptances.reduce(
+      (sum, a) => sum + a.SoLuongChapNhan * a.GiaChapNhan,
+      0
+    );
+    const totalQuantitySold = acceptances.reduce(
+      (sum, a) => sum + a.SoLuongChapNhan,
+      0
+    );
 
     const stats = {
       totalProposals,
@@ -1468,7 +1578,6 @@ export const getSellerStatistics = async (req, res) => {
   } catch (err) {
     console.error("🔥 getSellerStatistics:", err);
     return res.status(500).json({
-      success: false,
       message: "Lỗi lấy thống kê",
       error: err.message,
     });

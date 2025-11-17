@@ -15,11 +15,8 @@ import authRoutes from "./routes/authRoutes.js";
 import cartRoutes from "./routes/cartRoutes.js";
 import orderRoutes from "./routes/orderRoutes.js";
 import sanphamRoutes from "./routes/sanphamRoutes.js";
-<<<<<<< HEAD
-//import rfqRoutes from "./routes/rfqRoutes.js";
-=======
-import rfqRoutes from "./routes/RFQ Routes.js";
->>>>>>> 5eed40f559ab990db032bc34a68d039fb95b4ce6
+
+import rfqRoutes from "./routes/rfqRoutes.js";
 
 import danhGiaSanPhamRoutes from "./routes/danhGiaSanPhamRoutes.js";
 import danhGiaCuaHangRoutes from "./routes/danhGiaCuaHangRoutes.js"; // 🆕 THÊM ROUTE ĐÁNH GIÁ CỬA HÀNG
@@ -236,7 +233,7 @@ async function startServer() {
     registerRoute("/api/sanpham", sanphamRoutes);
     registerRoute("/api/danh-gia-san-pham", danhGiaSanPhamRoutes); // 🆕 ĐĂNG KÝ ROUTE ĐÁNH GIÁ SẢN PHẨM
     registerRoute("/api/danh-gia-cua-hang", danhGiaCuaHangRoutes); // 🆕 ĐĂNG KÝ ROUTE ĐÁNH GIÁ CỬA HÀNG
-    //registerRoute("/api/rfq", rfqRoutes);
+    registerRoute("/api/rfq", rfqRoutes);
 
     console.log("✅ Đăng ký routes thành công");
 
