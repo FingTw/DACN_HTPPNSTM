@@ -15,6 +15,7 @@ import {
   updateProposal,
   getMyProductsForProposal,
   getNewRequestsForSeller,
+  getCategoriesForRFQ,
 } from "../controllers/rfqController.js";
 
 const router = express.Router();
@@ -75,5 +76,10 @@ router.get("/seller/statistics", getSellerStatistics);
 
 // Xem yêu cầu công khai (không cần đăng nhập)
 router.get("/public/requests", getAllOpenRequests);
+
+/* ============================
+ 📂 DANH MỤC
+============================ */
+router.get("/categories", getCategoriesForRFQ);
 
 export default router;

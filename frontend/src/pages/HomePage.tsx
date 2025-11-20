@@ -86,7 +86,7 @@ const HomePage: React.FC = () => {
               </h2>
               <button
                 onClick={handleViewAllProducts}
-                className="bg-purple-500 hover:bg-purple-600 text-white px-6 py-2 rounded-lg font-medium transition-colors duration-200 flex items-center gap-2"
+                className="bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-lg font-medium transition-colors duration-200 flex items-center gap-2"
               >
                 <span>Xem tất cả sản phẩm</span>
                 <svg

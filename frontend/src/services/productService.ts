@@ -11,6 +11,10 @@ export interface Product {
   NguonGoc: string;
   DiemDG_SP: number;
   MaCH: string;
+
+  DVT?: string; // Đơn vị tính (có thể null nên để ?)
+  TrangThai?: string; // Trạng thái (Đang bán, Ngừng bán...)
+  SoLuongDanhGia_SP?: number;
   // Optional from include
   cuahang?: {
     MaCH: string;

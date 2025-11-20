@@ -39,7 +39,7 @@ export interface ShippingMethod {
   TenPTVC: string;
   PhiVanChuyen?: number;
   ThoiGianGiaoHang?: string;
-  TocDo?: 'standard' | 'fast' | 'express' | 'super_express';
+  TocDo?: "standard" | "fast" | "express" | "super_express";
 }
 
 export interface PaymentMethod {
@@ -55,7 +55,7 @@ export interface ShippingCalculationRequest {
   province: string;
   district: string;
   items: OrderItem[];
-  deliverySpeed: 'standard' | 'fast' | 'express' | 'super_express';
+  deliverySpeed: "standard" | "fast" | "express" | "super_express";
   totalWeight: number;
   isUrbanArea: boolean;
   isPeakHours: boolean;
@@ -66,7 +66,7 @@ export interface ShippingCalculationResult {
   TenPTVC: string;
   PhiVanChuyen: number;
   ThoiGianGiaoHang: string;
-  TocDo: 'standard' | 'fast' | 'express' | 'super_express';
+  TocDo: "standard" | "fast" | "express" | "super_express";
   UuDai?: string[];
   estimatedDelivery: string;
   isAvailable: boolean;
@@ -104,58 +104,63 @@ export const orderService = {
   },
 
   // 3. Xử lý checkout
-  processCheckout: async (data: ProcessCheckoutData & { appliedVouchers?: string[] }): Promise<Order | null> => {
+  processCheckout: async (
+    data: ProcessCheckoutData & { appliedVouchers?: string[] }
+  ): Promise<Order | null> => {
     try {
-      console.log('🔄 Calling endpoint: POST /order/process-checkout');
-      console.log('📦 Payload:', {
+      console.log("🔄 Calling endpoint: POST /order/process-checkout");
+      console.log("📦 Payload:", {
         ...data,
-        items: data.items.map(item => ({ MaSP: item.MaSP, SL: item.SL }))
+        items: data.items.map((item) => ({ MaSP: item.MaSP, SL: item.SL })),
       });
-      
+
       const response = await api.post("/order/process-checkout", data);
-      
-      console.log('📨 Raw response:', response);
-      console.log('📨 Response data:', response.data);
-      
+
+      console.log("📨 Raw response:", response);
+      console.log("📨 Response data:", response.data);
+
       if (!response.data) {
-        console.log('❌ Response data is completely undefined');
-        throw new Error('Không nhận được phản hồi từ server');
+        console.log("❌ Response data is completely undefined");
+        throw new Error("Không nhận được phản hồi từ server");
       }
-      
+
       if (response.data.success === false) {
-        console.log('❌ Backend returned success: false');
-        throw new Error(response.data.message || 'Đặt hàng thất bại');
+        console.log("❌ Backend returned success: false");
+        throw new Error(response.data.message || "Đặt hàng thất bại");
       }
-      
+
       if (response.data.data) {
-        console.log('✅ Backend returned data:', response.data.data);
+        console.log("✅ Backend returned data:", response.data.data);
         return response.data.data;
       }
-      
+
       // Trường hợp backend trả về data trực tiếp (không wrap)
       if (response.data.MaDH) {
-        console.log('✅ Backend returned direct order data');
+        console.log("✅ Backend returned direct order data");
         return response.data;
       }
-      
-      console.log('❌ No valid data in response');
-      throw new Error('Phản hồi từ server không hợp lệ');
-      
+
+      console.log("❌ No valid data in response");
+      throw new Error("Phản hồi từ server không hợp lệ");
     } catch (error: any) {
       console.error("❌ Lỗi process checkout:");
       console.error("- Error:", error.message);
       console.error("- Response status:", error.response?.status);
       console.error("- Response data:", error.response?.data);
-      
+
       // Phân loại lỗi để hiển thị thông báo phù hợp
       if (error.response?.status === 400) {
-        throw new Error(error.response?.data?.message || 'Dữ liệu không hợp lệ');
+        throw new Error(
+          error.response?.data?.message || "Dữ liệu không hợp lệ"
+        );
       } else if (error.response?.status === 401) {
-        throw new Error('Phiên đăng nhập hết hạn, vui lòng đăng nhập lại');
+        throw new Error("Phiên đăng nhập hết hạn, vui lòng đăng nhập lại");
       } else if (error.response?.status === 500) {
-        throw new Error('Lỗi hệ thống, vui lòng thử lại sau');
+        throw new Error("Lỗi hệ thống, vui lòng thử lại sau");
       } else {
-        throw new Error(error.response?.data?.message || error.message || 'Đặt hàng thất bại');
+        throw new Error(
+          error.response?.data?.message || error.message || "Đặt hàng thất bại"
+        );
       }
     }
   },
@@ -174,7 +179,9 @@ export const orderService = {
   // 5. Lấy chi tiết đơn hàng thành công
   getOrderSuccess: async (MaDH: string): Promise<Order | null> => {
     try {
-      const response = await api.get<ApiResponse<Order>>(`/order/order-success/${MaDH}`);
+      const response = await api.get<ApiResponse<Order>>(
+        `/order/order-success/${MaDH}`
+      );
       return response.data.data;
     } catch (error: any) {
       console.error("Lỗi lấy chi tiết đơn hàng:", error);
@@ -199,13 +206,27 @@ export const orderService = {
   // 7. Lấy danh sách phương thức vận chuyển
   getShippingMethods: async (): Promise<ShippingMethod[] | null> => {
     try {
-      const response = await api.get<ApiResponse<ShippingMethod[]>>("/order/shipping-methods");
+      const response = await api.get<ApiResponse<ShippingMethod[]>>(
+        "/order/shipping-methods"
+      );
       return response.data.data;
     } catch (error: any) {
       console.error("Lỗi lấy phương thức vận chuyển:", error);
       return [
-        { MaPTVC: 'VC01', TenPTVC: 'Giao hàng tiêu chuẩn', PhiVanChuyen: 30000, ThoiGianGiaoHang: '2-3 ngày', TocDo: 'standard' },
-        { MaPTVC: 'VC02', TenPTVC: 'Giao hàng nhanh', PhiVanChuyen: 50000, ThoiGianGiaoHang: '24 giờ', TocDo: 'fast' },
+        {
+          MaPTVC: "VC01",
+          TenPTVC: "Giao hàng tiêu chuẩn",
+          PhiVanChuyen: 30000,
+          ThoiGianGiaoHang: "2-3 ngày",
+          TocDo: "standard",
+        },
+        {
+          MaPTVC: "VC02",
+          TenPTVC: "Giao hàng nhanh",
+          PhiVanChuyen: 50000,
+          ThoiGianGiaoHang: "24 giờ",
+          TocDo: "fast",
+        },
       ];
     }
   },
@@ -213,34 +234,37 @@ export const orderService = {
   // 8. Lấy danh sách phương thức thanh toán
   getPaymentMethods: async (): Promise<PaymentMethod[] | null> => {
     try {
-      const response = await api.get<ApiResponse<PaymentMethod[]>>("/order/payment-methods");
+      const response = await api.get<ApiResponse<PaymentMethod[]>>(
+        "/order/payment-methods"
+      );
       return response.data.data;
     } catch (error: any) {
       console.error("Lỗi lấy phương thức thanh toán:", error);
       return [
-        { MaPTTT: 'TT01', TenPTTT: 'Thanh toán khi nhận hàng (COD)' },
-        { MaPTTT: 'TT02', TenPTTT: 'Chuyển khoản ngân hàng' },
+        { MaPTTT: "TT01", TenPTTT: "Thanh toán khi nhận hàng (COD)" },
+        { MaPTTT: "TT02", TenPTTT: "Chuyển khoản ngân hàng" },
       ];
     }
   },
 
   // 🆕 9. Tính toán phí vận chuyển theo tốc độ
-  calculateShipping: async (request: ShippingCalculationRequest): Promise<ShippingCalculationResult[] | null> => {
+  calculateShipping: async (
+    request: ShippingCalculationRequest
+  ): Promise<ShippingCalculationResult[] | null> => {
     try {
-      console.log('🚀 Gửi request tính phí VC:', request);
-      
+      console.log("🚀 Gửi request tính phí VC:", request);
+
       const response = await api.post<ApiResponse<ShippingCalculationResult[]>>(
         "/order/calculate-shipping",
         {
-          deliveryAddress: request.province + ', ' + request.district, // Gửi full address
+          deliveryAddress: request.province + ", " + request.district, // Gửi full address
           items: request.items,
-          deliverySpeed: request.deliverySpeed || 'standard' // Đảm bảo có giá trị mặc định
+          deliverySpeed: request.deliverySpeed || "standard", // Đảm bảo có giá trị mặc định
         }
       );
-      
-      console.log('✅ Phản hồi từ server:', response.data);
+
+      console.log("✅ Phản hồi từ server:", response.data);
       return response.data.data;
-      
     } catch (error: any) {
       console.error("❌ Lỗi tính phí vận chuyển:", error);
       console.error("❌ Chi tiết lỗi:", error.response?.data);
@@ -266,13 +290,20 @@ export const orderService = {
     province: string;
     district: string;
     items: OrderItem[];
-    deliverySpeed: 'express' | 'super_express';
-  }): Promise<{ isValid: boolean; message?: string; constraints?: string[] }> => {
+    deliverySpeed: "express" | "super_express";
+  }): Promise<{
+    isValid: boolean;
+    message?: string;
+    constraints?: string[];
+  }> => {
     try {
-      const response = await api.post<ApiResponse<{ isValid: boolean; message?: string; constraints?: string[] }>>(
-        "/order/validate-express",
-        data
-      );
+      const response = await api.post<
+        ApiResponse<{
+          isValid: boolean;
+          message?: string;
+          constraints?: string[];
+        }>
+      >("/order/validate-express", data);
       return response.data.data;
     } catch (error: any) {
       console.error("Lỗi validate đơn hàng tốc độ cao:", error);
@@ -292,56 +323,77 @@ const calculateShippingFallback = async (
   const speedMultiplier = getSpeedMultiplier(request.deliverySpeed);
   const areaMultiplier = request.isUrbanArea ? 1 : 1.3;
   const timeMultiplier = request.isPeakHours ? 1.2 : 1;
-  
-  const shippingCost = Math.round(baseCost * speedMultiplier * areaMultiplier * timeMultiplier * request.totalWeight);
-  
+
+  const shippingCost = Math.round(
+    baseCost *
+      speedMultiplier *
+      areaMultiplier *
+      timeMultiplier *
+      request.totalWeight
+  );
+
   const results: ShippingCalculationResult[] = [
     {
-      MaPTVC: 'VC_STANDARD',
-      TenPTVC: 'Giao hàng tiêu chuẩn',
-      PhiVanChuyen: Math.round(baseCost * 1 * areaMultiplier * request.totalWeight),
-      ThoiGianGiaoHang: '2-3 ngày',
-      TocDo: 'standard',
-      estimatedDelivery: calculateEstimatedDelivery('standard'),
+      MaPTVC: "VC03",
+      TenPTVC: "Giao hàng tiêu chuẩn",
+      PhiVanChuyen: Math.round(
+        baseCost * 1 * areaMultiplier * request.totalWeight
+      ),
+      ThoiGianGiaoHang: "2-3 ngày",
+      TocDo: "standard",
+      estimatedDelivery: calculateEstimatedDelivery("standard"),
       isAvailable: true,
-      UuDai: ['Miễn phí đổi trả trong 7 ngày']
+      UuDai: ["Miễn phí đổi trả trong 7 ngày"],
     },
     {
-      MaPTVC: 'VC_FAST',
-      TenPTVC: 'Giao hàng nhanh',
-      PhiVanChuyen: Math.round(baseCost * 1.3 * areaMultiplier * request.totalWeight),
-      ThoiGianGiaoHang: '24 giờ',
-      TocDo: 'fast',
-      estimatedDelivery: calculateEstimatedDelivery('fast'),
+      MaPTVC: "VC04",
+      TenPTVC: "Giao hàng nhanh",
+      PhiVanChuyen: Math.round(
+        baseCost * 1.3 * areaMultiplier * request.totalWeight
+      ),
+      ThoiGianGiaoHang: "24 giờ",
+      TocDo: "fast",
+      estimatedDelivery: calculateEstimatedDelivery("fast"),
       isAvailable: true,
-      UuDai: ['Hỗ trợ 24/7', 'Đổi trả nhanh']
-    }
+      UuDai: ["Hỗ trợ 24/7", "Đổi trả nhanh"],
+    },
   ];
 
   // Chỉ thêm express nếu trong khu vực hỗ trợ
-  if (request.isUrbanArea && isExpressSupported(request.province, request.district)) {
+  if (
+    request.isUrbanArea &&
+    isExpressSupported(request.province, request.district)
+  ) {
     results.push({
-      MaPTVC: 'VC_EXPRESS',
-      TenPTVC: 'Giao hàng hỏa tốc',
-      PhiVanChuyen: Math.round(baseCost * 1.8 * areaMultiplier * timeMultiplier * request.totalWeight),
-      ThoiGianGiaoHang: '4-8 giờ',
-      TocDo: 'express',
-      estimatedDelivery: calculateEstimatedDelivery('express'),
+      MaPTVC: "VC05",
+      TenPTVC: "Giao hàng hỏa tốc",
+      PhiVanChuyen: Math.round(
+        baseCost * 1.8 * areaMultiplier * timeMultiplier * request.totalWeight
+      ),
+      ThoiGianGiaoHang: "4-8 giờ",
+      TocDo: "express",
+      estimatedDelivery: calculateEstimatedDelivery("express"),
       isAvailable: isExpressAvailableNow(),
-      UuDai: ['Ưu tiên xử lý', 'Theo dõi real-time', 'Hỗ trợ 24/7']
+      UuDai: ["Ưu tiên xử lý", "Theo dõi real-time", "Hỗ trợ 24/7"],
     });
 
     // Chỉ thêm super express trong điều kiện đặc biệt
     if (isSuperExpressAvailable(request)) {
       results.push({
-        MaPTVC: 'VC_SUPER_EXPRESS',
-        TenPTVC: 'Giao hàng siêu tốc',
-        PhiVanChuyen: Math.round(baseCost * 3 * areaMultiplier * timeMultiplier * request.totalWeight),
-        ThoiGianGiaoHang: '1-2 giờ',
-        TocDo: 'super_express',
-        estimatedDelivery: calculateEstimatedDelivery('super_express'),
+        MaPTVC: "VC06",
+        TenPTVC: "Giao hàng siêu tốc",
+        PhiVanChuyen: Math.round(
+          baseCost * 3 * areaMultiplier * timeMultiplier * request.totalWeight
+        ),
+        ThoiGianGiaoHang: "1-2 giờ",
+        TocDo: "super_express",
+        estimatedDelivery: calculateEstimatedDelivery("super_express"),
         isAvailable: true,
-        UuDai: ['Xử lý ưu tiên cao nhất', 'Giám sát 24/7', 'Hoàn tiền 100% nếu trễ']
+        UuDai: [
+          "Xử lý ưu tiên cao nhất",
+          "Giám sát 24/7",
+          "Hoàn tiền 100% nếu trễ",
+        ],
       });
     }
   }
@@ -351,21 +403,23 @@ const calculateShippingFallback = async (
 
 const calculateBaseCost = (request: ShippingCalculationRequest): number => {
   const baseRates: { [key: string]: number } = {
-    'Thành phố Hồ Chí Minh': 15000,
-    'Thành phố Hà Nội': 16000,
-    'Thành phố Đà Nẵng': 17000,
-    'Thành phố Cần Thơ': 18000,
-    'Thành phố Hải Phòng': 18000,
+    "Thành phố Hồ Chí Minh": 15000,
+    "Thành phố Hà Nội": 16000,
+    "Thành phố Đà Nẵng": 17000,
+    "Thành phố Cần Thơ": 18000,
+    "Thành phố Hải Phòng": 18000,
   };
   return baseRates[request.province] || 20000;
 };
 
-const getSpeedMultiplier = (speed: 'standard' | 'fast' | 'express' | 'super_express'): number => {
+const getSpeedMultiplier = (
+  speed: "standard" | "fast" | "express" | "super_express"
+): number => {
   const multipliers = {
-    'standard': 1,
-    'fast': 1.3,
-    'express': 1.8,
-    'super_express': 3
+    standard: 1,
+    fast: 1.3,
+    express: 1.8,
+    super_express: 3,
   };
   return multipliers[speed] || 1;
 };
@@ -373,34 +427,45 @@ const getSpeedMultiplier = (speed: 'standard' | 'fast' | 'express' | 'super_expr
 const calculateEstimatedDelivery = (speed: string): string => {
   const now = new Date();
   const deliveries = {
-    'standard': new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000),
-    'fast': new Date(now.getTime() + 24 * 60 * 60 * 1000),
-    'express': new Date(now.getTime() + 8 * 60 * 60 * 1000),
-    'super_express': new Date(now.getTime() + 2 * 60 * 60 * 1000),
+    standard: new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000),
+    fast: new Date(now.getTime() + 24 * 60 * 60 * 1000),
+    express: new Date(now.getTime() + 8 * 60 * 60 * 1000),
+    super_express: new Date(now.getTime() + 2 * 60 * 60 * 1000),
   };
-  
-  const deliveryTime = deliveries[speed as keyof typeof deliveries] || deliveries.standard;
-  return deliveryTime.toLocaleString('vi-VN', {
-    weekday: 'long',
-    hour: '2-digit',
-    minute: '2-digit',
-    day: '2-digit',
-    month: '2-digit'
+
+  const deliveryTime =
+    deliveries[speed as keyof typeof deliveries] || deliveries.standard;
+  return deliveryTime.toLocaleString("vi-VN", {
+    weekday: "long",
+    hour: "2-digit",
+    minute: "2-digit",
+    day: "2-digit",
+    month: "2-digit",
   });
 };
 
 const isExpressSupported = (province: string, district: string): boolean => {
   const supportedProvinces = [
-    'Thành phố Hồ Chí Minh', 'Thành phố Hà Nội', 'Thành phố Đà Nẵng',
-    'Thành phố Cần Thơ', 'Thành phố Hải Phòng'
+    "Thành phố Hồ Chí Minh",
+    "Thành phố Hà Nội",
+    "Thành phố Đà Nẵng",
+    "Thành phố Cần Thơ",
+    "Thành phố Hải Phòng",
   ];
-  
+
   const supportedDistricts = [
-    'Quận 1', 'Quận 3', 'Quận 5', 'Ba Đình', 'Hoàn Kiếm', 'Hải Châu'
+    "Quận 1",
+    "Quận 3",
+    "Quận 5",
+    "Ba Đình",
+    "Hoàn Kiếm",
+    "Hải Châu",
   ];
-  
-  return supportedProvinces.includes(province) && 
-         supportedDistricts.some(d => district.includes(d));
+
+  return (
+    supportedProvinces.includes(province) &&
+    supportedDistricts.some((d) => district.includes(d))
+  );
 };
 
 const isExpressAvailableNow = (): boolean => {
@@ -409,7 +474,9 @@ const isExpressAvailableNow = (): boolean => {
   return hour >= 6 && hour <= 22;
 };
 
-const isSuperExpressAvailable = (request: ShippingCalculationRequest): boolean => {
+const isSuperExpressAvailable = (
+  request: ShippingCalculationRequest
+): boolean => {
   const now = new Date();
   const hour = now.getHours();
   const isPeakHours = (hour >= 7 && hour <= 9) || (hour >= 16 && hour <= 19);
@@ -419,41 +486,47 @@ const isSuperExpressAvailable = (request: ShippingCalculationRequest): boolean =
 const getExpressShippingFallback = (): ShippingMethod[] => {
   return [
     {
-      MaPTVC: 'VC_EXPRESS_01',
-      TenPTVC: 'Giao hàng hỏa tốc',
+      MaPTVC: "VC01",
+      TenPTVC: "Giao hàng hỏa tốc",
       PhiVanChuyen: 50000,
-      ThoiGianGiaoHang: '4-8 giờ',
-      TocDo: 'express'
+      ThoiGianGiaoHang: "4-8 giờ",
+      TocDo: "express",
     },
     {
-      MaPTVC: 'VC_EXPRESS_02',
-      TenPTVC: 'Giao hàng siêu tốc',
+      MaPTVC: "VC02",
+      TenPTVC: "Giao hàng siêu tốc",
       PhiVanChuyen: 80000,
-      ThoiGianGiaoHang: '1-2 giờ',
-      TocDo: 'super_express'
-    }
+      ThoiGianGiaoHang: "1-2 giờ",
+      TocDo: "super_express",
+    },
   ];
 };
 
 const validateExpressOrderFallback = (data: any) => {
   const constraints: string[] = [];
-  
+
   if (!isExpressSupported(data.province, data.district)) {
-    constraints.push('Khu vực của bạn không hỗ trợ giao hàng tốc độ cao');
+    constraints.push("Khu vực của bạn không hỗ trợ giao hàng tốc độ cao");
   }
-  
+
   if (!isExpressAvailableNow()) {
-    constraints.push('Dịch vụ tốc độ cao hiện không khả dụng (6:00 - 22:00)');
+    constraints.push("Dịch vụ tốc độ cao hiện không khả dụng (6:00 - 22:00)");
   }
-  
-  const totalWeight = data.items.reduce((total: number, item: OrderItem) => total + item.SL * 0.5, 0);
+
+  const totalWeight = data.items.reduce(
+    (total: number, item: OrderItem) => total + item.SL * 0.5,
+    0
+  );
   if (totalWeight > 10) {
-    constraints.push('Đơn hàng vượt quá trọng lượng cho phép (tối đa 10kg)');
+    constraints.push("Đơn hàng vượt quá trọng lượng cho phép (tối đa 10kg)");
   }
-  
+
   return {
     isValid: constraints.length === 0,
-    message: constraints.length > 0 ? 'Không thể áp dụng giao hàng tốc độ cao' : 'Có thể áp dụng giao hàng tốc độ cao',
-    constraints
+    message:
+      constraints.length > 0
+        ? "Không thể áp dụng giao hàng tốc độ cao"
+        : "Có thể áp dụng giao hàng tốc độ cao",
+    constraints,
   };
 };

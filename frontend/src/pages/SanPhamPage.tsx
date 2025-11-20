@@ -15,27 +15,37 @@ import {
   ChevronDown,
   ChevronUp,
   Sparkles,
+  Camera,
 } from "lucide-react";
+import { useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import { useCart } from "@/context/CartContext";
+import { useAuth } from "@/context/AuthContext";
 
-interface SanPham {
-  MaSP: string;
-  TenSP: string;
-  MoTa?: string;
-  GiaBan: number;
-  SLTon: number;
-  DVT: string;
-  TrangThai: string;
-  DiemDG_SP: number;
-  SoLuongDanhGia_SP: number;
-  hinhanhs?: HinhAnh[];
-  MaDM_danhmucs?: DanhMuc[];
-  cuahang?: {
-    MaCH: string;
-    TenCH: string;
-    DiemDG: number;
-  };
-}
+import ProductCard from "@/components/home/ProductCard";
+import type { Product } from "@/services/productService";
+import { categoryService } from "@/services/categoryService";
+import { aiService } from "@/services/aiService";
+import { useSearchParams } from "react-router-dom";
+
+// interface SanPham {
+//   MaSP: string;
+//   TenSP: string;
+//   MoTa?: string;
+//   GiaBan: number;
+//   SLTon: number;
+//   DVT: string;
+//   TrangThai: string;
+//   DiemDG_SP: number;
+//   SoLuongDanhGia_SP: number;
+//   hinhanhs?: HinhAnh[];
+//   MaDM_danhmucs?: DanhMuc[];
+//   cuahang?: {
+//     MaCH: string;
+//     TenCH: string;
+//     DiemDG: number;
+//   };
+// }
 
 interface DanhMuc {
   MaDM: string;
@@ -114,7 +124,7 @@ const CLASS_NAME_MAP: { [key: string]: string } = {
 };
 
 const SanPhamPage: React.FC = () => {
-  const [sanPhams, setSanPhams] = useState<SanPham[]>([]);
+  const [sanPhams, setSanPhams] = useState<Product[]>([]);
   const [danhMucs, setDanhMucs] = useState<DanhMuc[]>([]);
   const [loaiSanPhams, setLoaiSanPhams] = useState<LoaiSanPham[]>([]);
   const [loading, setLoading] = useState(true);
@@ -148,6 +158,10 @@ const SanPhamPage: React.FC = () => {
   const [loadingLoaiSanPham, setLoadingLoaiSanPham] = useState(true);
 
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  const [isPredicting, setIsPredicting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // 🟢 FETCH DANH SÁCH SẢN PHẨM
   const fetchSanPhams = useCallback(async () => {
@@ -222,23 +236,13 @@ const SanPhamPage: React.FC = () => {
   // 🟢 FETCH DANH MỤC
   const fetchDanhMucs = async () => {
     try {
-      const response = await fetch(
-        "http://localhost:3000/api/categories?includeCount=true"
-      );
+      const data = await categoryService.getAllCategories();
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-
-      if (data.success) {
-        setDanhMucs(data.data.categories || []);
-        console.log(
-          `✅ Loaded ${data.data.categories?.length || 0} categories`
-        );
+      if (data && data.length > 0) {
+        setDanhMucs(data);
+        console.log(`✅ Loaded ${data.length} categories from Service`);
       } else {
-        console.error("Lỗi khi tải danh mục:", data.message);
+        console.warn("⚠️ Danh sách danh mục trống");
         setDanhMucs([]);
       }
     } catch (error) {
@@ -247,51 +251,50 @@ const SanPhamPage: React.FC = () => {
     }
   };
 
-  // 🟢 FETCH LOẠI SẢN PHẨM TỪ AI MODEL HOẶC DANH MỤC
+  // 🟢 FETCH LOẠI SẢN PHẨM TỪ AI SERVICE
   const fetchLoaiSanPhams = async () => {
     try {
       setLoadingLoaiSanPham(true);
 
       // Thử gọi API Flask để lấy danh sách classes từ AI model
       try {
-        const response = await fetch("http://localhost:5000/classes");
+        // 🔴 THAY THẾ ĐOẠN FETCH THỦ CÔNG BẰNG SERVICE
+        const data = await aiService.getClasses();
 
-        if (response.ok) {
-          const data = await response.json();
+        // Không cần check response.ok hay response.json() nữa vì axios đã làm rồi
+        if (data.success) {
+          const classes = data.data.classes || [];
 
-          if (data.success) {
-            const classes = data.data.classes || [];
+          // Chuyển đổi thành danh sách loại sản phẩm
+          const loaiSanPhamList: LoaiSanPham[] = classes.map(
+            (className: string) => {
+              const tenTiengViet = CLASS_NAME_MAP[className] || className;
+              return {
+                MaLoai: className.toLowerCase().replace(/\s+/g, "-"),
+                TenLoai: className,
+                TenLoaiTiengViet: tenTiengViet,
+                SoLuongSP: Math.floor(Math.random() * 50) + 5, // Số lượng sản phẩm mẫu
+              };
+            }
+          );
 
-            // Chuyển đổi thành danh sách loại sản phẩm
-            const loaiSanPhamList: LoaiSanPham[] = classes.map(
-              (className: string) => {
-                const tenTiengViet = CLASS_NAME_MAP[className] || className;
-                return {
-                  MaLoai: className.toLowerCase().replace(/\s+/g, "-"),
-                  TenLoai: className,
-                  TenLoaiTiengViet: tenTiengViet,
-                  SoLuongSP: Math.floor(Math.random() * 50) + 5, // Số lượng sản phẩm mẫu
-                };
-              }
-            );
+          // Sắp xếp theo tên tiếng Việt
+          loaiSanPhamList.sort((a, b) =>
+            a.TenLoaiTiengViet.localeCompare(b.TenLoaiTiengViet)
+          );
 
-            // Sắp xếp theo tên tiếng Việt
-            loaiSanPhamList.sort((a, b) =>
-              a.TenLoaiTiengViet.localeCompare(b.TenLoaiTiengViet)
-            );
-
-            setLoaiSanPhams(loaiSanPhamList);
-            console.log(
-              `✅ Loaded ${loaiSanPhamList.length} product types from AI`
-            );
-            return;
-          }
+          setLoaiSanPhams(loaiSanPhamList);
+          console.log(
+            `✅ Loaded ${loaiSanPhamList.length} product types from AI`
+          );
+          return; // Thoát hàm nếu lấy thành công
         }
       } catch (aiError) {
         console.log("⚠️ AI service not available, using fallback data");
       }
 
-      // Fallback: Sử dụng dữ liệu mẫu dựa trên CLASS_NAMES từ Flask
+      // --- PHẦN FALLBACK GIỮ NGUYÊN ---
+      // Fallback: Sử dụng dữ liệu mẫu dựa trên CLASS_NAME_MAP
       const fallbackData: LoaiSanPham[] = Object.entries(CLASS_NAME_MAP)
         .map(([en, vi]) => ({
           MaLoai: en.toLowerCase().replace(/\s+/g, "-"),
@@ -306,7 +309,7 @@ const SanPhamPage: React.FC = () => {
     } catch (error) {
       console.error("Lỗi khi tải loại sản phẩm:", error);
 
-      // Final fallback với một số loại cơ bản
+      // --- PHẦN FINAL FALLBACK GIỮ NGUYÊN ---
       const basicData: LoaiSanPham[] = [
         {
           MaLoai: "xoai",
@@ -314,35 +317,128 @@ const SanPhamPage: React.FC = () => {
           TenLoaiTiengViet: "Xoài",
           SoLuongSP: 25,
         },
-        {
-          MaLoai: "chuoi",
-          TenLoai: "banana",
-          TenLoaiTiengViet: "Chuối",
-          SoLuongSP: 30,
-        },
-        {
-          MaLoai: "cam",
-          TenLoai: "orange",
-          TenLoaiTiengViet: "Cam",
-          SoLuongSP: 20,
-        },
-        {
-          MaLoai: "tao",
-          TenLoai: "apple",
-          TenLoaiTiengViet: "Táo",
-          SoLuongSP: 18,
-        },
-        {
-          MaLoai: "dua-hau",
-          TenLoai: "watermelon",
-          TenLoaiTiengViet: "Dưa hấu",
-          SoLuongSP: 15,
-        },
+        // ... các loại khác
       ];
-
       setLoaiSanPhams(basicData);
     } finally {
       setLoadingLoaiSanPham(false);
+    }
+  };
+
+  // ... bên trong SanPhamPage.tsx ...
+
+  // 🟢 [FIX] USE EFFECT ĐỒNG BỘ URL -> FILTERS
+  useEffect(() => {
+    const searchKeyword = searchParams.get("search");
+    const loaiSanPhamParam = searchParams.get("loaiSanPham");
+    const danhMucParam = searchParams.get("danhMuc");
+
+    // Tạo object filter mới
+    // Quan trọng: Phải copy lại state cũ để không mất các filter khác (nếu muốn giữ)
+    // HOẶC reset lại nếu muốn tìm kiếm mới hoàn toàn (thường UX tìm kiếm header là reset)
+
+    setFilters((prev) => {
+      const nextFilters = { ...prev };
+      let hasChanges = false;
+
+      // 1. Xử lý tìm kiếm Text
+      if (searchKeyword !== null) {
+        if (nextFilters.tuKhoa !== searchKeyword) {
+          nextFilters.tuKhoa = searchKeyword;
+          // Khi tìm text mới, thường sẽ bỏ lọc loại/danh mục cũ để tránh conflict
+          nextFilters.loaiSanPham = [];
+          nextFilters.danhMuc = [];
+          hasChanges = true;
+        }
+      } else if (prev.tuKhoa !== "") {
+        // Nếu URL không có search nhưng state đang có -> Xóa state (trường hợp user xóa param trên url)
+        // Tuy nhiên cẩn thận logic này nếu bạn muốn giữ filter khi reload
+      }
+
+      // 2. Xử lý tìm kiếm Hình ảnh (Loại SP)
+      if (loaiSanPhamParam) {
+        if (!nextFilters.loaiSanPham.includes(loaiSanPhamParam)) {
+          nextFilters.loaiSanPham = [loaiSanPhamParam];
+          nextFilters.tuKhoa = ""; // Xóa từ khóa text
+          nextFilters.danhMuc = [];
+          hasChanges = true;
+        }
+      }
+
+      // 3. Xử lý Danh mục
+      if (danhMucParam) {
+        if (!nextFilters.danhMuc.includes(danhMucParam)) {
+          nextFilters.danhMuc = [danhMucParam];
+          nextFilters.tuKhoa = "";
+          nextFilters.loaiSanPham = [];
+          hasChanges = true;
+        }
+      }
+
+      // Chỉ update state nếu thực sự có thay đổi để tránh infinite loop
+      if (hasChanges) {
+        setCurrentPage(1); // Reset về trang 1
+        return nextFilters;
+      }
+      return prev;
+    });
+  }, [searchParams]); // 🟢 Quan trọng: Chỉ chạy khi URL thay đổi
+
+  const handleImageSearch = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setIsPredicting(true);
+
+      // 1. Tạo FormData để gửi file
+      const formData = new FormData();
+      formData.append("file", file);
+
+      // 2. Gửi sang Flask Server
+      const response = await fetch("http://localhost:5000/predict", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        // 3. Lấy kết quả (class_original là tên tiếng Anh khớp với MaLoai/Class trong danh sách)
+        // Ví dụ: "apple", "banana"
+        const detectedClass = data.data.class_original;
+        const confidence = data.data.confidence;
+        const detectedNameVN = CLASS_NAME_MAP[detectedClass] || detectedClass;
+
+        console.log(`🎯 AI Detected: ${detectedClass} (${confidence}%)`);
+
+        // 4. Cập nhật bộ lọc để lọc theo loại sản phẩm này
+        // Reset các bộ lọc khác để tập trung vào kết quả tìm kiếm
+        setFilters((prev) => ({
+          ...prev,
+          loaiSanPham: [detectedClass], // Set loại sản phẩm được tìm thấy
+          tuKhoa: "", // Xóa từ khóa tìm kiếm text cũ
+          danhMuc: [], // Xóa danh mục cũ (nếu muốn tìm rộng)
+        }));
+
+        setCurrentPage(1); // Về trang 1
+
+        // (Tùy chọn) Thông báo cho người dùng
+        alert(`Đã nhận diện: ${detectedNameVN} (Độ chính xác: ${confidence}%)`);
+      } else {
+        alert("Không thể nhận diện hình ảnh. Vui lòng thử lại.");
+      }
+    } catch (error) {
+      console.error("Lỗi khi dự đoán ảnh:", error);
+      alert("Lỗi kết nối đến server AI.");
+    } finally {
+      setIsPredicting(false);
+      // Reset input để có thể chọn lại cùng 1 file nếu muốn
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
     }
   };
 
@@ -619,11 +715,11 @@ const SanPhamPage: React.FC = () => {
       <div className="flex-1">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           {/* 🟢 HEADER VÀ TÌM KIẾM */}
-          <div className="bg-white rounded-3xl shadow-xl border border-gray-100 p-6 mb-6">
+          <div className="bg-gray-50 rounded-xl shadow-xl p-6 mb-6">
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
               <div>
                 <h1 className="text-3xl font-bold text-gray-900 mb-2">
-                  Tất cả sản phẩm
+                  Khám phá sản phẩm
                 </h1>
                 <p className="text-gray-600">
                   Khám phá {pagination.totalItems} sản phẩm chất lượng
@@ -642,6 +738,27 @@ const SanPhamPage: React.FC = () => {
                     className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-colors"
                   />
                 </div>
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="bg-white border border-gray-300 text-gray-600 p-3 rounded-xl hover:bg-emerald-50 hover:text-emerald-600 hover:border-emerald-300 transition-all shadow-sm group relative"
+                  title="Tìm kiếm bằng hình ảnh"
+                  disabled={isPredicting}
+                >
+                  {isPredicting ? (
+                    <Loader2 className="w-5 h-5 animate-spin text-emerald-600" />
+                  ) : (
+                    <Camera className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                  )}
+
+                  {/* Input ẩn để chọn file */}
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleImageSearch}
+                    accept="image/*"
+                    className="hidden"
+                  />
+                </button>
 
                 {/* SẮP XẾP */}
                 <select
@@ -649,7 +766,9 @@ const SanPhamPage: React.FC = () => {
                   onChange={(e) => setSortBy(e.target.value as any)}
                   className="px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent min-w-[180px] transition-colors"
                 >
-                  <option value="newest">Mới nhất</option>
+                  <option className="rounded-xl border p-2" value="newest">
+                    Mới nhất
+                  </option>
                   <option value="name">Tên A-Z</option>
                   <option value="price_asc">Giá thấp đến cao</option>
                   <option value="price_desc">Giá cao đến thấp</option>
@@ -675,15 +794,15 @@ const SanPhamPage: React.FC = () => {
                 isFilterOpen ? "block" : "hidden lg:block"
               }`}
             >
-              <div className="bg-white rounded-3xl shadow-xl border border-gray-100 p-6 sticky top-6">
-                <div className="flex items-center justify-between mb-6">
+              <div className="bg-gray-50 rounded-xl shadow-2xl p-6 sticky top-6">
+                <div className="rounded-lg font-semibold bg-gradient-to-r from-green-50 to-green-400 shadow-lg hover:scale-105 transition flex items-center justify-between mb-6">
                   <h2 className="text-lg font-semibold text-gray-900">
                     Bộ lọc
                   </h2>
                   <div className="flex items-center gap-2">
                     <button
                       onClick={clearAllFilters}
-                      className="text-sm text-emerald-600 hover:text-emerald-800 font-medium transition-colors"
+                      className="text-sm text-white hover:text-emerald-800 font-medium transition-colors"
                     >
                       Xóa tất cả
                     </button>
@@ -697,7 +816,7 @@ const SanPhamPage: React.FC = () => {
                 </div>
 
                 {/* LỌC THEO LOẠI SẢN PHẨM (AI-POWERED) */}
-                <div className="mb-6">
+                <div className="mb-6 bg-gray-100 p-4 rounded-lg shadow-inner">
                   <div
                     className="flex items-center justify-between cursor-pointer"
                     onClick={() => toggleSection("loaiSanPham")}
@@ -923,7 +1042,7 @@ const SanPhamPage: React.FC = () => {
                   {[...Array(6)].map((_, i) => (
                     <div
                       key={i}
-                      className="bg-white rounded-3xl shadow-xl border border-gray-100 p-4 animate-pulse"
+                      className="bg-gray-100 rounded-3xl shadow-xl border border-gray-100 p-4 animate-pulse"
                     >
                       <div className="bg-gray-200 h-48 rounded-2xl mb-4"></div>
                       <div className="bg-gray-200 h-4 rounded mb-2"></div>
@@ -934,10 +1053,6 @@ const SanPhamPage: React.FC = () => {
               ) : sanPhams.length > 0 ? (
                 <>
                   <div className="flex items-center justify-between mb-4">
-                    <div className="text-sm text-gray-600">
-                      Hiển thị {sanPhams.length} trong tổng số{" "}
-                      {pagination.totalItems} sản phẩm
-                    </div>
                     {filters.loaiSanPham.length > 0 && (
                       <div className="text-sm text-emerald-600">
                         Đang lọc: {filters.loaiSanPham.length} loại sản phẩm
@@ -947,7 +1062,7 @@ const SanPhamPage: React.FC = () => {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {sanPhams.map((sanPham) => (
-                      <ProductCard key={sanPham.MaSP} sanPham={sanPham} />
+                      <ProductCard key={sanPham.MaSP} product={sanPham} />
                     ))}
                   </div>
 
@@ -986,209 +1101,209 @@ const SanPhamPage: React.FC = () => {
 };
 
 // 🟢 COMPONENT CARD SẢN PHẨM
-const ProductCard: React.FC<{ sanPham: SanPham }> = ({ sanPham }) => {
-  const navigate = useNavigate();
-  const [isFavorite, setIsFavorite] = useState(false);
+// const ProductCard: React.FC<{ sanPham: SanPham }> = ({ sanPham }) => {
+//   const navigate = useNavigate();
+//   const [isFavorite, setIsFavorite] = useState(false);
 
-  const formatPrice = (price: number): string => {
-    return new Intl.NumberFormat("vi-VN", {
-      style: "currency",
-      currency: "VND",
-    }).format(price);
-  };
+//   const formatPrice = (price: number): string => {
+//     return new Intl.NumberFormat("vi-VN", {
+//       style: "currency",
+//       currency: "VND",
+//     }).format(price);
+//   };
 
-  const renderStars = (rating: number) => {
-    return [...Array(5)].map((_, index) => (
-      <Star
-        key={index}
-        className={`w-3 h-3 ${
-          index < Math.floor(rating)
-            ? "text-yellow-400 fill-yellow-400"
-            : "text-gray-300"
-        }`}
-      />
-    ));
-  };
+//   const renderStars = (rating: number) => {
+//     return [...Array(5)].map((_, index) => (
+//       <Star
+//         key={index}
+//         className={`w-3 h-3 ${
+//           index < Math.floor(rating)
+//             ? "text-yellow-400 fill-yellow-400"
+//             : "text-gray-300"
+//         }`}
+//       />
+//     ));
+//   };
 
-  const getImageUrl = (url: string | undefined): string => {
-    if (!url) return "https://via.placeholder.com/400x400?text=No+Image";
-    if (url.startsWith("http")) return url;
-    if (url.startsWith("/uploads/")) {
-      return `http://localhost:3000${url}`;
-    }
-    return url;
-  };
+//   const getImageUrl = (url: string | undefined): string => {
+//     if (!url) return "https://via.placeholder.com/400x400?text=No+Image";
+//     if (url.startsWith("http")) return url;
+//     if (url.startsWith("/uploads/")) {
+//       return `http://localhost:3000${url}`;
+//     }
+//     return url;
+//   };
 
-  const handleViewDetails = () => {
-    navigate(`/product/${sanPham.MaSP}`);
-  };
+//   const handleViewDetails = () => {
+//     navigate(`/product/${sanPham.MaSP}`);
+//   };
 
-  const handleAddToCart = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    console.log("Thêm vào giỏ hàng:", sanPham.MaSP);
-    // TODO: Thêm logic giỏ hàng
-  };
+//   const handleAddToCart = (e: React.MouseEvent) => {
+//     e.stopPropagation();
+//     console.log("Thêm vào giỏ hàng:", sanPham.MaSP);
+//     // TODO: Thêm logic giỏ hàng
+//   };
 
-  const toggleFavorite = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setIsFavorite(!isFavorite);
-  };
+//   const toggleFavorite = (e: React.MouseEvent) => {
+//     e.stopPropagation();
+//     setIsFavorite(!isFavorite);
+//   };
 
-  const handleStoreClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (sanPham.cuahang) {
-      navigate(`/cuahang/${sanPham.cuahang.MaCH}`);
-    }
-  };
+//   const handleStoreClick = (e: React.MouseEvent) => {
+//     e.stopPropagation();
+//     if (sanPham.cuahang) {
+//       navigate(`/cuahang/${sanPham.cuahang.MaCH}`);
+//     }
+//   };
 
-  const hasImages = sanPham.hinhanhs && sanPham.hinhanhs.length > 0;
-  const mainImage = hasImages
-    ? getImageUrl(sanPham.hinhanhs![0].URL)
-    : "https://via.placeholder.com/400x400?text=No+Image";
-  const productStock = sanPham.SLTon || 0;
+//   const hasImages = sanPham.hinhanhs && sanPham.hinhanhs.length > 0;
+//   const mainImage = hasImages
+//     ? getImageUrl(sanPham.hinhanhs![0].URL)
+//     : "https://via.placeholder.com/400x400?text=No+Image";
+//   const productStock = sanPham.SLTon || 0;
 
-  return (
-    <div
-      onClick={handleViewDetails}
-      className="bg-white rounded-3xl shadow-xl border border-gray-100 hover:shadow-2xl transition-all duration-300 overflow-hidden group cursor-pointer"
-    >
-      {/* HÌNH ẢNH */}
-      <div className="relative h-48 bg-gradient-to-br from-emerald-50 to-teal-50 overflow-hidden">
-        <img
-          src={mainImage}
-          alt={sanPham.TenSP}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-          onError={(e) => {
-            e.currentTarget.src =
-              "https://via.placeholder.com/400x400?text=No+Image";
-          }}
-        />
+//   return (
+//     <div
+//       onClick={handleViewDetails}
+//       className="bg-white rounded-xl shadow-xl border border-gray-100 hover:shadow-2xl transition-all duration-300 overflow-hidden group cursor-pointer"
+//     >
+//       {/* HÌNH ẢNH */}
+//       <div className="relative h-48 bg-gradient-to-br from-emerald-50 to-teal-50 overflow-hidden">
+//         <img
+//           src={mainImage}
+//           alt={sanPham.TenSP}
+//           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+//           onError={(e) => {
+//             e.currentTarget.src =
+//               "https://via.placeholder.com/400x400?text=No+Image";
+//           }}
+//         />
 
-        {/* BADGE TRẠNG THÁI */}
-        <div className="absolute top-3 left-3">
-          <span
-            className={`px-2 py-1 rounded-full text-xs font-medium ${
-              sanPham.TrangThai === "Đang bán"
-                ? "bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-lg"
-                : "bg-red-500 text-white"
-            }`}
-          >
-            {sanPham.TrangThai}
-          </span>
-        </div>
+//         {/* BADGE TRẠNG THÁI */}
+//         <div className="absolute top-3 left-3">
+//           <span
+//             className={`px-2 py-1 rounded-full text-xs font-medium ${
+//               sanPham.TrangThai === "Đang bán"
+//                 ? "bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-lg"
+//                 : "bg-red-500 text-white"
+//             }`}
+//           >
+//             {sanPham.TrangThai}
+//           </span>
+//         </div>
 
-        {/* YÊU THÍCH */}
-        <button
-          onClick={toggleFavorite}
-          className={`absolute top-3 right-3 p-2 rounded-full transition-all duration-200 ${
-            isFavorite
-              ? "bg-red-500 text-white shadow-lg"
-              : "bg-white/90 text-gray-600 hover:bg-red-500 hover:text-white"
-          }`}
-        >
-          <Heart className={`w-4 h-4 ${isFavorite ? "fill-current" : ""}`} />
-        </button>
+//         {/* YÊU THÍCH */}
+//         <button
+//           onClick={toggleFavorite}
+//           className={`absolute top-3 right-3 p-2 rounded-full transition-all duration-200 ${
+//             isFavorite
+//               ? "bg-red-500 text-white shadow-lg"
+//               : "bg-white/90 text-gray-600 hover:bg-red-500 hover:text-white"
+//           }`}
+//         >
+//           <Heart className={`w-4 h-4 ${isFavorite ? "fill-current" : ""}`} />
+//         </button>
 
-        {/* ĐÁNH GIÁ */}
-        {sanPham.DiemDG_SP > 0 && (
-          <div className="absolute bottom-3 left-3 bg-black/70 text-white px-2 py-1 rounded-full text-xs flex items-center gap-1 backdrop-blur-sm">
-            <Star className="w-3 h-3 text-yellow-400 fill-yellow-400" />
-            <span className="font-medium">{sanPham.DiemDG_SP.toFixed(1)}</span>
-          </div>
-        )}
+//         {/* ĐÁNH GIÁ */}
+//         {sanPham.DiemDG_SP > 0 && (
+//           <div className="absolute bottom-3 left-3 bg-black/70 text-white px-2 py-1 rounded-full text-xs flex items-center gap-1 backdrop-blur-sm">
+//             <Star className="w-3 h-3 text-yellow-400 fill-yellow-400" />
+//             <span className="font-medium">{sanPham.DiemDG_SP.toFixed(1)}</span>
+//           </div>
+//         )}
 
-        {/* SỐ LƯỢNG TỒN */}
-        <div className="absolute bottom-3 right-3">
-          <span
-            className={`px-2 py-1 rounded-full text-xs font-medium ${
-              productStock > 10
-                ? "bg-gradient-to-r from-blue-500 to-cyan-600 text-white shadow-lg"
-                : productStock > 0
-                ? "bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-lg"
-                : "bg-red-600 text-white"
-            }`}
-          >
-            {productStock > 0
-              ? `Còn ${productStock} ${sanPham.DVT}`
-              : "Hết hàng"}
-          </span>
-        </div>
-      </div>
+//         {/* SỐ LƯỢNG TỒN */}
+//         <div className="absolute bottom-3 right-3">
+//           <span
+//             className={`px-2 py-1 rounded-full text-xs font-medium ${
+//               productStock > 10
+//                 ? "bg-gradient-to-r from-blue-500 to-cyan-600 text-white shadow-lg"
+//                 : productStock > 0
+//                 ? "bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-lg"
+//                 : "bg-red-600 text-white"
+//             }`}
+//           >
+//             {productStock > 0
+//               ? `Còn ${productStock} ${sanPham.DVT}`
+//               : "Hết hàng"}
+//           </span>
+//         </div>
+//       </div>
 
-      {/* THÔNG TIN */}
-      <div className="p-4">
-        {/* TÊN SẢN PHẨM */}
-        <h3 className="font-semibold text-gray-900 mb-2 line-clamp-2 leading-tight group-hover:text-emerald-700 transition-colors">
-          {sanPham.TenSP}
-        </h3>
+//       {/* THÔNG TIN */}
+//       <div className="p-4">
+//         {/* TÊN SẢN PHẨM */}
+//         <h3 className="font-semibold text-gray-900 mb-2 line-clamp-2 leading-tight group-hover:text-emerald-700 transition-colors">
+//           {sanPham.TenSP}
+//         </h3>
 
-        {/* MÔ TẢ NGẮN */}
-        {sanPham.MoTa && (
-          <p className="text-gray-600 text-sm mb-3 line-clamp-2 leading-relaxed">
-            {sanPham.MoTa}
-          </p>
-        )}
+//         {/* MÔ TẢ NGẮN */}
+//         {sanPham.MoTa && (
+//           <p className="text-gray-600 text-sm mb-3 line-clamp-2 leading-relaxed">
+//             {sanPham.MoTa}
+//           </p>
+//         )}
 
-        {/* DANH MỤC */}
-        {sanPham.MaDM_danhmucs && sanPham.MaDM_danhmucs.length > 0 && (
-          <div className="flex flex-wrap gap-1 mb-3">
-            {sanPham.MaDM_danhmucs.slice(0, 2).map((dm) => (
-              <span
-                key={dm.MaDM}
-                className="bg-gradient-to-r from-emerald-100 to-teal-100 text-emerald-700 px-2 py-1 rounded-full text-xs font-medium border border-emerald-200"
-              >
-                {dm.TenDM}
-              </span>
-            ))}
-            {sanPham.MaDM_danhmucs.length > 2 && (
-              <span className="text-gray-500 text-xs">
-                +{sanPham.MaDM_danhmucs.length - 2}
-              </span>
-            )}
-          </div>
-        )}
+//         {/* DANH MỤC */}
+//         {sanPham.MaDM_danhmucs && sanPham.MaDM_danhmucs.length > 0 && (
+//           <div className="flex flex-wrap gap-1 mb-3">
+//             {sanPham.MaDM_danhmucs.slice(0, 2).map((dm) => (
+//               <span
+//                 key={dm.MaDM}
+//                 className="bg-gradient-to-r from-emerald-100 to-teal-100 text-emerald-700 px-2 py-1 rounded-full text-xs font-medium border border-emerald-200"
+//               >
+//                 {dm.TenDM}
+//               </span>
+//             ))}
+//             {sanPham.MaDM_danhmucs.length > 2 && (
+//               <span className="text-gray-500 text-xs">
+//                 +{sanPham.MaDM_danhmucs.length - 2}
+//               </span>
+//             )}
+//           </div>
+//         )}
 
-        {/* CỬA HÀNG */}
-        {sanPham.cuahang && (
-          <div className="flex items-center gap-2 mb-3">
-            <Store className="w-4 h-4 text-emerald-600" />
-            <button
-              onClick={handleStoreClick}
-              className="text-sm text-emerald-600 hover:text-emerald-800 font-medium transition-colors truncate"
-            >
-              {sanPham.cuahang.TenCH}
-            </button>
-          </div>
-        )}
+//         {/* CỬA HÀNG */}
+//         {sanPham.cuahang && (
+//           <div className="flex items-center gap-2 mb-3">
+//             <Store className="w-4 h-4 text-emerald-600" />
+//             <button
+//               onClick={handleStoreClick}
+//               className="text-sm text-emerald-600 hover:text-emerald-800 font-medium transition-colors truncate"
+//             >
+//               {sanPham.cuahang.TenCH}
+//             </button>
+//           </div>
+//         )}
 
-        {/* GIÁ VÀ HÀNH ĐỘNG */}
-        <div className="flex items-center justify-between">
-          <div className="flex-1">
-            <div className="text-lg font-bold text-emerald-600">
-              {formatPrice(sanPham.GiaBan)}
-            </div>
-            <div className="flex items-center gap-1 text-xs text-gray-500">
-              {renderStars(sanPham.DiemDG_SP)}
-              <span>({sanPham.SoLuongDanhGia_SP})</span>
-            </div>
-          </div>
+//         {/* GIÁ VÀ HÀNH ĐỘNG */}
+//         <div className="flex items-center justify-between">
+//           <div className="flex-1">
+//             <div className="text-lg font-bold text-emerald-600">
+//               {formatPrice(sanPham.GiaBan)}
+//             </div>
+//             <div className="flex items-center gap-1 text-xs text-gray-500">
+//               {renderStars(sanPham.DiemDG_SP)}
+//               <span>({sanPham.SoLuongDanhGia_SP})</span>
+//             </div>
+//           </div>
 
-          {/* NÚT THÊM GIỎ HÀNG */}
-          <button
-            onClick={handleAddToCart}
-            disabled={productStock === 0}
-            className={`p-2 rounded-xl transition-all duration-200 ${
-              productStock === 0
-                ? "bg-gray-400 cursor-not-allowed text-white"
-                : "bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white shadow-lg hover:shadow-xl hover:scale-105"
-            }`}
-          >
-            <ShoppingCart className="w-5 h-5" />
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
+//           {/* NÚT THÊM GIỎ HÀNG */}
+//           <button
+//             onClick={handleAddToCart}
+//             disabled={productStock === 0}
+//             className={`p-2 rounded-xl transition-all duration-200 ${
+//               productStock === 0
+//                 ? "bg-gray-400 cursor-not-allowed text-white"
+//                 : "bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white shadow-lg hover:shadow-xl hover:scale-105"
+//             }`}
+//           >
+//             <ShoppingCart className="w-5 h-5" />
+//           </button>
+//         </div>
+//       </div>
+//     </div>
+//   );
+// };
 
 export default SanPhamPage;

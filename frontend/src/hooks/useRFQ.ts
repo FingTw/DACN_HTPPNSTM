@@ -22,6 +22,10 @@ export const useBuyerRequests = (
   const [error, setError] = useState<string | null>(null);
   const [pagination, setPagination] = useState<any>(null);
 
+  // Mẹo: Dùng JSON.stringify để tạo dependency key ổn định
+
+  const filterKey = JSON.stringify(filters);
+
   const fetchRequests = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -34,13 +38,13 @@ export const useBuyerRequests = (
     } finally {
       setLoading(false);
     }
-  }, [filters]);
+  }, [filterKey]); // Thay filters bằng filterKey
 
   useEffect(() => {
     if (autoFetch) {
       fetchRequests();
     }
-  }, [autoFetch, fetchRequests]);
+  }, [autoFetch, fetchRequests]); // Thêm fetchRequests vào đây cho đúng chuẩn React
 
   return { requests, loading, error, pagination, refetch: fetchRequests };
 };
@@ -63,8 +67,10 @@ export const useCreateRequest = () => {
       const response = await rfqService.createRequest(requestData);
       return response.data;
     } catch (err: any) {
-      setError(err.message);
-      throw err;
+      const msg = err.message || "Tạo yêu cầu thất bại";
+      setError(msg);
+      alert(msg);
+      return null;
     } finally {
       setLoading(false);
     }
@@ -103,14 +109,20 @@ export const useAcceptProposal = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // 🟢 CẬP NHẬT: Thêm các trường bắt buộc mới vào type
   const acceptProposal = async (acceptData: {
     MaDNCC: string;
     SoLuongMua?: number;
     GhiChu?: string;
+    DCNhanHang: string; // Mới
+    MaPTVC: string; // Mới
+    MaPTTT: string; // Mới
+    PhiVanChuyen: number; // Mới
   }) => {
     setLoading(true);
     setError(null);
     try {
+      // Bây giờ acceptData đã đủ trường để truyền vào service
       const response = await rfqService.acceptProposal(acceptData);
       return response.data;
     } catch (err: any) {
@@ -206,7 +218,7 @@ export const useSellerRequests = (
     if (autoFetch) {
       fetchRequests();
     }
-  }, [autoFetch, fetchRequests]);
+  }, [autoFetch]);
 
   return { requests, loading, error, pagination, refetch: fetchRequests };
 };
@@ -231,7 +243,7 @@ export const useNewRequests = () => {
 
   useEffect(() => {
     fetchNewRequests();
-  }, [fetchNewRequests]);
+  }, []);
 
   return { requests, loading, error, refetch: fetchNewRequests };
 };
@@ -268,7 +280,7 @@ export const useSellerProducts = (
     if (autoFetch) {
       fetchProducts();
     }
-  }, [autoFetch, fetchProducts]);
+  }, [autoFetch]);
 
   return { products, loading, error, pagination, refetch: fetchProducts };
 };
@@ -327,7 +339,7 @@ export const useSellerProposals = (
     if (autoFetch) {
       fetchProposals();
     }
-  }, [autoFetch, fetchProposals]);
+  }, [autoFetch, filters]);
 
   return { proposals, loading, error, pagination, refetch: fetchProposals };
 };
@@ -401,7 +413,7 @@ export const useSellerStatistics = () => {
 
   useEffect(() => {
     fetchStats();
-  }, [fetchStats]);
+  }, []);
 
   return { stats, loading, error, refetch: fetchStats };
 };

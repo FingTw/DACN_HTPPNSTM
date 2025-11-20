@@ -1,5 +1,5 @@
 import React from "react";
-import { ProductCard } from "./ProductCard";
+import ProductCard from "@/components/home/ProductCard";
 import type { Product } from "@/services/productService";
 
 interface ProductListProps {
@@ -20,7 +20,7 @@ export const ProductList: React.FC<ProductListProps> = ({
   }
 
   return (
-    <section className="py-8 bg-white card rounded-xl shadow-md">
+    <section className="py-8 bg-white card rounded-xl ">
       {title && (
         <h2 className="text-2xl font-bold text-gray-900 mb-6 px-4 text-center">
           {title}

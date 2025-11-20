@@ -12,7 +12,7 @@ const PrivateRoute: React.FC<PrivateRouteProps> = ({
   children,
   allowedRoles = ['Admin', 'Cửa Hàng'],
 }) => {
-  const { user, isAuthenticated, loading } = useAuth();
+  const { hasRole, isAuthenticated, loading } = useAuth();
 
   if (loading) {
     return <div>Đang tải...</div>;
@@ -22,7 +22,7 @@ const PrivateRoute: React.FC<PrivateRouteProps> = ({
     return <Navigate to="/signin" replace />;
   }
 
-  if (user && !allowedRoles.includes(user.role)) {
+  if (allowedRoles.length > 0 && !hasRole(allowedRoles)) {
     return (
       <div style={{ textAlign: 'center', padding: '50px 20px', color: '#e74c3c' }}>
         <h2>⛔ Truy Cập Bị Từ Chối</h2>

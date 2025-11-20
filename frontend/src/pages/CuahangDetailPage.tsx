@@ -7,6 +7,7 @@ import CuahangEditForm from "../components/cuahang/CuahangEditForm";
 import ProductManager from "../components/cuahang/ProductManager";
 import type { Store, Product, UserData } from "../components/cuahang/store";
 import { Header } from "../components/layout/Header";
+import { Footer } from "@/components/layout/Footer";
 
 // Interface cho auth response
 interface AuthResponse {
@@ -458,28 +459,28 @@ export default function CuahangDetailPage() {
       );
     }
 
-    return (
-      <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="text-green-700">
-              ✅ Đã đăng nhập: {currentUser.TenDangNhap || currentUser.Email}
-            </span>
-            {isOwner && (
-              <span className="bg-green-500 text-white px-2 py-1 rounded-full text-xs font-medium">
-                👑 Chủ cửa hàng
-              </span>
-            )}
-          </div>
-          <button
-            onClick={handleLogout}
-            className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200"
-          >
-            Đăng xuất
-          </button>
-        </div>
-      </div>
-    );
+    // return (
+    //   <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-4">
+    //     <div className="flex items-center justify-between">
+    //       <div className="flex items-center gap-2">
+    //         <span className="text-green-700">
+    //           ✅ Đã đăng nhập: {currentUser.TenDangNhap || currentUser.Email}
+    //         </span>
+    //         {isOwner && (
+    //           <span className="bg-green-500 text-white px-2 py-1 rounded-full text-xs font-medium">
+    //             👑 Chủ cửa hàng
+    //           </span>
+    //         )}
+    //       </div>
+    //       <button
+    //         onClick={handleLogout}
+    //         className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200"
+    //       >
+    //         Đăng xuất
+    //       </button>
+    //     </div>
+    //   </div>
+    // );
   };
 
   // Render tab content
@@ -488,7 +489,7 @@ export default function CuahangDetailPage() {
       case "products":
         return (
           <div className="space-y-8">
-            {renderAuthStatus()}
+            {/* {renderAuthStatus()} */}
 
             {/* Thông tin cửa hàng */}
             <CuahangDetail
@@ -888,6 +889,7 @@ export default function CuahangDetailPage() {
           {renderTabContent()}
         </div>
       </div>
+      <Footer />
     </div>
   );
 }
