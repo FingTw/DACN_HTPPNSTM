@@ -12,7 +12,7 @@ const QuanLyKhuyenMaiPage: React.FC = () => {
   const [accessDenied, setAccessDenied] = useState<boolean>(false);
   
   const navigate = useNavigate();
-  const { user, isAuthenticated, loading: authLoading } = useAuth(); // ← Sử dụng useAuth
+  const { user, isAuthenticated, loading: authLoading, hasRole } = useAuth(); // ← Sử dụng useAuth
 
   // Form state
   const [formData, setFormData] = useState<CreateKhuyenMaiData>({
@@ -35,10 +35,10 @@ const QuanLyKhuyenMaiPage: React.FC = () => {
       return false;
     }
     
-    const hasPermission = user.role === 'Admin' || user.role === 'Cửa Hàng';
+    const hasPermission = hasRole(['Admin', 'Cửa Hàng', 'Người Bán']);
     
     console.log("🔐 Kiểm tra quyền:", {
-      role: user.role,
+      role: user.roles || user.role,
       MaCH: user.MaCH,
       hasPermission: hasPermission
     });
@@ -53,15 +53,15 @@ const QuanLyKhuyenMaiPage: React.FC = () => {
       setLoading(true);
 
       console.log("🔄 Đang tải khuyến mãi - User info:", { 
-        role: user.role, 
+        roles: user.roles || user.role, 
         MaTK: user.MaTK,
         fullUser: user 
       });
 
-      if (user.role === 'Admin') {
+      if (hasRole('Admin')) {
         const response = await khuyenMaiAPI.getAllKhuyenMai();
         setKhuyenMaiList(response.data);
-      } else if (user.role === 'Cửa Hàng') {
+      } else if (hasRole(['Cửa Hàng', 'Người Bán'])) {
         const response = await khuyenMaiAPI.getKhuyenMaiByCuaHang();
         setKhuyenMaiList(response.data);
       }
@@ -82,7 +82,7 @@ const QuanLyKhuyenMaiPage: React.FC = () => {
     console.log("🔍 Kiểm tra quyền:", {
       user: user,
       isAuthenticated: isAuthenticated(),
-      role: user?.role,
+      roles: user?.roles || user?.role,
       MaCH: user?.MaCH
     });
 
@@ -98,7 +98,7 @@ const QuanLyKhuyenMaiPage: React.FC = () => {
     if (user) {
       loadKhuyenMai();
     }
-  }, [user, authLoading]);
+  }, [user, authLoading, hasRole]);
 
   const handleCreateKhuyenMai = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault();

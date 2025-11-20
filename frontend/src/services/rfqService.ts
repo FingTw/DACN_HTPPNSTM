@@ -19,6 +19,7 @@ export interface BuyerRequest {
 }
 
 export interface Proposal {
+  MaYCDH_yeucaudathang: any;
   MaDNCC: string;
   MaYCDH: string;
   MaTK_Seller: string;
@@ -45,8 +46,8 @@ export interface Proposal {
     MaSP: string;
     TenSP: string;
     MoTa?: string;
-    Gia: number;
-    SoLuongTonKho: number;
+    GiaBan: number;
+    SLTon: number;
     DonViTinh?: string;
   };
 }
@@ -55,8 +56,8 @@ export interface Product {
   MaSP: string;
   TenSP: string;
   MoTa?: string;
-  Gia: number;
-  SoLuongTonKho: number;
+  GiaBan: number;
+  SLTon: number;
   DonViTinh?: string;
   MaCH: string;
   cuahang?: {
@@ -84,6 +85,11 @@ export interface SellerStatistics {
   acceptanceRate: string;
   totalRevenue: number;
   totalQuantitySold: number;
+}
+
+export interface Category {
+  MaDM: string;
+  TenDM: string;
 }
 
 export interface ApiResponse<T> {
@@ -180,6 +186,10 @@ export const rfqService = {
     MaDNCC: string;
     SoLuongMua?: number;
     GhiChu?: string;
+    DCNhanHang: string;
+    MaPTVC: string;
+    MaPTTT: string;
+    PhiVanChuyen: number;
   }): Promise<ApiResponse<any>> => {
     try {
       const response = await api.post(
@@ -221,6 +231,20 @@ export const rfqService = {
     } catch (error: any) {
       console.error("Lỗi lấy thống kê:", error);
       throw new Error(error.response?.data?.message || "Lỗi khi lấy thống kê");
+    }
+  },
+
+  /* ============================
+   DANH MỤC
+  ============================ */
+  getCategories: async (): Promise<ApiResponse<Category[]>> => {
+    try {
+      // backend đăng ký route danh mục ở /api/categories
+      const response = await api.get("/categories");
+      return response.data;
+    } catch (error: any) {
+      console.error("Lỗi lấy danh mục:", error);
+      throw new Error(error.response?.data?.message || "Lỗi khi lấy danh mục");
     }
   },
 

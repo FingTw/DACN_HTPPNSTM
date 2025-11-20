@@ -404,20 +404,27 @@ const authController = {
           .json({ message: "Sai tên đăng nhập hoặc mật khẩu" });
       }
 
-      // 📝 Lấy vai trò từ bảng liên kết
-      let roleName = null;
-      if (user.taikhoan_vaitros && user.taikhoan_vaitros.length > 0) {
-        // Giả sử 1 tài khoản có 1 vai trò chính
-        roleName = user.taikhoan_vaitros[0].vaitro.TenVT;
-      }
+      // 📝 Lấy danh sách vai trò từ bảng liên kết
+      const roleNames =
+        user.taikhoan_vaitros?.map((relation) => relation.vaitro?.TenVT).filter(Boolean) ||
+        [];
+      // Ưu tiên Admin nếu có, nếu không lấy vai trò đầu tiên làm mặc định
+      const primaryRole = roleNames.includes("Admin")
+        ? "Admin"
+        : roleNames.length > 0
+        ? roleNames[0]
+        : null;
+
+      const userStoreId = user.cuahangs?.[0]?.MaCH || null;
 
       // 🧠 Ký JWT
       const token = jwt.sign(
         {
           MaTK: user.MaTK,
           TenDangNhap: user.TenDangNhap,
-          role: roleName,
-          MaCH: user.MaCH_cuahang ? user.MaCH_cuahang.MaCH : null,
+          role: primaryRole,
+          roles: roleNames,
+          MaCH: userStoreId,
         },
         process.env.JWT_SECRET,
         { expiresIn: "1h" }
@@ -430,8 +437,10 @@ const authController = {
         user: {
           MaTK: user.MaTK,
           TenDangNhap: user.TenDangNhap,
-          role: roleName,
-          MaCH: user.MaCH_cuahang ? user.MaCH_cuahang.MaCH : null,
+          HoTen: user.HoTen,
+          role: primaryRole,
+          roles: roleNames,
+          MaCH: userStoreId,
         },
       });
     } catch (err) {

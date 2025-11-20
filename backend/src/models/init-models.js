@@ -529,6 +529,16 @@ function initModels(sequelize) {
     foreignKey: "MaTK_Buyer",
   });
 
+  yeucaudathang.belongsTo(danhmuc, {
+    as: "MaDM_danhmuc",
+    foreignKey: "MaDM",
+  });
+
+  danhmuc.hasMany(yeucaudathang, {
+    as: "yeucaudathangs",
+    foreignKey: "MaDM",
+  });
+
   denghicungcap.belongsTo(yeucaudathang, {
     as: "MaYCDH_yeucaudathang",
     foreignKey: "MaYCDH",

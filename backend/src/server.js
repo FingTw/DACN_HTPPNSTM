@@ -45,6 +45,7 @@ import khuyenMaiRoutes from "./routes/khuyenmaiRoutes.js";
 // 🟢 BLOCKCHAIN ROUTES
 // ==============================
 import blockchainRoutes from "./routes/blockchainRoutes.js";
+import { getCategoriesForRFQ } from "./controllers/rfqController.js";
 
 // ==============================
 // 🟢 LOAD ENV
@@ -919,7 +920,10 @@ async function startServer() {
     registerRoute("/api/danh-gia-san-pham", danhGiaSanPhamRoutes); // 🆕 ĐĂNG KÝ ROUTE ĐÁNH GIÁ SẢN PHẨM
     registerRoute("/api/danh-gia-cua-hang", danhGiaCuaHangRoutes); // 🆕 ĐĂNG KÝ ROUTE ĐÁNH GIÁ CỬA HÀNG
     registerRoute("/api/rfq", rfqRoutes);
+    app.get("/api/rfq/categories", getCategoriesForRFQ);
+    // Categories routes (English) and alias in Vietnamese for backward compatibility
     registerRoute("/api/categories", danhmucRoutes);
+    registerRoute("/api/danhmuc", danhmucRoutes);
     registerRoute("/api/danh-gia-san-pham", danhGiaSanPhamRoutes);
     registerRoute("/api/danh-gia-cua-hang", danhGiaCuaHangRoutes);
     registerRoute("/api/hinh-anh", hinhanhRoutes);

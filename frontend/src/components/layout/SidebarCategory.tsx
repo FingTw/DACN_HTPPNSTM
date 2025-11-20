@@ -129,7 +129,7 @@ export default function FarmSidebar() {
       }}
     >
       {/* Main Card Container */}
-      <div className="m-4 bg-white rounded-2xl shadow-lg">
+      <div className="m-4  bg-white rounded-2xl shadow-lg">
         {/* Header */}
         <div className="p-4">
           <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">

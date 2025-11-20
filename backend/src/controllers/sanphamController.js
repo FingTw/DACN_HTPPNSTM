@@ -252,19 +252,42 @@ export const getAllSanpham = async (req, res) => {
       // Map từ mã loại sang từ khóa tìm kiếm tiếng Việt
       const searchKeywords = loaiSanPhamIds.map((loai) => {
         const keywordMap = {
-          mango: "xoài",
-          banana: "chuối",
-          "thanh-long": "thanh long",
-          watermelon: "dưa hấu",
-          orange: "cam",
           apple: "táo",
-          grapes: "nho",
-          pineapple: "dứa",
-          cucumber: "dưa chuột",
-          tomato: "cà chua",
+          banana: "chuối",
+          beetroot: "củ dền",
+          "bell pepper": "ớt chuông",
+          cabbage: "bắp cải",
+          capsicum: "ớt ngọt",
           carrot: "cà rốt",
+          cauliflower: "súp lơ",
+          "chilli pepper": "ớt",
+          corn: "ngô",
+          cucumber: "dưa chuột",
+          eggplant: "cà tím",
+          garlic: "tỏi",
+          ginger: "gừng",
+          grapes: "nho",
+          jalepeno: "ớt jalapeño",
+          kiwi: "kiwi",
+          lemon: "chanh",
+          lettuce: "xà lách",
+          mango: "xoài",
+          onion: "hành tây",
+          orange: "cam",
+          paprika: "ớt bột",
+          pear: "lê",
+          peas: "đậu hà lan",
+          pineapple: "dứa", // hoặc "thơm"
+          pomegranate: "lựu",
           potato: "khoai tây",
-          // ... thêm các mapping khác từ AI model
+          raddish: "củ cải",
+          "soy beans": "đậu nành",
+          spinach: "rau chân vịt", // hoặc "cải bó xôi"
+          sweetcorn: "ngô ngọt",
+          sweetpotato: "khoai lang",
+          tomato: "cà chua",
+          turnip: "củ cải trắng",
+          watermelon: "dưa hấu",
         };
         return keywordMap[loai] || loai;
       });

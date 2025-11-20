@@ -286,7 +286,7 @@ const ProductOverview: React.FC<ProductOverviewProps> = ({ productId }) => {
 
           <button
             onClick={handleViewAllProducts}
-            className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white rounded-xl font-medium transition-all duration-200 shadow-lg hover:shadow-xl w-full sm:w-auto justify-center"
+            className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-xl font-medium transition-all duration-200 shadow-lg hover:shadow-xl w-full sm:w-auto justify-center"
           >
             <Grid3X3 className="w-5 h-5" />
             <span>Xem tất cả sản phẩm</span>
@@ -294,382 +294,395 @@ const ProductOverview: React.FC<ProductOverviewProps> = ({ productId }) => {
         </div>
 
         {/* 🟢 LAYOUT CHÍNH */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="flex flex-col lg:flex-row  gap-6">
           {/* CỘT TRÁI - HÌNH ẢNH */}
-          <div className="lg:col-span-1">
-            <div className="bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden">
-              <div className="p-4">
-                {/* HÌNH ẢNH CHÍNH */}
-                <div className="relative bg-white rounded-xl">
-                  <img
-                    className="w-full h-64 object-contain rounded-lg bg-gray-50"
-                    src={currentImage}
-                    alt={product.TenSP}
-                    onError={(e: React.SyntheticEvent<HTMLImageElement>) => {
-                      e.currentTarget.src =
-                        "https://via.placeholder.com/400x400?text=No+Image";
-                    }}
-                  />
-
-                  {/* BADGE SỐ LƯỢNG */}
-                  {productStock < 10 && productStock > 0 && (
-                    <div className="absolute top-2 right-2 bg-gradient-to-r from-orange-500 to-red-500 text-white px-3 py-1 rounded-full text-xs font-medium shadow-lg">
-                      Chỉ còn {productStock}
-                    </div>
-                  )}
-
-                  {productStock === 0 && (
-                    <div className="absolute top-2 right-2 bg-red-600 text-white px-3 py-1 rounded-full text-xs font-medium shadow-lg">
-                      Hết hàng
-                    </div>
-                  )}
-                </div>
-
-                {/* THUMBNAIL HÌNH ẢNH */}
-                {hasProductImages && imagesCount > 1 && (
-                  <div className="flex gap-2 mt-4 overflow-x-auto pb-1">
-                    {product.hinhanhs?.map((img, index) => (
-                      <button
-                        key={img.MaHA}
-                        onClick={() => setSelectedImage(index)}
-                        className={`flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-all duration-200 ${
-                          selectedImage === index
-                            ? "border-emerald-500 shadow-md"
-                            : "border-gray-200 hover:border-emerald-300"
-                        }`}
-                      >
+          <div className="flex-1 flex flex-col gap-6">
+            <div className="h-full flex flex-col md:flex-row gap-6">
+              <div className="w-full lg:w-1/3 flex-shrink-0">
+                <div className="bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden h-full p-4">
+                  <div className="relative bg-gray-50 rounded-xl h-full w-full overflow-hidden">
+                    <div className="p-4">
+                      {/* HÌNH ẢNH CHÍNH */}
+                      <div className="relative bg-white rounded-xl">
                         <img
-                          src={getImageUrl(img.URL)}
-                          alt={img.MoTa || `Ảnh ${index + 1}`}
                           className="w-full h-full object-cover"
+                          src={currentImage}
+                          alt={product.TenSP}
                           onError={(
                             e: React.SyntheticEvent<HTMLImageElement>
                           ) => {
                             e.currentTarget.src =
-                              "https://via.placeholder.com/64x64?text=No+Image";
+                              "https://via.placeholder.com/400x400?text=No+Image";
                           }}
                         />
-                      </button>
-                    ))}
-                  </div>
-                )}
 
-                {/* THÔNG BÁO KHÔNG CÓ HÌNH ẢNH */}
-                {!hasProductImages && (
-                  <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-center">
-                    <p className="text-yellow-700 text-sm">
-                      📷 Sản phẩm chưa có hình ảnh
-                    </p>
+                        {/* BADGE SỐ LƯỢNG */}
+                        {productStock < 10 && productStock > 0 && (
+                          <div className="absolute top-2 right-2 bg-gradient-to-r from-orange-500 to-red-500 text-white px-3 py-1 rounded-full text-xs font-medium shadow-lg">
+                            Chỉ còn {productStock}
+                          </div>
+                        )}
+
+                        {productStock === 0 && (
+                          <div className="absolute top-2 right-2 bg-red-600 text-white px-3 py-1 rounded-full text-xs font-medium shadow-lg">
+                            Hết hàng
+                          </div>
+                        )}
+                      </div>
+
+                      {/* THUMBNAIL HÌNH ẢNH */}
+                      {hasProductImages && imagesCount > 1 && (
+                        <div className="flex gap-2 mt-4 overflow-x-auto pb-1">
+                          {product.hinhanhs?.map((img, index) => (
+                            <button
+                              key={img.MaHA}
+                              onClick={() => setSelectedImage(index)}
+                              className={`flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-all duration-200 ${
+                                selectedImage === index
+                                  ? "border-emerald-500 shadow-md"
+                                  : "border-gray-200 hover:border-emerald-300"
+                              }`}
+                            >
+                              <img
+                                src={getImageUrl(img.URL)}
+                                alt={img.MoTa || `Ảnh ${index + 1}`}
+                                className="w-full h-full object-cover"
+                                onError={(
+                                  e: React.SyntheticEvent<HTMLImageElement>
+                                ) => {
+                                  e.currentTarget.src =
+                                    "https://via.placeholder.com/64x64?text=No+Image";
+                                }}
+                              />
+                            </button>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* THÔNG BÁO KHÔNG CÓ HÌNH ẢNH */}
+                      {!hasProductImages && (
+                        <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-center">
+                          <p className="text-yellow-700 text-sm">
+                            📷 Sản phẩm chưa có hình ảnh
+                          </p>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                )}
+                </div>
+              </div>
+
+              {/* CỘT GIỮA & PHẢI - THÔNG TIN SẢN PHẨM */}
+              <div className="flex-1">
+                <div className="lg:col-span-2">
+                  <div className="bg-white rounded-3xl shadow-xl border border-gray-100 p-6">
+                    {/* HEADER SẢN PHẨM */}
+                    <div className="mb-6">
+                      <h1 className="text-2xl font-bold text-gray-900 mb-3">
+                        {product.TenSP}
+                      </h1>
+
+                      {/* THÔNG TIN CỬA HÀNG */}
+                      {product.cuahang && (
+                        <div className="flex items-center gap-3 p-3 bg-emerald-50 rounded-lg border border-emerald-100">
+                          <Store className="w-5 h-5 text-emerald-600" />
+                          <div className="flex-1">
+                            <p className="font-semibold text-emerald-700 text-sm">
+                              {product.cuahang.TenCH}
+                            </p>
+                            <div className="flex items-center gap-2 text-xs text-gray-600">
+                              <div className="flex items-center gap-1">
+                                <Star className="w-3 h-3 text-yellow-400 fill-yellow-400" />
+                                <span className="font-medium">
+                                  {product.cuahang.DiemDG?.toFixed(1) ?? "0.0"}
+                                </span>
+                              </div>
+                              <span>•</span>
+                              <span>1.2k theo dõi</span>
+                            </div>
+                          </div>
+                          <Link
+                            to={`/cuahang/${product.cuahang.MaCH}`}
+                            className="text-emerald-600 hover:text-emerald-700 font-medium text-xs whitespace-nowrap"
+                          >
+                            Xem shop
+                          </Link>
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-1">
+                        {renderStars(averageRating)}
+                      </div>
+                      <div className="flex items-center gap-2 text-sm text-gray-600">
+                        <span className="font-semibold text-gray-700">
+                          {averageRating.toFixed(1)}
+                        </span>
+                        <span>|</span>
+                        <span>128 đánh giá</span>
+                        <span>|</span>
+                        <span>512 đã bán</span>
+                      </div>
+                    </div>
+
+                    {/* GRID THÔNG TIN */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {/* CỘT TRÁI - THÔNG TIN */}
+                      <div className="space-y-4">
+                        {/* ĐÁNH GIÁ */}
+
+                        {/* GIÁ */}
+                        <div>
+                          <div className="flex items-baseline gap-2">
+                            <span className="text-3xl font-bold text-emerald-600">
+                              {formatPrice(Number(product.GiaBan))}
+                            </span>
+                            <span className="text-sm text-gray-500 line-through">
+                              {formatPrice(Number(product.GiaBan) * 1.2)}
+                            </span>
+                            <span className="bg-red-500 text-white px-2 py-1 rounded text-xs font-medium">
+                              -20%
+                            </span>
+                          </div>
+                          <p className="text-green-600 font-medium text-sm mt-1">
+                            🎉 Tiết kiệm{" "}
+                            {formatPrice(Number(product.GiaBan) * 0.2)}
+                          </p>
+                        </div>
+
+                        {/* CHI TIẾT SẢN PHẨM */}
+                        <div className="space-y-3">
+                          <div className="flex items-center gap-2">
+                            <Shield className="w-4 h-4 text-emerald-600" />
+                            <span className="text-sm text-gray-700">
+                              <span className="font-medium">Bảo hành:</span> 12
+                              tháng
+                            </span>
+                          </div>
+
+                          {product.NguonGoc && (
+                            <div className="flex items-center gap-2">
+                              <MapPin className="w-4 h-4 text-emerald-600" />
+                              <span className="text-sm text-gray-700">
+                                <span className="font-medium">Xuất xứ:</span>{" "}
+                                {product.NguonGoc}
+                              </span>
+                            </div>
+                          )}
+
+                          <div className="flex items-center gap-2">
+                            <Truck className="w-4 h-4 text-emerald-600" />
+                            <span className="text-sm text-gray-700">
+                              <span className="font-medium">Vận chuyển:</span>{" "}
+                              Miễn phí
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <Package className="w-4 h-4 text-emerald-600" />
+                            <span className="text-sm text-gray-700">
+                              <span className="font-medium">Tình trạng:</span>{" "}
+                              <span
+                                className={
+                                  productStock > 0
+                                    ? "text-emerald-600 font-semibold"
+                                    : "text-red-600 font-semibold"
+                                }
+                              >
+                                {productStock > 0
+                                  ? `Còn ${productStock} sản phẩm`
+                                  : "Hết hàng"}
+                              </span>
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* 🟢 MÔ TẢ SẢN PHẨM */}
+                      <div className="mt-8 ">
+                        <div className="bg-white rounded-lg shadow-xl p-4 ">
+                          <h2 className="text-xl font-bold text-gray-800 mb-4">
+                            Mô tả sản phẩm
+                          </h2>
+                          <div className="prose max-w-none">
+                            <p className="text-gray-700 leading-relaxed whitespace-pre-line">
+                              {product.MoTa ||
+                                "Chưa có mô tả cho sản phẩm này."}
+                            </p>
+                          </div>
+
+                          {/* DANH MỤC */}
+                          {product.sanpham_danhmucs?.length ? (
+                            <div className="mt-6 pt-4 border-t border-gray-200">
+                              <h3 className="text-md font-semibold text-gray-700 mb-3">
+                                Danh mục sản phẩm:
+                              </h3>
+                              <div className="flex flex-wrap gap-2">
+                                {product.sanpham_danhmucs.map((item) => (
+                                  <span
+                                    key={item.MaSP_DM}
+                                    className="px-3 py-1 bg-gradient-to-r from-emerald-100 to-teal-100 text-emerald-700 rounded-full text-xs font-medium border border-emerald-200"
+                                  >
+                                    {item.danhmuc.TenDM}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          ) : null}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            {/* 🟢 PHẦN ĐÁNH GIÁ */}
+            <div className="mt-2">
+              <div className="bg-white rounded-3xl shadow-xl border border-gray-100 p-6">
+                <CommentList
+                  productId={product.MaSP}
+                  showStats={true}
+                  showFilters={true}
+                  showAddButton={true}
+                  onCommentAction={handleCommentAction}
+                  onAddComment={handleAddComment}
+                  key={refreshComments}
+                />
+              </div>
+            </div>
+
+            {/* 🟢 NÚT CHUYỂN TRANG Ở CUỐI */}
+            <div className="mt-8 text-center">
+              <div className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-2xl p-8 border border-purple-100">
+                <h3 className="text-xl font-bold text-gray-800 mb-4">
+                  Khám phá thêm sản phẩm khác
+                </h3>
+                <p className="text-gray-600 mb-6">
+                  Còn hàng ngàn sản phẩm chất lượng đang chờ bạn khám phá
+                </p>
+                <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                  <button
+                    onClick={handleViewAllProducts}
+                    className="inline-flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white rounded-2xl font-semibold transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105"
+                  >
+                    <Grid3X3 className="w-6 h-6" />
+                    <span>Xem tất cả sản phẩm</span>
+                  </button>
+                  <button
+                    onClick={handleBackToProducts}
+                    className="inline-flex items-center gap-3 px-8 py-4 bg-white text-gray-700 border border-gray-300 hover:border-purple-300 rounded-2xl font-semibold transition-all duration-200 hover:shadow-lg"
+                  >
+                    <ArrowLeft className="w-6 h-6" />
+                    <span>Quay lại danh sách</span>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
 
-          {/* CỘT GIỮA & PHẢI - THÔNG TIN SẢN PHẨM */}
-          <div className="lg:col-span-2">
-            <div className="bg-white rounded-3xl shadow-xl border border-gray-100 p-6">
-              {/* HEADER SẢN PHẨM */}
-              <div className="mb-6">
-                <h1 className="text-2xl font-bold text-gray-900 mb-3">
-                  {product.TenSP}
-                </h1>
-
-                {/* THÔNG TIN CỬA HÀNG */}
-                {product.cuahang && (
-                  <div className="flex items-center gap-3 p-3 bg-emerald-50 rounded-lg border border-emerald-100">
-                    <Store className="w-5 h-5 text-emerald-600" />
-                    <div className="flex-1">
-                      <p className="font-semibold text-emerald-700 text-sm">
-                        {product.cuahang.TenCH}
-                      </p>
-                      <div className="flex items-center gap-2 text-xs text-gray-600">
-                        <div className="flex items-center gap-1">
-                          <Star className="w-3 h-3 text-yellow-400 fill-yellow-400" />
-                          <span className="font-medium">
-                            {product.cuahang.DiemDG?.toFixed(1) ?? "0.0"}
-                          </span>
-                        </div>
-                        <span>•</span>
-                        <span>1.2k theo dõi</span>
-                      </div>
-                    </div>
-                    <Link
-                      to={`/cuahang/${product.cuahang.MaCH}`}
-                      className="text-emerald-600 hover:text-emerald-700 font-medium text-xs whitespace-nowrap"
-                    >
-                      Xem shop
-                    </Link>
-                  </div>
-                )}
-              </div>
-
-              {/* GRID THÔNG TIN */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* CỘT TRÁI - THÔNG TIN */}
-                <div className="space-y-4">
-                  {/* ĐÁNH GIÁ */}
-                  <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-1">
-                      {renderStars(averageRating)}
-                    </div>
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                      <span className="font-semibold text-gray-700">
-                        {averageRating.toFixed(1)}
-                      </span>
-                      <span>|</span>
-                      <span>128 đánh giá</span>
-                      <span>|</span>
-                      <span>512 đã bán</span>
-                    </div>
-                  </div>
-
-                  {/* GIÁ */}
-                  <div>
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-3xl font-bold text-emerald-600">
-                        {formatPrice(Number(product.GiaBan))}
-                      </span>
-                      <span className="text-sm text-gray-500 line-through">
-                        {formatPrice(Number(product.GiaBan) * 1.2)}
-                      </span>
-                      <span className="bg-red-500 text-white px-2 py-1 rounded text-xs font-medium">
-                        -20%
-                      </span>
-                    </div>
-                    <p className="text-green-600 font-medium text-sm mt-1">
-                      🎉 Tiết kiệm {formatPrice(Number(product.GiaBan) * 0.2)}
-                    </p>
-                  </div>
-
-                  {/* CHI TIẾT SẢN PHẨM */}
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2">
-                      <Shield className="w-4 h-4 text-emerald-600" />
-                      <span className="text-sm text-gray-700">
-                        <span className="font-medium">Bảo hành:</span> 12 tháng
-                      </span>
-                    </div>
-
-                    {product.NguonGoc && (
-                      <div className="flex items-center gap-2">
-                        <MapPin className="w-4 h-4 text-emerald-600" />
-                        <span className="text-sm text-gray-700">
-                          <span className="font-medium">Xuất xứ:</span>{" "}
-                          {product.NguonGoc}
-                        </span>
-                      </div>
-                    )}
-
-                    <div className="flex items-center gap-2">
-                      <Truck className="w-4 h-4 text-emerald-600" />
-                      <span className="text-sm text-gray-700">
-                        <span className="font-medium">Vận chuyển:</span> Miễn
-                        phí
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <Package className="w-4 h-4 text-emerald-600" />
-                      <span className="text-sm text-gray-700">
-                        <span className="font-medium">Tình trạng:</span>{" "}
-                        <span
-                          className={
-                            productStock > 0
-                              ? "text-emerald-600 font-semibold"
-                              : "text-red-600 font-semibold"
-                          }
-                        >
-                          {productStock > 0
-                            ? `Còn ${productStock} sản phẩm`
-                            : "Hết hàng"}
-                        </span>
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* CỘT PHẢI - HÀNH ĐỘNG */}
-                <div className="space-y-4">
-                  {/* CHỌN SỐ LƯỢNG */}
-                  <div>
-                    <p className="text-gray-700 font-medium mb-2 text-sm">
-                      Số lượng
-                    </p>
-                    <div className="flex items-center gap-3">
-                      <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden">
-                        <button
-                          onClick={() => handleQuantityChange(-1)}
-                          disabled={quantity <= 1}
-                          className="w-10 h-10 flex items-center justify-center hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition"
-                        >
-                          -
-                        </button>
-                        <span className="w-10 h-10 flex items-center justify-center font-semibold">
-                          {quantity}
-                        </span>
-                        <button
-                          onClick={() => handleQuantityChange(1)}
-                          disabled={quantity >= (productStock || 1)}
-                          className="w-10 h-10 flex items-center justify-center hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition"
-                        >
-                          +
-                        </button>
-                      </div>
-                      <span className="text-gray-600 text-xs">
-                        {productStock} sản phẩm có sẵn
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* NÚT HÀNH ĐỘNG */}
-                  <div className="space-y-3">
-                    <div className="flex gap-3">
-                      <button
-                        onClick={toggleFavorite}
-                        className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 text-sm font-medium rounded-lg border-2 transition duration-200 ${
-                          isFavorite
-                            ? "bg-red-50 border-red-500 text-red-600"
-                            : "bg-white border-gray-300 text-gray-700 hover:border-red-400 hover:text-red-500"
-                        }`}
-                      >
-                        <Heart
-                          className={`w-5 h-5 ${
-                            isFavorite ? "fill-red-500" : ""
-                          }`}
-                        />
-                        {isFavorite ? "Đã thích" : "Yêu thích"}
-                      </button>
-
-                      <button
-                        onClick={handleAddToCart}
-                        disabled={productStock === 0}
-                        className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 text-sm font-medium rounded-lg transition duration-200 ${
-                          productStock === 0
-                            ? "bg-gray-400 cursor-not-allowed text-white"
-                            : "bg-orange-500 hover:bg-orange-600 text-white shadow-lg hover:shadow-xl"
-                        }`}
-                      >
-                        <ShoppingCart className="w-5 h-5" />
-                        Thêm giỏ hàng
-                      </button>
-                    </div>
-
-                    {/* NÚT MUA NGAY */}
+          {/* CỘT PHẢI - HÀNH ĐỘNG */}
+          <div className="w-full lg:w-64 flex-shrink-0">
+            {/* CỘT PHẢI - HÀNH ĐỘNG */}
+            <div className="space-y-4">
+              {/* CHỌN SỐ LƯỢNG */}
+              <div>
+                <p className="text-gray-700 font-medium mb-2 text-sm">
+                  Số lượng
+                </p>
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden">
                     <button
-                      disabled={productStock === 0}
-                      className={`w-full py-3 px-4 text-sm font-semibold rounded-lg transition duration-200 ${
-                        productStock === 0
-                          ? "bg-gray-400 cursor-not-allowed text-white"
-                          : "bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white shadow-lg hover:shadow-xl"
-                      }`}
+                      onClick={() => handleQuantityChange(-1)}
+                      disabled={quantity <= 1}
+                      className="w-10 h-10 flex items-center justify-center hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition"
                     >
-                      {productStock === 0 ? "Hết hàng" : "Mua ngay"}
+                      -
+                    </button>
+                    <span className="w-10 h-10 flex items-center justify-center font-semibold">
+                      {quantity}
+                    </span>
+                    <button
+                      onClick={() => handleQuantityChange(1)}
+                      disabled={quantity >= (productStock || 1)}
+                      className="w-10 h-10 flex items-center justify-center hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                    >
+                      +
                     </button>
                   </div>
-
-                  {/* TÓM TẮT ĐƠN HÀNG */}
-                  <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
-                    <div className="flex justify-between text-sm mb-2">
-                      <span className="text-gray-600">Tạm tính:</span>
-                      <span>{formatPrice(Number(product.GiaBan))}</span>
-                    </div>
-                    <div className="flex justify-between text-sm mb-2">
-                      <span className="text-gray-600">Số lượng:</span>
-                      <span>{quantity}</span>
-                    </div>
-                    <div className="flex justify-between text-sm mb-2">
-                      <span className="text-gray-600">Giảm giá:</span>
-                      <span className="text-green-600">
-                        -{formatPrice(Number(product.GiaBan) * 0.2)}
-                      </span>
-                    </div>
-                    <hr className="border-gray-300 my-2" />
-                    <div className="flex justify-between font-bold">
-                      <span>Tổng tiền:</span>
-                      <span className="text-emerald-600">
-                        {formatPrice(totalPrice)}
-                      </span>
-                    </div>
-                  </div>
+                  <span className="text-gray-600 text-xs">
+                    {productStock} sản phẩm có sẵn
+                  </span>
                 </div>
               </div>
-            </div>
-          </div>
-        </div>
 
-        {/* 🟢 MÔ TẢ SẢN PHẨM */}
-        <div className="mt-8">
-          <div className="bg-white rounded-3xl shadow-xl border border-gray-100 p-6">
-            <h2 className="text-xl font-bold text-gray-800 mb-4">
-              Mô tả sản phẩm
-            </h2>
-            <div className="prose max-w-none">
-              <p className="text-gray-700 leading-relaxed whitespace-pre-line">
-                {product.MoTa || "Chưa có mô tả cho sản phẩm này."}
-              </p>
-            </div>
+              {/* NÚT HÀNH ĐỘNG */}
+              <div className="space-y-3">
+                <div className="flex gap-3">
+                  <button
+                    onClick={toggleFavorite}
+                    className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 text-sm font-medium rounded-lg border-2 transition duration-200 ${
+                      isFavorite
+                        ? "bg-red-50 border-red-500 text-red-600"
+                        : "bg-white border-gray-300 text-gray-700 hover:border-red-400 hover:text-red-500"
+                    }`}
+                  >
+                    <Heart
+                      className={`w-5 h-5 ${isFavorite ? "fill-red-500" : ""}`}
+                    />
+                    {isFavorite ? "Đã thích" : "Yêu thích"}
+                  </button>
 
-            {/* DANH MỤC */}
-            {product.sanpham_danhmucs?.length ? (
-              <div className="mt-6 pt-4 border-t border-gray-200">
-                <h3 className="text-md font-semibold text-gray-700 mb-3">
-                  Danh mục sản phẩm:
-                </h3>
-                <div className="flex flex-wrap gap-2">
-                  {product.sanpham_danhmucs.map((item) => (
-                    <span
-                      key={item.MaSP_DM}
-                      className="px-3 py-1 bg-gradient-to-r from-emerald-100 to-teal-100 text-emerald-700 rounded-full text-xs font-medium border border-emerald-200"
-                    >
-                      {item.danhmuc.TenDM}
-                    </span>
-                  ))}
+                  <button
+                    onClick={handleAddToCart}
+                    disabled={productStock === 0}
+                    className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 text-sm font-medium rounded-lg transition duration-200 ${
+                      productStock === 0
+                        ? "bg-gray-400 cursor-not-allowed text-white"
+                        : "bg-orange-500 hover:bg-orange-600 text-white shadow-lg hover:shadow-xl"
+                    }`}
+                  >
+                    <ShoppingCart className="w-5 h-5" />
+                    Thêm giỏ hàng
+                  </button>
+                </div>
+
+                {/* NÚT MUA NGAY */}
+                <button
+                  disabled={productStock === 0}
+                  className={`w-full py-3 px-4 text-sm font-semibold rounded-lg transition duration-200 ${
+                    productStock === 0
+                      ? "bg-gray-400 cursor-not-allowed text-white"
+                      : "bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white shadow-lg hover:shadow-xl"
+                  }`}
+                >
+                  {productStock === 0 ? "Hết hàng" : "Mua ngay"}
+                </button>
+              </div>
+
+              {/* TÓM TẮT ĐƠN HÀNG */}
+              <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                <div className="flex justify-between text-sm mb-2">
+                  <span className="text-gray-600">Tạm tính:</span>
+                  <span>{formatPrice(Number(product.GiaBan))}</span>
+                </div>
+                <div className="flex justify-between text-sm mb-2">
+                  <span className="text-gray-600">Số lượng:</span>
+                  <span>{quantity}</span>
+                </div>
+                <div className="flex justify-between text-sm mb-2">
+                  <span className="text-gray-600">Giảm giá:</span>
+                  <span className="text-green-600">
+                    -{formatPrice(Number(product.GiaBan) * 0.2)}
+                  </span>
+                </div>
+                <hr className="border-gray-300 my-2" />
+                <div className="flex justify-between font-bold">
+                  <span>Tổng tiền:</span>
+                  <span className="text-emerald-600">
+                    {formatPrice(totalPrice)}
+                  </span>
                 </div>
               </div>
-            ) : null}
-          </div>
-        </div>
-
-        {/* 🟢 PHẦN ĐÁNH GIÁ */}
-        <div className="mt-8">
-          <div className="bg-white rounded-3xl shadow-xl border border-gray-100 p-6">
-            <CommentList
-              productId={product.MaSP}
-              showStats={true}
-              showFilters={true}
-              showAddButton={true}
-              onCommentAction={handleCommentAction}
-              onAddComment={handleAddComment}
-              key={refreshComments}
-            />
-          </div>
-        </div>
-
-        {/* 🟢 NÚT CHUYỂN TRANG Ở CUỐI */}
-        <div className="mt-8 text-center">
-          <div className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-2xl p-8 border border-purple-100">
-            <h3 className="text-xl font-bold text-gray-800 mb-4">
-              Khám phá thêm sản phẩm khác
-            </h3>
-            <p className="text-gray-600 mb-6">
-              Còn hàng ngàn sản phẩm chất lượng đang chờ bạn khám phá
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <button
-                onClick={handleViewAllProducts}
-                className="inline-flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white rounded-2xl font-semibold transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105"
-              >
-                <Grid3X3 className="w-6 h-6" />
-                <span>Xem tất cả sản phẩm</span>
-              </button>
-              <button
-                onClick={handleBackToProducts}
-                className="inline-flex items-center gap-3 px-8 py-4 bg-white text-gray-700 border border-gray-300 hover:border-purple-300 rounded-2xl font-semibold transition-all duration-200 hover:shadow-lg"
-              >
-                <ArrowLeft className="w-6 h-6" />
-                <span>Quay lại danh sách</span>
-              </button>
             </div>
           </div>
         </div>

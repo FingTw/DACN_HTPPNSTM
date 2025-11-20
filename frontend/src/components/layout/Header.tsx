@@ -1,12 +1,21 @@
 // src/components/Header.tsx
-import React, { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import React, { useState, useEffect, useRef } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import cartService from "@/services/cartService";
+import { aiService } from "@/services/aiService";
+import { toast } from "sonner";
+import { Loader2, Camera, Search } from "lucide-react";
 
 export const Header: React.FC = () => {
   const [cartCount, setCartCount] = useState(0);
   const { user, logout, loading } = useAuth();
+
+  const [searchText, setSearchText] = useState("");
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+
+  const navigate = useNavigate();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const fetchCartCount = async () => {
@@ -34,7 +43,7 @@ export const Header: React.FC = () => {
     { name: "Hoa quả & Hạt", path: "/category/hoa-qua-hat" },
     { name: "Rau củ & Cây trồng", path: "/category/rau-cu" },
     { name: "Khuyến Mãi", path: "/khuyen-mai", highlight: true },
-    { name: "Mua theo yêu cầu", path: "/marketplace", highlight: true },
+    { name: "Mua theo yêu cầu", path: "/rfq", highlight: true },
   ];
 
   const benefits = [
@@ -175,6 +184,52 @@ export const Header: React.FC = () => {
     );
   }
 
+  const handleTextSearch = () => {
+    if (searchText.trim()) {
+      // Chuyển sang trang sản phẩm với tham số search
+      navigate(`/san-pham?search=${encodeURIComponent(searchText.trim())}`);
+    }
+  };
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      handleTextSearch();
+    }
+  };
+
+  const handleImageSelect = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setIsAnalyzing(true);
+      toast.info("Đang nhận diện hình ảnh...");
+
+      // Gọi AI Service (Sử dụng service bạn đã tạo ở bước trước)
+      const data = await aiService.predictImage(file);
+
+      if (data.success) {
+        const className = data.data.class_original; // Ví dụ: "apple"
+        const confidence = data.data.confidence;
+
+        toast.success(`Đã nhận diện: ${className} (${confidence}%)`);
+
+        // Chuyển hướng sang trang sản phẩm và lọc theo loại vừa tìm được
+        navigate(`/san-pham?loaiSanPham=${className}`);
+      } else {
+        toast.error("Không thể nhận diện sản phẩm này");
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error("Lỗi kết nối đến server AI");
+    } finally {
+      setIsAnalyzing(false);
+      // Reset input để chọn lại cùng 1 file được
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
   return (
     <header className="w-full">
       {/* Top Banner */}
@@ -256,53 +311,47 @@ export const Header: React.FC = () => {
               </div>
             </Link>
 
+            {/* 🟢 THANH TÌM KIẾM CHÍNH */}
             <div className="flex-1 max-w-2xl mx-8">
               <div className="relative">
                 <input
                   type="text"
+                  value={searchText}
+                  onChange={(e) => setSearchText(e.target.value)}
+                  onKeyDown={handleKeyDown}
                   placeholder="Tìm kiếm sản phẩm nông sản tươi ngon..."
                   className="w-full px-5 py-3 pr-24 border-1 border-gray-100 rounded-full text-sm focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-200 transition-all"
                 />
 
+                {/* Nút tìm bằng hình ảnh */}
                 <button
-                  className="absolute right-15 top-1/2 -translate-y-1/2 text-gray-700 p-2 rounded-full transition-all duration-300"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isAnalyzing}
+                  className="absolute right-14 top-1/2 -translate-y-1/2 text-gray-500 hover:text-green-600 p-2 rounded-full transition-all duration-300"
                   title="Tìm kiếm bằng hình ảnh"
                 >
-                  <svg
-                    className="w-6 h-6 transition-transform duration-500 hover:scale-150"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.218A2 2 0 0110.456 4h3.09a2 2 0 011.664.89l.812 1.218A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
-                    />
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"
-                    />
-                  </svg>
+                  {isAnalyzing ? (
+                    <Loader2 className="w-5 h-5 animate-spin text-green-600" />
+                  ) : (
+                    <Camera className="w-5 h-5 hover:scale-110 transition-transform" />
+                  )}
                 </button>
 
-                <button className="absolute right-2 top-1/2 -translate-y-1/2 bg-green-600 hover:bg-green-700 text-white p-2 rounded-full transition-colors">
-                  <svg
-                    className="w-4 h-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                    />
-                  </svg>
+                {/* Input File Ẩn */}
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  className="hidden"
+                  accept="image/*"
+                  onChange={handleImageSelect}
+                />
+
+                {/* Nút tìm kiếm Text */}
+                <button
+                  onClick={handleTextSearch}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 bg-green-600 hover:bg-green-700 text-white p-2 rounded-full transition-colors"
+                >
+                  <Search className="w-4 h-4" />
                 </button>
               </div>
             </div>

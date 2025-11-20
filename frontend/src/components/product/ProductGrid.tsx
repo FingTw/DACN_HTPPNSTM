@@ -1,6 +1,6 @@
 // src/components/product/ProductGrid.tsx
-import React from 'react';
-import { ProductCard } from './ProductCard';
+import React from "react";
+import ProductCard from "./ProductCard";
 
 interface Product {
   MaSP: string;
@@ -9,6 +9,10 @@ interface Product {
   SLTon: number;
   HinhAnh?: string;
   MoTa?: string;
+  DVT: string; // Thêm
+  TrangThai: string; // Thêm
+  DiemDG_SP: number; // Thêm
+  SoLuongDanhGia_SP: number;
 }
 
 interface ProductGridProps {
@@ -16,16 +20,19 @@ interface ProductGridProps {
   title?: string;
 }
 
-export const ProductGrid: React.FC<ProductGridProps> = ({ products, title }) => {
+export const ProductGrid: React.FC<ProductGridProps> = ({
+  products,
+  title,
+}) => {
   return (
     <div className="py-8">
       {title && (
         <h2 className="text-2xl font-bold text-gray-900 mb-6">{title}</h2>
       )}
-      
+
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        {products.map((product) => (
-          <ProductCard key={product.MaSP} product={product} />
+        {products.map((item) => (
+          <ProductCard key={item.MaSP} sanPham={item} />
         ))}
       </div>
 
