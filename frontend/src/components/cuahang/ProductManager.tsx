@@ -1,6 +1,7 @@
 // components/cuahang/ProductManager.tsx
 import React, { useState, useEffect, useCallback } from "react";
 import type { Store, Product, DanhMuc, ProductFormData } from "./store";
+import categoryService from "@/services/categoryService";
 
 interface ProductManagerProps {
   store: Store;
@@ -1198,9 +1199,8 @@ const ProductManager: React.FC<ProductManagerProps> = ({
 
   // 🟢 API CONFIG
   const API_CONFIG = {
-    categories: `${API_BASE_URL}/categories?includeCount=true`,
     products: `${API_BASE_URL}/sanpham/cua-hang/${store.MaCH}?include=hinhanh,danhmuc`,
-    createProduct: `${API_BASE_URL}/sanpham/tao-moi`,
+    createProduct: `${API_BASE_URL}/sanpham/tao-moi`, // Lưu ý endpoint này phải khớp route backend
     updateProduct: (maSP: string) => `${API_BASE_URL}/sanpham/cap-nhat/${maSP}`,
     deleteProduct: (maSP: string) => `${API_BASE_URL}/sanpham/xoa/${maSP}`,
   };
@@ -1208,15 +1208,8 @@ const ProductManager: React.FC<ProductManagerProps> = ({
   // 🟢 FETCH DATA
   const fetchDanhMucs = useCallback(async (): Promise<void> => {
     try {
-      const response = await fetch(API_CONFIG.categories);
-      if (!response.ok)
-        throw new Error(`HTTP error! status: ${response.status}`);
-
-      const data = await response.json();
-      if (data.success) {
-        const categories = data.data?.categories || data.data || [];
-        setDanhMucs(Array.isArray(categories) ? categories : []);
-      }
+      const data = await categoryService.getAllCategories();
+      setDanhMucs(data);
     } catch (error) {
       console.error("❌ Lỗi khi tải danh mục:", error);
       setDanhMucs([]);
@@ -1647,7 +1640,7 @@ const ProductManager: React.FC<ProductManagerProps> = ({
         <ProductForm
           editingProduct={editingProduct}
           formData={formData}
-          danhMucs={danhMucs}
+          danhMucs={danhMucs} // Danh sách này giờ đã có dữ liệu từ service
           uploadingImage={uploadingImage}
           onInputChange={handleInputChange}
           onCategoriesChange={handleCategoriesChange}

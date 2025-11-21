@@ -5,7 +5,7 @@ import { initModels } from "../models/init-models.js";
 import sequelize from "../config/db.js";
 
 const models = initModels(sequelize);
-const { giohang, ctgh, sanpham } = models;
+const { giohang, ctgh, sanpham, hinhanh, cuahang } = models;
 
 // 🛒 Thêm sản phẩm vào giỏ
 export const addToCart = async (req, res) => {
@@ -34,7 +34,9 @@ export const addToCart = async (req, res) => {
 
     const qty = parseInt(quantity);
     if (isNaN(qty) || qty < 1) {
-      return res.status(400).json({ message: "Số lượng không hợp lệ (phải là số nguyên >= 1)" });
+      return res
+        .status(400)
+        .json({ message: "Số lượng không hợp lệ (phải là số nguyên >= 1)" });
     }
 
     // 3️⃣ Lấy thông tin sản phẩm
@@ -48,17 +50,21 @@ export const addToCart = async (req, res) => {
     }
 
     if (qty > sp.SLTon) {
-      return res.status(400).json({ message: `Số lượng vượt quá tồn kho (${sp.SLTon})` });
+      return res
+        .status(400)
+        .json({ message: `Số lượng vượt quá tồn kho (${sp.SLTon})` });
     }
 
     // 4️⃣ Tìm giỏ hàng
     let cart = await giohang.findOne({
       where: { MaTK },
-      include: [{
-        model: ctgh,
-        as: "ctghs",
-        include: [{ model: sanpham, as: "MaSP_sanpham" }]
-      }]
+      include: [
+        {
+          model: ctgh,
+          as: "ctghs",
+          include: [{ model: sanpham, as: "MaSP_sanpham" }],
+        },
+      ],
     });
 
     // Nếu chưa có giỏ, tạo mới
@@ -73,7 +79,9 @@ export const addToCart = async (req, res) => {
     if (item) {
       const newSL = item.SL + qty;
       if (newSL > sp.SLTon) {
-        return res.status(400).json({ message: `Số lượng trong giỏ vượt quá tồn kho (${sp.SLTon})` });
+        return res.status(400).json({
+          message: `Số lượng trong giỏ vượt quá tồn kho (${sp.SLTon})`,
+        });
       }
       item.SL = newSL;
     } else {
@@ -81,7 +89,7 @@ export const addToCart = async (req, res) => {
         MaGH: cart.MaGH,
         MaSP,
         SL: qty,
-        TongTien: 0
+        TongTien: 0,
       });
     }
 
@@ -90,7 +98,6 @@ export const addToCart = async (req, res) => {
     await item.save();
 
     return res.json({ success: true, message: "Đã thêm vào giỏ hàng!" });
-
   } catch (err) {
     console.error(err);
     return res.status(500).json({ message: "Lỗi server" });
@@ -118,13 +125,18 @@ export const updateQuantity = async (req, res) => {
 
     const cart = await giohang.findOne({
       where: { MaTK: MaTK },
-      include: [{ model: ctgh, as: "ctghs" }]
+      include: [{ model: ctgh, as: "ctghs" }],
     });
 
-    if (!cart) return res.json({ success: false, message: "Không tìm thấy giỏ hàng." });
+    if (!cart)
+      return res.json({ success: false, message: "Không tìm thấy giỏ hàng." });
 
-    const item = cart.ctghs.find(c => c.MaSP === MaSP);
-    if (!item) return res.json({ success: false, message: "Sản phẩm không có trong giỏ hàng." });
+    const item = cart.ctghs.find((c) => c.MaSP === MaSP);
+    if (!item)
+      return res.json({
+        success: false,
+        message: "Sản phẩm không có trong giỏ hàng.",
+      });
 
     item.SL = quantity < 1 ? 1 : quantity;
 
@@ -134,8 +146,11 @@ export const updateQuantity = async (req, res) => {
       await item.save();
     }
 
-    return res.json({ success: true, newQuantity: item.SL, newTotal: item.TongTien });
-
+    return res.json({
+      success: true,
+      newQuantity: item.SL,
+      newTotal: item.TongTien,
+    });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ message: "Lỗi server" });
@@ -162,13 +177,13 @@ export const removeFromCart = async (req, res) => {
     const { MaSP } = req.body;
 
     const cart = await giohang.findOne({ where: { MaTK: MaTK } });
-    if (!cart) return res.status(404).json({ message: "Không tìm thấy giỏ hàng" });
+    if (!cart)
+      return res.status(404).json({ message: "Không tìm thấy giỏ hàng" });
 
     const item = await ctgh.findOne({ where: { MaGH: cart.MaGH, MaSP: MaSP } });
     if (item) await item.destroy();
 
     return res.json({ success: true, message: "Đã xóa khỏi giỏ hàng" });
-
   } catch (err) {
     console.error(err);
     return res.status(500).json({ message: "Lỗi server" });
@@ -195,12 +210,11 @@ export const getCartCount = async (req, res) => {
 
     const cart = await giohang.findOne({
       where: { MaTK: MaTK },
-      include: [{ model: ctgh, as: "ctghs" }]
+      include: [{ model: ctgh, as: "ctghs" }],
     });
 
     const count = cart?.ctghs?.reduce((acc, item) => acc + item.SL, 0) || 0;
     return res.json({ count });
-
   } catch (err) {
     console.error(err);
     return res.status(500).json({ count: 0, message: "Lỗi server" });
@@ -228,41 +242,68 @@ export const getCart = async (req, res) => {
     // Tìm giỏ hàng với đầy đủ thông tin sản phẩm
     const cart = await giohang.findOne({
       where: { MaTK },
-      include: [{
-        model: ctgh,
-        as: "ctghs",
-        include: [{
-          model: sanpham,
-          as: "MaSP_sanpham",
-          include: ['hinhanhs'] // Nếu có relation với hình ảnh
-        }]
-      }]
+      include: [
+        {
+          model: ctgh,
+          as: "ctghs",
+          include: [
+            {
+              model: sanpham,
+              as: "MaSP_sanpham",
+              include: [
+                {
+                  model: hinhanh,
+                  as: "hinhanhs", // Alias phải khớp với init-models (thường là 'hinhanhs')
+                  attributes: ["URL"],
+                  through: { attributes: [] }, // Nếu là quan hệ N-N qua bảng trung gian
+                },
+                {
+                  model: cuahang,
+                  as: "cuahang",
+                  attributes: ["TenCH", "MaCH"],
+                },
+              ],
+            },
+          ],
+        },
+      ],
     });
 
     if (!cart) {
-      return res.json({ 
-        success: true, 
-        cart: null, 
-        items: [], 
-        total: 0 
+      return res.json({
+        success: true,
+        cart: null,
+        items: [],
+        total: 0,
       });
     }
 
     // Format response
-    const items = cart.ctghs.map(item => ({
-      MaGH: item.MaGH,
-      MaSP: item.MaSP,
-      SL: item.SL,
-      TongTien: item.TongTien,
-      sanpham: {
-        MaSP: item.MaSP_sanpham.MaSP,
-        TenSP: item.MaSP_sanpham.TenSP,
-        GiaBan: item.MaSP_sanpham.GiaBan,
-        SLTon: item.MaSP_sanpham.SLTon,
-        HinhAnh: item.MaSP_sanpham.hinhanhs?.[0]?.URL || '/productdefaut.jpg',
-        MoTa: item.MaSP_sanpham.MoTa
-      }
-    }));
+    const items = cart.ctghs.map((item) => {
+      // Lấy data sản phẩm thô từ sequelize
+      const product = item.MaSP_sanpham;
+
+      return {
+        MaGH: item.MaGH,
+        MaSP: item.MaSP,
+        SL: item.SL,
+        TongTien: item.TongTien,
+
+        // 🟢 QUAN TRỌNG: Phải đặt tên key là "MaSP_sanpham" để khớp với Frontend CartItem.tsx
+        MaSP_sanpham: {
+          MaSP: product.MaSP,
+          TenSP: product.TenSP,
+          GiaBan: product.GiaBan,
+          SLTon: product.SLTon,
+
+          // 🟢 QUAN TRỌNG: Trả về nguyên mảng hinhanhs để Frontend tự xử lý
+          // (Vì CartItem.tsx đang dùng hinhanhs[0].URL)
+          hinhanhs: product.hinhanhs || [],
+
+          MoTa: product.MoTa,
+        },
+      };
+    });
 
     const total = items.reduce((sum, item) => sum + item.TongTien, 0);
 
@@ -270,12 +311,11 @@ export const getCart = async (req, res) => {
       success: true,
       cart: {
         MaGH: cart.MaGH,
-        MaTK: cart.MaTK
+        MaTK: cart.MaTK,
       },
       items,
-      total
+      total,
     });
-
   } catch (err) {
     console.error(err);
     return res.status(500).json({ message: "Lỗi server" });

@@ -29,10 +29,13 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
 
   // 👉 Lấy link hình ảnh
   const getImageUrl = (url?: string) => {
-    if (!url) return "https://via.placeholder.com/400?text=No+Image";
+    if (!url) return "/default-image.jpg";
     if (url.startsWith("http")) return url;
-    if (url.startsWith("/uploads/")) return `http://localhost:3000${url}`;
-    return url;
+
+    // Nếu trong DB lưu là "/uploads/products/..."
+    // Thì kết quả phải là: "http://localhost:3000/uploads/products/..."
+    const cleanUrl = url.startsWith("/") ? url : `/${url}`;
+    return `http://localhost:3000${cleanUrl}`;
   };
 
   const displayCategories = React.useMemo(() => {

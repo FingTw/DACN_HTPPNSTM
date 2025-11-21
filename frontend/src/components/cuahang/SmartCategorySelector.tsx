@@ -87,12 +87,19 @@ const SmartCategorySelector: React.FC<SmartCategorySelectorProps> = ({
   // 🟢 GỢI Ý DANH MỤC TỰ ĐỘNG - ĐÃ TÍCH HỢP AI
   useEffect(() => {
     const analyzeAndSuggest = async () => {
-      console.log("🔄 Bắt đầu phân tích để gợi ý...");
-      console.log("📝 Tên sản phẩm:", productName);
-      console.log("📝 Mô tả sản phẩm:", productDescription);
-      console.log("🖼️ Số lượng ảnh:", productImages?.length);
+      console.log("🔎 SmartCategorySelector Debug:", {
+        hasName: !!productName,
+        hasDesc: !!productDescription,
+        imagesCount: productImages?.length,
+        totalCategories: allCategories.length,
+      });
 
-      // Nếu không có dữ liệu để phân tích
+      if (allCategories.length === 0) {
+        console.warn(
+          "⚠️ Chưa có danh mục để gợi ý. Vui lòng kiểm tra API danh mục."
+        );
+        return;
+      }
       if (!productName && !productImages?.length) {
         console.log("❌ Không có dữ liệu để phân tích");
         setSuggestedCategories([]);

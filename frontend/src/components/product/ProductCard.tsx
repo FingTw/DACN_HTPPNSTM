@@ -42,10 +42,12 @@ const ProductCard: React.FC<ProductCardProps> = ({ sanPham }) => {
 
   // 👉 Lấy link hình ảnh
   const getImageUrl = (url?: string) => {
-    if (!url) return "https://via.placeholder.com/400?text=No+Image";
+    if (!url) return "/default-image.jpg";
     if (url.startsWith("http")) return url;
-    if (url.startsWith("/uploads/")) return `http://localhost:3000${url}`;
-    return url;
+
+    // Nếu trong DB lưu là "/uploads/products/..."
+    // Thì kết quả phải là: "http://localhost:3000/uploads/products/..."
+    return `http://localhost:3000${url}`;
   };
 
   // 👉 Render ⭐ đánh giá
