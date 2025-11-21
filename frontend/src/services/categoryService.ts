@@ -1,5 +1,5 @@
 // src/services/categoryService.ts
-import api from "./api";
+import { api } from "./api"; // Đảm bảo import đúng instance axios đã cấu hình interceptor
 
 export interface Category {
   MaDM: string;
@@ -8,45 +8,68 @@ export interface Category {
   SoLuongSP?: number;
 }
 
-interface CategoryApiResponse<T> {
-  success?: boolean;
-  message?: string;
-  data: T;
+interface CategoryApiResponse {
+  success: boolean;
+  message: string;
+  data:
+    | {
+        categories: Category[];
+        pagination?: any;
+      }
+    | Category[]; // Handle trường hợp trả về mảng trực tiếp hoặc object
 }
 
-const CATEGORY_ENDPOINTS = ["/rfq/categories", "/categories", "/danhmuc"];
+// 🟢 SỬA: Thêm đúng endpoint mà backend Node.js thường dùng
+const CATEGORY_ENDPOINTS = ["/danhmuc", "/categories", "/rfq/categories"];
 
-const normalizeResponse = (payload: any): Category[] => {
-  if (Array.isArray(payload)) return payload;
-  if (Array.isArray(payload?.data)) return payload.data;
-  if (Array.isArray(payload?.data?.categories)) return payload.data.categories;
+const normalizeResponse = (response: any): Category[] => {
+  const payload = response.data;
+
+  // Case 1: Backend trả về { success: true, data: { categories: [...] } } -> (Khớp danhmucController.js)
+  if (payload?.data?.categories && Array.isArray(payload.data.categories)) {
+    return payload.data.categories;
+  }
+
+  // Case 2: Backend trả về { success: true, data: [...] }
+  if (Array.isArray(payload?.data)) {
+    return payload.data;
+  }
+
+  // Case 3: Trả về mảng trực tiếp
+  if (Array.isArray(payload)) {
+    return payload;
+  }
+
   return [];
 };
 
 export const categoryService = {
   async getAllCategories(): Promise<Category[]> {
-    let lastError: any = null;
-
     for (const endpoint of CATEGORY_ENDPOINTS) {
       try {
-        const response = await api.get<CategoryApiResponse<any>>(endpoint);
-        return normalizeResponse(response.data);
-      } catch (error: any) {
-        lastError = error;
+        console.log(`🔄 Fetching categories from: ${endpoint}`);
+        const response = await api.get(endpoint, {
+          params: { limit: 100 }, // Lấy nhiều để đủ mapping cho AI
+        });
 
-        // Với lỗi khác 404, dừng luôn để tránh che giấu vấn đề thật sự
-        if (error.response?.status && error.response.status !== 404) {
-          throw new Error(
-            error.response?.data?.message || "Lỗi khi lấy danh mục"
+        const categories = normalizeResponse(response);
+
+        if (categories.length > 0) {
+          console.log(
+            `✅ Loaded ${categories.length} categories from ${endpoint}`
           );
+          return categories;
+        }
+      } catch (error: any) {
+        // Chỉ log nếu không phải 404 (endpoint không tồn tại)
+        if (error.response?.status !== 404) {
+          console.warn(`⚠️ Error at ${endpoint}:`, error.message);
         }
       }
     }
 
-    throw new Error(
-      lastError?.response?.data?.message ||
-        "Endpoint lấy danh mục không tồn tại. Vui lòng kiểm tra backend."
-    );
+    console.error("❌ Failed to fetch categories from all endpoints");
+    return [];
   },
 };
 

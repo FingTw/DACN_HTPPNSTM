@@ -144,8 +144,8 @@ app.use(
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
-app.use("/uploads", express.static(path.join(__dirname, "public", "uploads")));
-app.use("/public", express.static(path.join(__dirname, "public")));
+// app.use("/uploads", express.static(path.join(__dirname, "public", "uploads")));
+
 // WebSocket Setup
 const io = new Server(httpServer, {
   cors: {
@@ -198,22 +198,20 @@ app.options("*", cors());
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
-// Static files
-app.use("/public", express.static(path.join(__dirname, "public")));
-app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
+const publicDir = path.join(process.cwd(), "public");
+console.log("📂 Static Directory:", publicDir);
+app.use(express.static(publicDir));
 
 // Multer configuration
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
     let folder = "others";
 
-    if (req.originalUrl.includes("avatar")) {
-      folder = "avatars";
-    } else if (req.originalUrl.includes("product")) {
-      folder = "products";
-    }
+    if (req.originalUrl.includes("avatar")) folder = "avatars";
+    else if (req.originalUrl.includes("product")) folder = "products";
 
-    const uploadDir = path.join(process.cwd(), "uploads", folder);
+    const uploadDir = path.join(process.cwd(), "public", "uploads", folder);
+
     if (!fs.existsSync(uploadDir)) {
       fs.mkdirSync(uploadDir, { recursive: true });
     }
@@ -240,11 +238,10 @@ export const upload = multer({
 });
 
 // Ensure uploads directory exists
-const uploadsRoot = path.join(process.cwd(), "uploads");
-if (!fs.existsSync(uploadsRoot)) {
-  fs.mkdirSync(uploadsRoot, { recursive: true });
-}
-app.use("/uploads", express.static(uploadsRoot));
+// const uploadsRoot = path.join(process.cwd(), "uploads");
+// if (!fs.existsSync(uploadsRoot)) {
+//   fs.mkdirSync(uploadsRoot, { recursive: true });
+// }
 
 // Request logging middleware
 app.use((req, res, next) => {

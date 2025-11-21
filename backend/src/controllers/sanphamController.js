@@ -66,29 +66,29 @@ const ensureUploadDir = (type = "products") => {
   return uploadDir;
 };
 
-// 🟢 XỬ LÝ UPLOAD FILE
+// ✅ Hàm này CHỈ tạo đường dẫn URL, KHÔNG ghi file nữa
 const handleFileUpload = (file, type = "products") => {
-  ensureUploadDir(type);
-  const uploadDir = path.join(process.cwd(), "public", "uploads", type);
-
-  const fileExt = path.extname(file.originalname);
-  const fileName = `${type}_${Date.now()}_${Math.random()
-    .toString(36)
-    .substring(7)}${fileExt}`;
-  const filePath = path.join(uploadDir, fileName);
-
-  if (!file.buffer) {
-    const sourcePath = file.path;
-    if (sourcePath && fs.existsSync(sourcePath)) {
-      fs.copyFileSync(sourcePath, filePath);
-    } else {
-      throw new Error("File data không hợp lệ");
-    }
-  } else {
-    fs.writeFileSync(filePath, file.buffer);
+  // Trường hợp 1: Dùng DiskStorage (Multer đã lưu file xong)
+  if (file.filename) {
+    // Trả về đường dẫn web: /uploads/products/ten-file.jpg
+    return `/uploads/${type}/${file.filename}`;
   }
 
-  return `/uploads/${type}/${fileName}`;
+  // Trường hợp 2: Dùng MemoryStorage (Fallback - ít khi chạy nếu config đúng)
+  if (file.buffer) {
+    ensureUploadDir(type);
+    const uploadDir = path.join(process.cwd(), "public", "uploads", type);
+    const fileExt = path.extname(file.originalname);
+    const fileName = `${type}_${Date.now()}_${Math.round(
+      Math.random() * 1e9
+    )}${fileExt}`;
+    const filePath = path.join(uploadDir, fileName);
+
+    fs.writeFileSync(filePath, file.buffer); // Chỉ ghi file ở trường hợp này
+    return `/uploads/${type}/${fileName}`;
+  }
+
+  throw new Error("File không hợp lệ (thiếu filename và buffer)");
 };
 
 // 🟢 TẠO MÃ HÌNH ẢNH
@@ -593,6 +593,23 @@ export const getSanphamByCuaHang = async (req, res) => {
   }
 };
 
+const getUploadedFiles = (req) => {
+  if (!req.files) return [];
+
+  // Trường hợp 1: upload.array('images') -> req.files là mảng
+  if (Array.isArray(req.files)) {
+    return req.files;
+  }
+
+  // Trường hợp 2: upload.fields -> req.files là object { images: [...], hinhAnh: [...] }
+  let files = [];
+  if (req.files.images) files = files.concat(req.files.images);
+  if (req.files.hinhAnh) files = files.concat(req.files.hinhAnh);
+  if (req.files.hinhAnhMoi) files = files.concat(req.files.hinhAnhMoi);
+
+  return files;
+};
+
 // 🟢 TẠO SẢN PHẨM MỚI VỚI NHIỀU HÌNH ẢNH
 export const createSanpham = async (req, res) => {
   const transaction = await sequelize.transaction();
@@ -681,29 +698,33 @@ export const createSanpham = async (req, res) => {
     console.log("✅ Product created:", newProduct.MaSP);
 
     // 🟢 XỬ LÝ HÌNH ẢNH - NHIỀU ẢNH
+    const imageFiles = getUploadedFiles(req);
+    console.log(`📸 Tìm thấy ${imageFiles.length} ảnh để xử lý...`);
+
     let uploadedImages = [];
-    if (req.files && (req.files.images || req.files.hinhAnh)) {
-      const files = req.files.images || req.files.hinhAnh;
-      const imageFiles = Array.isArray(files) ? files : [files];
 
-      console.log(`📸 Uploading ${imageFiles.length} images...`);
-
+    // 🟢 BƯỚC 2: Chạy vòng lặp xử lý
+    if (imageFiles.length > 0) {
       for (let i = 0; i < imageFiles.length; i++) {
         const file = imageFiles[i];
 
         try {
+          // 1. Tạo mã hình ảnh (Database ID)
           const MaHA = await generateMaHA();
+
           const imageUrl = handleFileUpload(file, "products");
 
+          // 3. Lưu vào bảng 'hinhanh'
           const newImage = await hinhanh.create(
             {
               MaHA,
-              URL: imageUrl,
+              URL: imageUrl, // Ví dụ: /uploads/products/product-123...jpg
               MoTa: `Hình ảnh ${i + 1} của sản phẩm ${TenSP}`,
             },
             { transaction }
           );
 
+          // 4. Lưu vào bảng trung gian 'sanpham_hinhanh'
           await sanpham_hinhanh.create(
             {
               MaSP: newProduct.MaSP,
@@ -712,16 +733,16 @@ export const createSanpham = async (req, res) => {
             { transaction }
           );
 
+          // 5. Thêm vào mảng kết quả để trả về client (nếu cần)
           uploadedImages.push({
             MaHA: newImage.MaHA,
             URL: imageUrl,
             MoTa: newImage.MoTa,
           });
 
-          console.log(`✅ Uploaded image ${i + 1}: ${MaHA}`);
+          console.log(`✅ Đã liên kết ảnh ${i + 1}: ${imageUrl}`);
         } catch (imageError) {
-          console.error(`❌ Lỗi upload ảnh ${i + 1}:`, imageError);
-          // Continue with other images even if one fails
+          console.error(`❌ Lỗi xử lý ảnh thứ ${i + 1}:`, imageError);
         }
       }
     }
