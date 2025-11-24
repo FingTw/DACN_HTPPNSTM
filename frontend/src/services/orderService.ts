@@ -18,6 +18,8 @@ export interface ProcessCheckoutData {
   MaPTTT: string | null;
   TongTien: number;
   items: OrderItem[];
+  PhiVanChuyen: number;
+  appliedVouchers?: string[];
 }
 
 export interface Order {

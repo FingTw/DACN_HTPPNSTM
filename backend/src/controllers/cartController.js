@@ -8,6 +8,7 @@ const models = initModels(sequelize);
 const { giohang, ctgh, sanpham, hinhanh, cuahang } = models;
 
 // 🛒 Thêm sản phẩm vào giỏ
+// 🛒 Thêm sản phẩm vào giỏ - CÓ VALIDATION CHẶN CỬA HÀNG
 export const addToCart = async (req, res) => {
   try {
     // 1️⃣ Kiểm tra JWT
@@ -39,10 +40,28 @@ export const addToCart = async (req, res) => {
         .json({ message: "Số lượng không hợp lệ (phải là số nguyên >= 1)" });
     }
 
-    // 3️⃣ Lấy thông tin sản phẩm
-    const sp = await sanpham.findOne({ where: { MaSP } });
+    // 3️⃣ Lấy thông tin sản phẩm KÈM THÔNG TIN CỬA HÀNG
+    const sp = await sanpham.findOne({ 
+      where: { MaSP },
+      include: [
+        {
+          model: cuahang,
+          as: "cuahang",
+          attributes: ["MaCH", "MaTK"]
+        }
+      ]
+    });
+    
     if (!sp) {
       return res.status(404).json({ message: "Không tìm thấy sản phẩm" });
+    }
+
+    // 🔥 VALIDATION: KIỂM TRA CÓ PHẢI SẢN PHẨM CỦA CHÍNH MÌNH KHÔNG
+    if (sp.cuahang && sp.cuahang.MaTK === MaTK) {
+      return res.status(400).json({ 
+        success: false,
+        message: "Bạn không thể thêm sản phẩm của chính mình vào giỏ hàng" 
+      });
     }
 
     if (!sp.SLTon || sp.SLTon <= 0) {
