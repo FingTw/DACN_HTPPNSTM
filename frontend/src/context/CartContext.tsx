@@ -92,6 +92,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [user]);
 
   const addToCart = useCallback(
+    
     async (MaSP: string, quantity: number = 1) => {
       if (!user) throw new Error('Vui lòng đăng nhập để thêm vào giỏ hàng');
       await cartService.addToCart(MaSP, quantity);

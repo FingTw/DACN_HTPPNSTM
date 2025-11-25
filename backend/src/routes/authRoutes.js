@@ -30,8 +30,29 @@ router.post("/upload-avatar", upload.single('avatar'), authController.uploadAvat
 
 // Trong authRoutes.js
 router.get("/profile", authController.getProfile);
-// router.get("/google", authController.googleLogin);
 
-// router.get("/google/callback", authController.googleCallback);
-
+router.post('/google', authController.googleLogin);
+router.post('/facebook', authController.facebookLogin);
+// API trả về config cho frontend
+router.get('/client-config', (req, res) => {
+  try {
+    console.log('🔧 Providing client config to frontend');
+    
+    res.json({
+      success: true,
+      data: {
+        googleClientId: process.env.GOOGLE_CLIENT_ID,
+        facebookAppId: process.env.FACEBOOK_APP_ID,
+        // Có thể thêm các config khác nếu cần
+        frontendUrl: process.env.FRONTEND_URL
+      }
+    });
+  } catch (error) {
+    console.error('❌ Error providing client config:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi khi lấy cấu hình'
+    });
+  }
+});
 export default router;

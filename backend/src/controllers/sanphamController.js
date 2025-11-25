@@ -1739,3 +1739,38 @@ export const deleteProductImage = async (req, res) => {
     });
   }
 };
+
+export const getProductsForAI = async () => {
+  try {
+    // Lấy 30 sản phẩm mới nhất hoặc bán chạy nhất
+    // Chỉ lấy các trường cần thiết để tiết kiệm token cho AI
+    const products = await sanpham.findAll({
+      limit: 30,
+      where: {
+        TrangThai: { [Op.or]: ["Đang bán", "active"] }, // Chỉ lấy hàng đang bán
+      },
+      attributes: ["TenSP", "GiaBan", "SLTon", "MoTa", "DVT"], // Chỉ lấy thông tin quan trọng
+      include: [
+        {
+          model: cuahang,
+          as: "cuahang",
+          attributes: ["TenCH"], // Lấy thêm tên cửa hàng
+        },
+      ],
+      order: [["MaSP", "DESC"]], // Sản phẩm mới nhất
+    });
+
+    // Map dữ liệu cho gọn
+    return products.map((p) => ({
+      ten: p.TenSP,
+      gia: p.GiaBan,
+      ton_kho: p.SLTon,
+      dvt: p.DVT,
+      cua_hang: p.cuahang?.TenCH || "SAP",
+      mo_ta_ngan: p.MoTa ? p.MoTa.substring(0, 100) + "..." : "",
+    }));
+  } catch (error) {
+    console.error("❌ Lỗi lấy data cho AI:", error);
+    return []; // Trả về mảng rỗng nếu lỗi, không throw để tránh crash AI
+  }
+};

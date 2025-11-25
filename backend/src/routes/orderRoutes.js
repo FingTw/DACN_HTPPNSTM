@@ -10,7 +10,11 @@ import {
   getPaymentMethods,
   getAllOrder,
   getOrdersByStatus,
-  calculateShipping // 🆕 THÊM DÒNG NÀY
+  calculateShipping,
+  getStoreOrders,
+  updateOrderStatusByStore,
+  getOrderStatistics,
+  getOrderDetail
 } from "../controllers/orderController.js";
 
 const router = express.Router();
@@ -42,5 +46,10 @@ router.get("/payment-methods", getPaymentMethods);
 // Lấy tất cả đơn hàng
 router.get("/all", getAllOrder);
 router.get("/status/:status", getOrdersByStatus);
+// 🆕 CÁC ENDPOINTS MỚI CHO ORDER MANAGER
+router.get("/cua-hang/:MaCH", getStoreOrders); // Lấy đơn hàng theo cửa hàng
+router.put("/:MaDH/trang-thai-cua-hang", updateOrderStatusByStore); // Cập nhật trạng thái bởi cửa hàng
+router.get("/cua-hang/:MaCH/thong-ke", getOrderStatistics); // Thống kê đơn hàng
+router.get("/chi-tiet/:MaDH", getOrderDetail); // Chi tiết đơn hàng
 
 export default router;

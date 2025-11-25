@@ -5,11 +5,14 @@ import crypto from "crypto";
 import { initModels } from "../models/init-models.js";
 import sequelize from "../config/db.js";
 import dotenv from "dotenv";
+import { OAuth2Client } from "google-auth-library";
+import fetch from "node-fetch";
 
 dotenv.config();
 
 // khởi tạo models
 const models = initModels(sequelize);
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 // console.log(models);
 // console.log(models.taikhoan);
 // console.log("JWT_SECRET:", process.env.JWT_SECRET);
@@ -29,6 +32,396 @@ import { sendEmail } from "../services/emailService.js";
 import { Op } from "sequelize";
 
 const authController = {
+   // ==============================
+  // ĐĂNG NHẬP GOOGLE
+  // ==============================
+  googleLogin: async (req, res) => {
+    try {
+      const { token } = req.body;
+
+      if (!token) {
+        return res.status(400).json({ message: "Thiếu token Google" });
+      }
+
+      console.log("🔧 Google token received:", token.substring(0, 50) + "...");
+
+      try {
+        // Xác minh token với Google
+        const ticket = await googleClient.verifyIdToken({
+          idToken: token,
+          audience: process.env.GOOGLE_CLIENT_ID,
+        });
+
+        const payload = ticket.getPayload();
+        const {
+          sub: googleId,
+          email,
+          name,
+          picture,
+        } = payload;
+
+        console.log("✅ Google payload:", { googleId, email, name });
+
+        // Tìm tài khoản theo email hoặc googleId
+        let user = await taikhoan.findOne({
+          where: {
+            [Op.or]: [
+              { Email: email },
+              { GoogleId: googleId }
+            ]
+          },
+          include: [
+            {
+              model: taikhoan_vaitro,
+              as: "taikhoan_vaitros",
+              include: [
+                {
+                  model: vaitro,
+                  as: "vaitro",
+                  attributes: ["MaVT", "TenVT"],
+                },
+              ],
+            },
+            {
+              model: cuahang,
+              as: "cuahangs",
+              attributes: ["MaCH"],
+            },
+          ],
+        });
+
+        // Nếu user chưa tồn tại, tạo mới
+        if (!user) {
+          console.log("🆕 Tạo user mới từ Google");
+          
+          // Tạo mã tài khoản mới
+          const now = new Date();
+          const prefix = "TK" + 
+            now.getFullYear().toString().slice(2) + 
+            String(now.getMonth() + 1).padStart(2, "0");
+
+          const last = await taikhoan.findOne({
+            where: { MaTK: { [Op.like]: `${prefix}%` } },
+            order: [["MaTK", "DESC"]],
+          });
+
+          let newId = prefix + "0001";
+          if (last) {
+            const num = parseInt(last.MaTK.slice(6)) + 1;
+            newId = prefix + num.toString().padStart(4, "0");
+          }
+
+          // Tạo user mới
+          user = await taikhoan.create({
+            MaTK: newId,
+            TenDangNhap: email,
+            Email: email,
+            HoTen: name,
+            GoogleId: googleId,
+            MatKhau: await bcrypt.hash(crypto.randomBytes(16).toString('hex'), 10),
+            NgayTao: new Date(),
+            TrangThai: "Hoạt động",
+          });
+
+          // Gán role mặc định
+          const khachRole = await vaitro.findOne({
+            where: { TenVT: "Khách Hàng" },
+          });
+          if (khachRole) {
+            await taikhoan_vaitro.create({
+              MaTK: user.MaTK,
+              MaVT: khachRole.MaVT,
+            });
+          }
+
+          // Lấy lại user với đầy đủ thông tin
+          user = await taikhoan.findByPk(user.MaTK, {
+            include: [
+              {
+                model: taikhoan_vaitro,
+                as: "taikhoan_vaitros",
+                include: [
+                  {
+                    model: vaitro,
+                    as: "vaitro",
+                    attributes: ["MaVT", "TenVT"],
+                  },
+                ],
+              },
+              {
+                model: cuahang,
+                as: "cuahangs",
+                attributes: ["MaCH"],
+              },
+            ],
+          });
+        } else {
+          console.log("✅ User đã tồn tại, cập nhật GoogleId nếu cần");
+          // Cập nhật GoogleId nếu user tồn tại nhưng chưa có GoogleId
+          if (!user.GoogleId) {
+            user.GoogleId = googleId;
+            await user.save();
+          }
+        }
+
+        // Lấy danh sách vai trò
+        const roleNames = user.taikhoan_vaitros?.map((relation) => 
+          relation.vaitro?.TenVT
+        ).filter(Boolean) || [];
+        
+        const primaryRole = roleNames.includes("Admin") 
+          ? "Admin" 
+          : roleNames.length > 0 
+            ? roleNames[0] 
+            : null;
+
+        const userStoreId = user.cuahangs?.[0]?.MaCH || null;
+
+        // Tạo JWT token
+        const jwtToken = jwt.sign(
+          {
+            MaTK: user.MaTK,
+            TenDangNhap: user.TenDangNhap,
+            role: primaryRole,
+            roles: roleNames,
+            MaCH: userStoreId,
+          },
+          process.env.JWT_SECRET,
+          { expiresIn: "1h" }
+        );
+
+        // Format response
+        const userResponse = {
+          MaTK: user.MaTK,
+          TenDangNhap: user.TenDangNhap,
+          HoTen: user.HoTen,
+          Email: user.Email,
+          role: primaryRole,
+          roles: roleNames,
+          MaCH: userStoreId,
+        };
+
+        console.log("✅ Google login thành công cho user:", userResponse.TenDangNhap);
+
+        return res.json({
+          message: "Đăng nhập Google thành công",
+          token: jwtToken,
+          user: userResponse,
+        });
+
+      } catch (googleError) {
+        console.error("❌ Lỗi xác minh Google token:", googleError);
+        return res.status(400).json({ 
+          message: "Token Google không hợp lệ", 
+          error: googleError.message 
+        });
+      }
+
+    } catch (error) {
+      console.error("❌ Lỗi đăng nhập Google:", error);
+      return res.status(500).json({ 
+        message: "Lỗi đăng nhập Google", 
+        error: error.message 
+      });
+    }
+  },
+
+  // ==============================
+  // ĐĂNG NHẬP FACEBOOK
+  // ==============================
+  facebookLogin: async (req, res) => {
+    try {
+      const { accessToken } = req.body;
+
+      if (!accessToken) {
+        return res.status(400).json({ message: "Thiếu access token Facebook" });
+      }
+
+      console.log("🔧 Facebook token received");
+
+      try {
+        // Xác minh token với Facebook
+        const fbResponse = await fetch(
+          `https://graph.facebook.com/v19.0/me?fields=id,name,email,picture&access_token=${accessToken}`
+        );
+
+        const fbData = await fbResponse.json();
+
+        if (!fbResponse.ok) {
+          console.error("❌ Facebook API error:", fbData.error);
+          return res.status(400).json({ 
+            message: "Token Facebook không hợp lệ",
+            error: fbData.error?.message 
+          });
+        }
+
+        const { id: facebookId, email, name } = fbData;
+        console.log("✅ Facebook payload:", { facebookId, email, name });
+
+        // Tìm tài khoản theo email hoặc facebookId
+        let user = await taikhoan.findOne({
+          where: {
+            [Op.or]: [
+              { Email: email },
+              { FacebookId: facebookId }
+            ]
+          },
+          include: [
+            {
+              model: taikhoan_vaitro,
+              as: "taikhoan_vaitros",
+              include: [
+                {
+                  model: vaitro,
+                  as: "vaitro",
+                  attributes: ["MaVT", "TenVT"],
+                },
+              ],
+            },
+            {
+              model: cuahang,
+              as: "cuahangs",
+              attributes: ["MaCH"],
+            },
+          ],
+        });
+
+        // Nếu user chưa tồn tại, tạo mới
+        if (!user) {
+          console.log("🆕 Tạo user mới từ Facebook");
+          
+          // Tạo mã tài khoản mới
+          const now = new Date();
+          const prefix = "TK" + 
+            now.getFullYear().toString().slice(2) + 
+            String(now.getMonth() + 1).padStart(2, "0");
+
+          const last = await taikhoan.findOne({
+            where: { MaTK: { [Op.like]: `${prefix}%` } },
+            order: [["MaTK", "DESC"]],
+          });
+
+          let newId = prefix + "0001";
+          if (last) {
+            const num = parseInt(last.MaTK.slice(6)) + 1;
+            newId = prefix + num.toString().padStart(4, "0");
+          }
+
+          // Tạo user mới
+          user = await taikhoan.create({
+            MaTK: newId,
+            TenDangNhap: email || `fb_${facebookId}`,
+            Email: email,
+            HoTen: name,
+            FacebookId: facebookId,
+            MatKhau: await bcrypt.hash(crypto.randomBytes(16).toString('hex'), 10),
+            NgayTao: new Date(),
+            TrangThai: "Hoạt động",
+          });
+
+          // Gán role mặc định
+          const khachRole = await vaitro.findOne({
+            where: { TenVT: "Khách Hàng" },
+          });
+          if (khachRole) {
+            await taikhoan_vaitro.create({
+              MaTK: user.MaTK,
+              MaVT: khachRole.MaVT,
+            });
+          }
+
+          // Lấy lại user với đầy đủ thông tin
+          user = await taikhoan.findByPk(user.MaTK, {
+            include: [
+              {
+                model: taikhoan_vaitro,
+                as: "taikhoan_vaitros",
+                include: [
+                  {
+                    model: vaitro,
+                    as: "vaitro",
+                    attributes: ["MaVT", "TenVT"],
+                  },
+                ],
+              },
+              {
+                model: cuahang,
+                as: "cuahangs",
+                attributes: ["MaCH"],
+              },
+            ],
+          });
+        } else {
+          console.log("✅ User đã tồn tại, cập nhật FacebookId nếu cần");
+          // Cập nhật FacebookId nếu user tồn tại nhưng chưa có FacebookId
+          if (!user.FacebookId) {
+            user.FacebookId = facebookId;
+            await user.save();
+          }
+        }
+
+        // Lấy danh sách vai trò
+        const roleNames = user.taikhoan_vaitros?.map((relation) => 
+          relation.vaitro?.TenVT
+        ).filter(Boolean) || [];
+        
+        const primaryRole = roleNames.includes("Admin") 
+          ? "Admin" 
+          : roleNames.length > 0 
+            ? roleNames[0] 
+            : null;
+
+        const userStoreId = user.cuahangs?.[0]?.MaCH || null;
+
+        // Tạo JWT token
+        const jwtToken = jwt.sign(
+          {
+            MaTK: user.MaTK,
+            TenDangNhap: user.TenDangNhap,
+            role: primaryRole,
+            roles: roleNames,
+            MaCH: userStoreId,
+          },
+          process.env.JWT_SECRET,
+          { expiresIn: "1h" }
+        );
+
+        // Format response
+        const userResponse = {
+          MaTK: user.MaTK,
+          TenDangNhap: user.TenDangNhap,
+          HoTen: user.HoTen,
+          Email: user.Email,
+          role: primaryRole,
+          roles: roleNames,
+          MaCH: userStoreId,
+        };
+
+        console.log("✅ Facebook login thành công cho user:", userResponse.TenDangNhap);
+
+        return res.json({
+          message: "Đăng nhập Facebook thành công",
+          token: jwtToken,
+          user: userResponse,
+        });
+
+      } catch (fbError) {
+        console.error("❌ Lỗi xác minh Facebook token:", fbError);
+        return res.status(400).json({ 
+          message: "Token Facebook không hợp lệ", 
+          error: fbError.message 
+        });
+      }
+
+    } catch (error) {
+      console.error("❌ Lỗi đăng nhập Facebook:", error);
+      return res.status(500).json({ 
+        message: "Lỗi đăng nhập Facebook", 
+        error: error.message 
+      });
+    }
+  },
+
   // Trong authController.js - Thêm API mới
   getProfile: async (req, res) => {
     try {

@@ -39,6 +39,8 @@ import QuanLyKhuyenMaiPage from "./pages/QuanLyKhuyenMaiPage";
 import PrivateRoute from "./components/PrivateRoute";
 import RFQMarketplace from "./pages/rfq/RFQMarketplace";
 
+import ChatWidget from "./components/ai/ChatWidget";
+
 function App() {
   return (
     <AuthProvider>
@@ -129,6 +131,8 @@ function App() {
                 }
               />
             </Routes>
+
+            <ChatWidget />
           </BrowserRouter>
         </AddressProvider>
       </CartProvider>

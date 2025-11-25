@@ -1,3 +1,4 @@
+// src/services/authService.ts
 import axios from "axios";
 
 const API_BASE_URL = "http://localhost:3000/api";
@@ -15,6 +16,25 @@ export interface LoginData {
   MatKhau: string;
 }
 
+// 🔥 CẬP NHẬT INTERFACE CHO SOCIAL LOGIN
+export interface SocialLoginData {
+  token?: string;        // Access Token hoặc ID Token
+  accessToken?: string;  // Cho Facebook
+  id_token?: string;     // 🔥 THÊM ID TOKEN CHO GOOGLE
+}
+
+export interface ClientConfig {
+  googleClientId: string;
+  facebookAppId: string;
+  frontendUrl: string;
+}
+
+export interface ConfigResponse {
+  success: boolean;
+  data: ClientConfig;
+  message?: string;
+}
+
 export interface AuthResponse {
   message: string;
   token?: string;
@@ -22,6 +42,15 @@ export interface AuthResponse {
     MaTK: string;
     TenDangNhap: string;
     role: string;
+    roles?: string[];
+    HoTen?: string;
+    Email?: string;
+    MaCH?: string | null;
+    Avatar?: {
+      MaHA: string;
+      URL: string;
+      MoTa?: string;
+    } | null;
   };
 }
 
@@ -111,6 +140,38 @@ export const authAPI = {
     return response;
   },
   
+  // 🔥 CẬP NHẬT GOOGLE LOGIN
+  googleLogin: async (data: SocialLoginData) => {
+    const response = await api.post<AuthResponse>("/auth/google", data);
+    const { token, user } = response.data;
+
+    if (token && user) {
+      localStorage.setItem("token", token);
+      localStorage.setItem("user", JSON.stringify(user));
+
+      const event = new Event("authChange");
+      window.dispatchEvent(event);
+    }
+
+    return response;
+  },
+
+  // 🔥 CẬP NHẬT FACEBOOK LOGIN
+  facebookLogin: async (data: SocialLoginData) => {
+    const response = await api.post<AuthResponse>("/auth/facebook", data);
+    const { token, user } = response.data;
+
+    if (token && user) {
+      localStorage.setItem("token", token);
+      localStorage.setItem("user", JSON.stringify(user));
+
+      const event = new Event("authChange");
+      window.dispatchEvent(event);
+    }
+
+    return response;
+  },
+  
   logout: () => api.get("/auth/logout"),
 
   // API lấy thông tin profile từ server
@@ -126,6 +187,7 @@ export const authAPI = {
         'Content-Type': 'multipart/form-data'
       }
     }),
+    getClientConfig: () => api.get<ConfigResponse>('/auth/client-config'),
 };
 
 export default api;

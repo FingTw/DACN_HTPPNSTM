@@ -46,6 +46,17 @@ export default function(sequelize, DataTypes) {
         model: 'hinhanh',
         key: 'MaHA'
       }
+    },
+    // Trong model taikhoan, thêm:
+    GoogleId: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      unique: true
+    },
+    FacebookId: {
+      type: DataTypes.STRING, 
+      allowNull: true,
+      unique: true
     }
   }, {
     sequelize,

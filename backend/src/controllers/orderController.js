@@ -1,6 +1,7 @@
 import jwt from "jsonwebtoken";
 import { v4 as uuidv4 } from "uuid";
 import { initModels } from "../models/init-models.js";
+import { Op } from "sequelize";
 import sequelize from "../config/db.js";
 import { DistanceCalculator } from "../services/distanceCalculator.js";
 
@@ -20,6 +21,7 @@ const {
   khuyenmai_taikhoan,
   thanhtoan,
   hdbanhang,
+  cuahang
 } = models;
 
 export const checkout = async (req, res) => {
@@ -119,13 +121,22 @@ export const processCheckout = async (req, res) => {
     const MaTK = decoded.MaTK;
 
     // === 2. Lấy thông tin từ body ===
-    const { DCNhanHang, MaPTVC, MaPTTT, items, appliedVouchers } = req.body;
+    const { 
+      DCNhanHang, 
+      MaPTVC, 
+      MaPTTT, 
+      items, 
+      appliedVouchers,
+      PhiVanChuyen // 🆕 NHẬN PHÍ VẬN CHUYỂN TỪ FRONTEND
+    } = req.body;
+
     console.log("📦 Request body:", {
       DCNhanHang,
       MaPTVC,
       MaPTTT,
       itemsCount: items?.length,
       appliedVouchers,
+      PhiVanChuyen // 🆕 LOG PHÍ VẬN CHUYỂN
     });
 
     if (!items || !items.length) {
@@ -140,6 +151,12 @@ export const processCheckout = async (req, res) => {
       return res
         .status(400)
         .json({ message: "Địa chỉ nhận hàng không được để trống" });
+    }
+
+    // 🆕 VALIDATE PHÍ VẬN CHUYỂN
+    if (PhiVanChuyen === undefined || PhiVanChuyen === null || PhiVanChuyen < 0) {
+      console.log("❌ Phí vận chuyển không hợp lệ:", PhiVanChuyen);
+      return res.status(400).json({ message: "Phí vận chuyển không hợp lệ" });
     }
 
     // === 3. Lấy giỏ hàng của user ===
@@ -230,14 +247,12 @@ export const processCheckout = async (req, res) => {
       0
     );
 
-    // Tạm tính phí vận chuyển (có thể lấy từ frontend hoặc tính lại)
-    const tempShippingFee = 30000; // Tạm thời, nên nhận từ frontend
-
-    const tongTienTruocKM = tongTienSanPham + tempShippingFee;
+    // 🆕 SỬ DỤNG PHÍ VẬN CHUYỂN TỪ FRONTEND - XÓA PHẦN TẠM TÍNH
+    const tongTienTruocKM = tongTienSanPham + PhiVanChuyen;
 
     console.log("💰 Tính toán tiền:", {
       tongTienSanPham,
-      tempShippingFee,
+      PhiVanChuyen, // 🆕 SỬ DỤNG PHÍ TỪ FRONTEND
       tongTienTruocKM,
     });
 
@@ -322,17 +337,17 @@ export const processCheckout = async (req, res) => {
       maKMApDung,
     });
 
-    // Tạo đơn hàng
+    // Tạo đơn hàng - 🆕 SỬ DỤNG PhiVanChuyen TỪ FRONTEND
     const newDonHang = await donhang.create(
       {
         MaDH,
         MaTK,
         DCNhanHang: DCNhanHang.trim(),
-        MaPTVC: MaPTVC || "VC_STANDARD", // Đảm bảo có giá trị mặc định
-        MaPTTT: MaPTTT || "TT01", // Đảm bảo có giá trị mặc định
+        MaPTVC: MaPTVC || "VC_STANDARD",
+        MaPTTT: MaPTTT || "TT01",
         TongTien: tongTienSauKM,
         GiamGia: giamGia,
-        PhiVanChuyen: tempShippingFee,
+        PhiVanChuyen: PhiVanChuyen, // 🆕 SỬ DỤNG TỪ FRONTEND
         MaKM: maKMApDung,
         TrangThai: "Chờ xác nhận",
         NgayTao: new Date(),
@@ -428,7 +443,7 @@ export const processCheckout = async (req, res) => {
       data: {
         MaDH,
         TongTien: tongTienSauKM,
-        PhiVanChuyen: tempShippingFee,
+        PhiVanChuyen: PhiVanChuyen, // 🆕 TRẢ VỀ PHÍ VẬN CHUYỂN
         GiamGia: giamGia,
         SoSanPham: selectedItems.length,
       },
@@ -472,14 +487,19 @@ export const orderSuccess = async (req, res) => {
 export const updateOrderStatus = async (req, res) => {
   const { MaDH } = req.params;
   const { TrangThai } = req.body;
+  
   console.log("📦 Body nhận được:", req.body);
   console.log("📌 TrangThai:", TrangThai);
+  
+  let transaction;
+  
   try {
     // 🛡️ 1. Xác thực token và lấy MaTK từ JWT
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return res.status(401).json({ message: "Không có token" });
     }
+    
     const token = authHeader.split(" ")[1];
     let decoded;
     try {
@@ -487,6 +507,7 @@ export const updateOrderStatus = async (req, res) => {
     } catch (err) {
       return res.status(401).json({ message: "Token không hợp lệ" });
     }
+    
     const userMaTK = decoded.MaTK;
 
     // 🔎 2. Lấy đơn hàng
@@ -495,108 +516,207 @@ export const updateOrderStatus = async (req, res) => {
       return res.status(404).json({ message: "Không tìm thấy đơn hàng" });
     }
 
-    // ✅ Gợi ý 1: Kiểm tra quyền người dùng (chỉ người đặt đơn mới được hủy)
-    if (order.MaTK !== userMaTK) {
-      return res
-        .status(403)
-        .json({ message: "Bạn không có quyền thay đổi đơn hàng này" });
+    // ✅ Kiểm tra quyền người dùng (chỉ người đặt đơn mới được cập nhật)
+    // if (order.MaTK !== userMaTK) {
+    //   return res.status(403).json({ 
+    //     message: "Bạn không có quyền thay đổi đơn hàng này" 
+    //   });
+    // }
+
+    // 🎯 VALIDATE TRẠNG THÁI - CHO PHÉP CHUYỂN "Đã giao hàng" → "Hoàn tất"
+    const validTransitions = {
+      'Chờ xác nhận': ['Hủy đơn hàng'],
+      'Đang xử lý': ['Hủy đơn hàng'],
+      'Đã giao hàng': ['Hoàn tất'], // 🆕 CHO PHÉP KHÁCH HÀNG XÁC NHẬN ĐÃ NHẬN HÀNG
+    };
+
+    const currentStatus = order.TrangThai;
+    const allowedNextStatuses = validTransitions[currentStatus] || [];
+
+    // 🆕 CHO PHÉP CHUYỂN TỪ "ĐÃ GIAO HÀNG" SANG "HOÀN TẤT"
+    const isAllowedTransition = 
+      (currentStatus === 'Đã giao hàng' && TrangThai === 'Hoàn tất') ||
+      allowedNextStatuses.includes(TrangThai);
+
+    if (!isAllowedTransition) {
+      return res.status(400).json({
+        success: false,
+        message: `Không thể chuyển từ "${currentStatus}" sang "${TrangThai}"`
+      });
     }
 
-    // ✅ Gợi ý 2: Chỉ cho phép hủy khi đơn đang ở trạng thái “Chờ xác nhận” hoặc “Đang xử lý”
-    const choPhepHuy = ["Chờ xác nhận", "Đang xử lý"];
-    if (TrangThai === "Hủy đơn hàng" && !choPhepHuy.includes(order.TrangThai)) {
-      return res
-        .status(400)
-        .json({ message: "Không thể hủy đơn ở trạng thái hiện tại" });
-    }
+    // 🗃️ Bắt đầu transaction
+    transaction = await sequelize.transaction();
+    console.log("✅ Transaction started for order update");
 
-    // 👉 Nếu là hủy đơn, thực hiện trả hàng về giỏ + hoàn lại tồn kho
+    // 👉 XỬ LÝ ĐẶC BIỆT THEO TRẠNG THÁI
     if (TrangThai === "Hủy đơn hàng") {
-      const chiTietList = await chitiet_donhang.findAll({ where: { MaDH } });
+      console.log("🔄 Xử lý hủy đơn hàng...");
+      
+      const chiTietList = await chitiet_donhang.findAll({ 
+        where: { MaDH },
+        transaction 
+      });
 
       if (!chiTietList || chiTietList.length === 0) {
-        return res
-          .status(400)
-          .json({ message: "Đơn hàng không có sản phẩm để hoàn" });
+        await transaction.rollback();
+        return res.status(400).json({ 
+          message: "Đơn hàng không có sản phẩm để hoàn" 
+        });
       }
 
-      // Trả lại tồn kho
+      // 🔄 Hoàn lại tồn kho
+      console.log("📦 Hoàn lại tồn kho...");
       for (const ct of chiTietList) {
-        const sp = await sanpham.findOne({ where: { MaSP: ct.MaSP } });
+        const sp = await sanpham.findByPk(ct.MaSP, { transaction });
         if (sp) {
           sp.SLTon += ct.SoLuong;
-          await sp.save();
+          await sp.save({ transaction });
+          console.log(`✅ Đã hoàn lại ${ct.SoLuong} sản phẩm ${ct.MaSP}`);
         }
       }
+
       // 🔄 Hoàn lại số lần sử dụng mã KM nếu có
       if (order.MaKM) {
+        console.log("🎫 Hoàn lại số lần sử dụng mã khuyến mãi...");
         const userKM = await khuyenmai_taikhoan.findOne({
           where: { MaKM: order.MaKM, MaTK: order.MaTK },
+          transaction
         });
+        
         if (userKM && userKM.SoLanSuDung > 0) {
           await khuyenmai_taikhoan.update(
             { SoLanSuDung: userKM.SoLanSuDung - 1 },
-            { where: { MaKM: order.MaKM, MaTK: order.MaTK } }
+            { 
+              where: { MaKM: order.MaKM, MaTK: order.MaTK },
+              transaction 
+            }
           );
+          console.log(`✅ Đã hoàn lại 1 lần sử dụng mã KM: ${order.MaKM}`);
         }
       }
 
-      // Trả lại giỏ hàng
-      let cart = await giohang.findOne({ where: { MaTK: order.MaTK } });
+      // 🔄 Trả lại giỏ hàng
+      console.log("🛒 Trả sản phẩm vào giỏ hàng...");
+      let cart = await giohang.findOne({ 
+        where: { MaTK: order.MaTK },
+        transaction 
+      });
+      
       if (!cart) {
         cart = await giohang.create({
-          MaGH:
-            "GH" + Math.random().toString(36).substring(2, 10).toUpperCase(),
+          MaGH: "GH" + Math.random().toString(36).substring(2, 10).toUpperCase(),
           MaTK: order.MaTK,
-        });
+        }, { transaction });
+        console.log("✅ Đã tạo giỏ hàng mới");
       }
 
       for (const ct of chiTietList) {
         let item = await ctgh.findOne({
           where: { MaGH: cart.MaGH, MaSP: ct.MaSP },
+          transaction
         });
+        
         if (item) {
           item.SL += ct.SoLuong;
           item.TongTien = item.SL * ct.GiaBan;
-          await item.save();
+          await item.save({ transaction });
+          console.log(`✅ Đã cập nhật sản phẩm ${ct.MaSP} trong giỏ`);
         } else {
           await ctgh.create({
             MaGH: cart.MaGH,
             MaSP: ct.MaSP,
             SL: ct.SoLuong,
             TongTien: ct.GiaBan * ct.SoLuong,
-          });
+          }, { transaction });
+          console.log(`✅ Đã thêm sản phẩm ${ct.MaSP} vào giỏ`);
         }
       }
     }
 
-    // 📝 Gợi ý 3: Ghi log lịch sử trạng thái
-
+    // 📝 GHI LỊCH SỬ TRẠNG THÁI
     if (lichsu_trangthai) {
+      let ghiChu = '';
+      
+      if (TrangThai === 'Hoàn tất') {
+        ghiChu = 'Khách hàng xác nhận đã nhận hàng';
+      } else if (TrangThai === 'Hủy đơn hàng') {
+        ghiChu = 'Khách hàng đã hủy đơn hàng';
+      } else {
+        ghiChu = `Cập nhật trạng thái: ${currentStatus} → ${TrangThai}`;
+      }
+
       await lichsu_trangthai.create({
-        MaLS: "LS" + Math.random().toString(36).substring(2, 10).toUpperCase(),
+        MaLS: "LS" + uuidv4().replace(/-/g, "").substring(0, 8).toUpperCase(),
         MaDH: order.MaDH,
-        TrangThaiCu: order.TrangThai,
+        TrangThaiCu: currentStatus,
         TrangThaiMoi: TrangThai,
         NgayCapNhat: new Date(),
         NguoiCapNhat: userMaTK,
-      });
+        GhiChu: ghiChu
+      }, { transaction });
+      
+      console.log("📝 Đã ghi lịch sử trạng thái");
     }
 
-    // ✅ Cập nhật trạng thái đơn hàng trực tiếp bằng .update()
+    // ✅ CẬP NHẬT TRẠNG THÁI ĐƠN HÀNG
     if (order.TrangThai !== TrangThai) {
-      await donhang.update({ TrangThai }, { where: { MaDH } });
+      await donhang.update(
+        { 
+          TrangThai,
+          NgayCapNhat: new Date()
+        },
+        { 
+          where: { MaDH },
+          transaction 
+        }
+      );
+      
+      console.log(`✅ Đã cập nhật đơn hàng ${MaDH}: ${currentStatus} → ${TrangThai}`);
     } else {
       console.log(`⚠️ Trạng thái không đổi cho đơn ${MaDH} → Không update`);
     }
 
+    // ✅ COMMIT TRANSACTION
+    await transaction.commit();
+    console.log("✅ Transaction committed successfully");
+
+    // 🎯 THÔNG BÁO THÀNH CÔNG
+    let successMessage = '';
+    
+    if (TrangThai === 'Hoàn tất') {
+      successMessage = 'Đã xác nhận nhận hàng! Cảm ơn bạn đã mua sắm.';
+    } else if (TrangThai === 'Hủy đơn hàng') {
+      successMessage = 'Đã hủy đơn hàng thành công. Sản phẩm đã được trả lại giỏ hàng.';
+    } else {
+      successMessage = `Đã cập nhật trạng thái đơn hàng: ${TrangThai}`;
+    }
+
     return res.json({
       success: true,
-      message: `Đã cập nhật trạng thái đơn hàng: ${TrangThai}`,
+      message: successMessage,
+      data: {
+        MaDH,
+        TrangThaiCu: currentStatus,
+        TrangThaiMoi: TrangThai,
+        NgayCapNhat: new Date()
+      }
     });
+
   } catch (err) {
-    console.error(err);
-    return res.status(500).json({ message: "Lỗi server", error: err.message });
+    // ❌ ROLLBACK NẾU CÓ LỖI
+    if (transaction) {
+      await transaction.rollback();
+      console.log("❌ Transaction rolled back due to error");
+    }
+
+    console.error("❌ Lỗi cập nhật trạng thái đơn hàng:", err);
+    
+    return res.status(500).json({
+      success: false,
+      message: "Lỗi server khi cập nhật trạng thái đơn hàng",
+      error: process.env.NODE_ENV === "development" ? err.message : undefined
+    });
   }
 };
 
@@ -649,7 +769,7 @@ export const getAllOrder = async (req, res) => {
     const MaTK = decoded.MaTK;
     console.log("📋 MaTK từ token:", MaTK);
 
-    // Lấy tất cả đơn hàng của user - SỬA ALIAS THANHTOAN
+    // Lấy tất cả đơn hàng của user
     const orders = await donhang.findAll({
       where: { MaTK },
       include: [
@@ -674,23 +794,19 @@ export const getAllOrder = async (req, res) => {
           as: "MaPTVC_ptvc",
           attributes: ["TenPTVC"],
         },
-        // {
-        //   model: thanhtoan,
-        //   as: "thanhtoan", // ← ALIAS CHÍNH XÁC THEO MODEL
-        //   attributes: ['TrangThai', 'Sotien', 'NgayTao']
-        // }
       ],
       order: [["NgayTao", "DESC"]],
     });
 
     console.log(`📦 Tìm thấy ${orders.length} đơn hàng cho user ${MaTK}`);
 
-    // Đếm số lượng đơn hàng theo từng trạng thái
+    // 🆕 CẬP NHẬT STATUS COUNTS VỚI TRẠNG THÁI MỚI "Hoàn thành"
     const statusCounts = {
       "Chờ xác nhận": 0,
       "Chờ lấy hàng": 0,
       "Chờ giao hàng": 0,
-      "Đã giao": 0,
+      "Đã giao hàng": 0,
+      "Hoàn thành": 0,     // 🆕 THÊM TRẠNG THÁI MỚI
       "Trả hàng": 0,
       "Đã hủy": 0,
     };
@@ -1140,5 +1256,530 @@ const calculateDistanceFallback = async (origin, destination) => {
       duration: 125,
       source: "fallback_estimation",
     };
+  }
+};
+
+// 🆕 LẤY ĐƠN HÀNG THEO CỬA HÀNG - CHO ORDER MANAGER
+export const getStoreOrders = async (req, res) => {
+  try {
+    console.log("=== LẤY ĐƠN HÀNG THEO CỬA HÀNG ===");
+    
+    const { MaCH } = req.params;
+    const { TrangThai, page = 1, limit = 10 } = req.query;
+    
+    console.log("📋 Tham số:", { MaCH, TrangThai, page, limit });
+
+    // 🛡️ Xác thực token
+    const authHeader = req.headers.authorization;
+    if (!authHeader?.startsWith("Bearer ")) {
+      return res.status(401).json({ message: "Không có token" });
+    }
+
+    const token = authHeader.split(" ")[1];
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (err) {
+      return res.status(401).json({ message: "Token không hợp lệ" });
+    }
+
+    // 🔍 Kiểm tra quyền truy cập cửa hàng
+    const store = await cuahang.findOne({ where: { MaCH } });
+    if (!store) {
+      return res.status(404).json({ message: "Không tìm thấy cửa hàng" });
+    }
+
+    if (store.MaTK !== decoded.MaTK) {
+      return res.status(403).json({ message: "Không có quyền truy cập cửa hàng này" });
+    }
+
+    // 📊 Xây dựng điều kiện query - SỬA PHẦN NÀY
+    const whereCondition = {};
+    
+    // Lọc đơn hàng theo sản phẩm của cửa hàng - SỬ DỤNG Op.in
+    whereCondition.MaDH = {
+      [Op.in]: sequelize.literal(`(
+        SELECT DISTINCT dh.MaDH 
+        FROM donhang dh
+        JOIN chitiet_donhang ctdh ON dh.MaDH = ctdh.MaDH
+        JOIN sanpham sp ON ctdh.MaSP = sp.MaSP
+        WHERE sp.MaCH = '${MaCH}'
+      )`)
+    };
+
+    // Lọc theo trạng thái nếu có - SỬ DỤNG Op.eq
+    if (TrangThai && TrangThai !== 'all') {
+      whereCondition.TrangThai = TrangThai;
+    }
+
+    // 📦 Lấy danh sách đơn hàng
+    const offset = (page - 1) * limit;
+    
+    const orders = await donhang.findAndCountAll({
+      where: whereCondition,
+      include: [
+        {
+          model: chitiet_donhang,
+          as: "chitiet_donhangs",
+          include: [
+            {
+              model: sanpham,
+              as: "MaSP_sanpham",
+              where: { MaCH }, // Chỉ lấy sản phẩm của cửa hàng này
+              attributes: ["TenSP", "MaSP", "DVT", "SLTon"]
+            }
+          ]
+        },
+        {
+          model: taikhoan,
+          as: "MaTK_taikhoan",
+          attributes: ["TenDangNhap", "Email"]
+        },
+        {
+          model: pttt,
+          as: "MaPTTT_pttt",
+          attributes: ["TenPTTT"]
+        },
+        {
+          model: ptvc,
+          as: "MaPTVC_ptvc", 
+          attributes: ["TenPTVC"]
+        }
+      ],
+      order: [["NgayTao", "DESC"]],
+      limit: parseInt(limit),
+      offset: offset,
+      distinct: true // Quan trọng cho count chính xác
+    });
+
+    console.log(`✅ Tìm thấy ${orders.count} đơn hàng cho cửa hàng ${MaCH}`);
+
+    return res.json({
+      success: true,
+      data: {
+        orders: orders.rows,
+        pagination: {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          totalItems: orders.count,
+          totalPages: Math.ceil(orders.count / limit)
+        }
+      }
+    });
+
+  } catch (err) {
+    console.error("❌ Lỗi khi lấy đơn hàng cửa hàng:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Lỗi server khi lấy danh sách đơn hàng",
+      error: process.env.NODE_ENV === "development" ? err.message : undefined
+    });
+  }
+};
+
+// 🆕 CẬP NHẬT TRẠNG THÁI ĐƠN HÀNG BỞI CỬA HÀNG
+export const updateOrderStatusByStore = async (req, res) => {
+  const { MaDH } = req.params;
+  const { TrangThai, GhiChu } = req.body;
+  
+  console.log("🔄 Cập nhật trạng thái đơn hàng:", { MaDH, TrangThai, GhiChu });
+
+  let transaction;
+  try {
+    // 🛡️ Xác thực token
+    const authHeader = req.headers.authorization;
+    if (!authHeader?.startsWith("Bearer ")) {
+      return res.status(401).json({ message: "Không có token" });
+    }
+
+    const token = authHeader.split(" ")[1];
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (err) {
+      return res.status(401).json({ message: "Token không hợp lệ" });
+    }
+
+    const userMaTK = decoded.MaTK;
+
+    // 🔍 Lấy đơn hàng và kiểm tra quyền
+    const order = await donhang.findOne({ 
+      where: { MaDH },
+      include: [
+        {
+          model: chitiet_donhang,
+          as: "chitiet_donhangs",
+          include: [
+            {
+              model: sanpham,
+              as: "MaSP_sanpham",
+              attributes: ["MaCH", "TenSP"]
+            }
+          ]
+        }
+      ]
+    });
+
+    //  if (order.MaTK !== userMaTK) {
+    //   return res
+    //     .status(403)
+    //     .json({ message: "Bạn không có quyền thay đổi đơn hàng này" });
+    // }
+
+    if (!order) {
+      return res.status(404).json({ message: "Không tìm thấy đơn hàng" });
+    }
+
+    // 🔒 Kiểm tra đơn hàng có thuộc cửa hàng của user không
+    const orderStoreIds = [...new Set(
+      order.chitiet_donhangs.map(ct => ct.MaSP_sanpham?.MaCH).filter(Boolean)
+    )];
+
+    const userStores = await cuahang.findAll({ 
+      where: { MaTK: userMaTK },
+      attributes: ["MaCH"]
+    });
+    const userStoreIds = userStores.map(store => store.MaCH);
+
+    const hasPermission = orderStoreIds.some(storeId => 
+      userStoreIds.includes(storeId)
+    );
+
+    if (!hasPermission) {
+      return res.status(403).json({ 
+        message: "Bạn không có quyền cập nhật đơn hàng này" 
+      });
+    }
+
+    // 🎯 VALIDATE TRẠNG THÁI THEO NGHIỆP VỤ
+    const validTransitions = {
+      'Chờ xác nhận': ['Đang chuẩn bị hàng', 'Đã hủy'],
+      'Đang chuẩn bị hàng': ['Chờ lấy hàng', 'Đã hủy'],
+      'Chờ lấy hàng': ['Đang giao hàng', 'Đã hủy'],
+      'Đã giao hàng': ['Hoàn tất'],
+      'Đang giao hàng': ['Hoàn thành', 'Đã hủy'],
+      'Hoàn thành': [], // Không thể chuyển từ hoàn thành
+      'Đã hủy': [] // Không thể chuyển từ đã hủy
+    };
+
+    const currentStatus = order.TrangThai;
+    const allowedNextStatuses = validTransitions[currentStatus] || [];
+
+    if (!allowedNextStatuses.includes(TrangThai)) {
+      return res.status(400).json({
+        message: `Không thể chuyển từ "${currentStatus}" sang "${TrangThai}"`
+      });
+    }
+
+    // 🗃️ Bắt đầu transaction
+    transaction = await sequelize.transaction();
+
+    // 📝 Ghi lịch sử trạng thái
+    if (lichsu_trangthai) {
+      await lichsu_trangthai.create({
+        MaLS: "LS" + uuidv4().replace(/-/g, "").substring(0, 8).toUpperCase(),
+        MaDH: order.MaDH,
+        TrangThaiCu: currentStatus,
+        TrangThaiMoi: TrangThai,
+        NgayCapNhat: new Date(),
+        NguoiCapNhat: userMaTK,
+        GhiChu: GhiChu || `Cửa hàng cập nhật: ${currentStatus} → ${TrangThai}`
+      }, { transaction });
+    }
+
+    // 🔄 Cập nhật trạng thái đơn hàng
+    await donhang.update(
+      { 
+        TrangThai,
+        NgayCapNhat: new Date()
+      },
+      { 
+        where: { MaDH },
+        transaction 
+      }
+    );
+
+    if (currentStatus === 'Đã giao hàng' && TrangThai === 'Hoàn tất') {
+      // Cho phép chuyển trạng thái
+    } else if (!allowedNextStatuses.includes(TrangThai)) {
+      return res.status(400).json({
+        message: `Không thể chuyển từ "${currentStatus}" sang "${TrangThai}"`
+      });
+    }
+
+    // 📦 XỬ Lý ĐẶC BIỆT THEO TRẠNG THÁI
+    if (TrangThai === 'Đã hủy') {
+      // Hoàn lại tồn kho khi hủy đơn
+      for (const ct of order.chitiet_donhangs) {
+        const sp = await sanpham.findByPk(ct.MaSP, { transaction });
+        if (sp) {
+          sp.SLTon += ct.SoLuong;
+          await sp.save({ transaction });
+          console.log(`✅ Đã hoàn lại ${ct.SoLuong} sản phẩm ${ct.MaSP}`);
+        }
+      }
+
+      // Hoàn lại số lần sử dụng mã KM nếu có
+      if (order.MaKM) {
+        const userKM = await khuyenmai_taikhoan.findOne({
+          where: { MaKM: order.MaKM, MaTK: order.MaTK },
+          transaction
+        });
+        if (userKM && userKM.SoLanSuDung > 0) {
+          await khuyenmai_taikhoan.update(
+            { SoLanSuDung: userKM.SoLanSuDung - 1 },
+            { 
+              where: { MaKM: order.MaKM, MaTK: order.MaTK },
+              transaction 
+            }
+          );
+        }
+      }
+    }
+
+    // ✅ Commit transaction
+    await transaction.commit();
+    console.log(`✅ Đã cập nhật đơn hàng ${MaDH}: ${currentStatus} → ${TrangThai}`);
+
+    return res.json({
+      success: true,
+      message: `Đã cập nhật trạng thái đơn hàng thành: ${TrangThai}`,
+      data: {
+        MaDH,
+        TrangThaiCu: currentStatus,
+        TrangThaiMoi: TrangThai,
+        NgayCapNhat: new Date()
+      }
+    });
+
+  } catch (err) {
+    // ❌ Rollback nếu có lỗi
+    if (transaction) {
+      await transaction.rollback();
+      console.log("❌ Transaction rolled back");
+    }
+
+    console.error("❌ Lỗi cập nhật trạng thái đơn hàng:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Lỗi server khi cập nhật trạng thái",
+      error: process.env.NODE_ENV === "development" ? err.message : undefined
+    });
+  }
+};
+
+// 🆕 THỐNG KÊ ĐƠN HÀNG THEO CỬA HÀNG
+export const getOrderStatistics = async (req, res) => {
+  try {
+    const { MaCH } = req.params;
+    const { startDate, endDate } = req.query;
+
+    console.log("📊 Thống kê đơn hàng:", { MaCH, startDate, endDate });
+
+    // 🛡️ Xác thực token và quyền cửa hàng
+    const authHeader = req.headers.authorization;
+    if (!authHeader?.startsWith("Bearer ")) {
+      return res.status(401).json({ message: "Không có token" });
+    }
+
+    const token = authHeader.split(" ")[1];
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (err) {
+      return res.status(401).json({ message: "Token không hợp lệ" });
+    }
+
+    // Kiểm tra quyền cửa hàng
+    const store = await cuahang.findOne({ where: { MaCH } });
+    if (!store || store.MaTK !== decoded.MaTK) {
+      return res.status(403).json({ message: "Không có quyền truy cập" });
+    }
+
+    // 📊 Xây dựng điều kiện thời gian
+    const dateCondition = {};
+    if (startDate) {
+      dateCondition.NgayTao = { [Op.gte]: new Date(startDate) };
+    }
+    if (endDate) {
+      dateCondition.NgayTao = { 
+        ...dateCondition.NgayTao,
+        [Op.lte]: new Date(endDate + ' 23:59:59')
+      };
+    }
+
+    // 🎯 THỐNG KÊ THEO TRẠNG THÁI
+    const statusStats = await donhang.findAll({
+      attributes: [
+        'TrangThai',
+        [sequelize.fn('COUNT', sequelize.col('MaDH')), 'count'],
+        [sequelize.fn('SUM', sequelize.col('TongTien')), 'totalRevenue']
+      ],
+      where: {
+        ...dateCondition,
+        MaDH: {
+          [Op.in]: sequelize.literal(`(
+            SELECT DISTINCT dh.MaDH 
+            FROM donhang dh
+            JOIN chitiet_donhang ctdh ON dh.MaDH = ctdh.MaDH
+            JOIN sanpham sp ON ctdh.MaSP = sp.MaSP
+            WHERE sp.MaCH = '${MaCH}'
+          )`)
+        }
+      },
+      group: ['TrangThai'],
+      raw: true
+    });
+
+    // 📈 TỔNG QUAN
+    const totalStats = await donhang.findOne({
+      attributes: [
+        [sequelize.fn('COUNT', sequelize.col('MaDH')), 'totalOrders'],
+        [sequelize.fn('SUM', sequelize.col('TongTien')), 'totalRevenue'],
+        [sequelize.fn('AVG', sequelize.col('TongTien')), 'avgOrderValue']
+      ],
+      where: {
+        ...dateCondition,
+        MaDH: {
+          [Op.in]: sequelize.literal(`(
+            SELECT DISTINCT dh.MaDH 
+            FROM donhang dh
+            JOIN chitiet_donhang ctdh ON dh.MaDH = ctdh.MaDH
+            JOIN sanpham sp ON ctdh.MaSP = sp.MaSP
+            WHERE sp.MaCH = '${MaCH}'
+          )`)
+        }
+      },
+      raw: true
+    });
+
+    // 🗓️ THỐNG KÊ THEO NGÀY (7 ngày gần nhất)
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+    const dailyStats = await donhang.findAll({
+      attributes: [
+        [sequelize.fn('DATE', sequelize.col('NgayTao')), 'date'],
+        [sequelize.fn('COUNT', sequelize.col('MaDH')), 'orderCount'],
+        [sequelize.fn('SUM', sequelize.col('TongTien')), 'dailyRevenue']
+      ],
+      where: {
+        NgayTao: { [Op.gte]: sevenDaysAgo },
+        MaDH: {
+          [Op.in]: sequelize.literal(`(
+            SELECT DISTINCT dh.MaDH 
+            FROM donhang dh
+            JOIN chitiet_donhang ctdh ON dh.MaDH = ctdh.MaDH
+            JOIN sanpham sp ON ctdh.MaSP = sp.MaSP
+            WHERE sp.MaCH = '${MaCH}'
+          )`)
+        }
+      },
+      group: [sequelize.fn('DATE', sequelize.col('NgayTao'))],
+      order: [[sequelize.fn('DATE', sequelize.col('NgayTao')), 'ASC']],
+      raw: true
+    });
+
+    // 🎯 Định dạng kết quả
+    const statistics = {
+      total: {
+        orders: parseInt(totalStats.totalOrders) || 0,
+        revenue: parseFloat(totalStats.totalRevenue) || 0,
+        avgOrderValue: parseFloat(totalStats.avgOrderValue) || 0
+      },
+      byStatus: statusStats.reduce((acc, stat) => {
+        acc[stat.TrangThai] = {
+          count: parseInt(stat.count),
+          revenue: parseFloat(stat.totalRevenue) || 0
+        };
+        return acc;
+      }, {}),
+      daily: dailyStats.map(stat => ({
+        date: stat.date,
+        orderCount: parseInt(stat.orderCount),
+        revenue: parseFloat(stat.dailyRevenue) || 0
+      }))
+    };
+
+    console.log(`✅ Thống kê cho cửa hàng ${MaCH}:`, statistics.total);
+
+    return res.json({
+      success: true,
+      data: statistics
+    });
+
+  } catch (err) {
+    console.error("❌ Lỗi thống kê đơn hàng:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Lỗi server khi thống kê đơn hàng",
+      error: process.env.NODE_ENV === "development" ? err.message : undefined
+    });
+  }
+};
+
+// 🆕 CHI TIẾT ĐƠN HÀNG
+export const getOrderDetail = async (req, res) => {
+  try {
+    const { MaDH } = req.params;
+
+    console.log("📋 Lấy chi tiết đơn hàng:", MaDH);
+
+    const order = await donhang.findOne({
+      where: { MaDH },
+      include: [
+        {
+          model: chitiet_donhang,
+          as: "chitiet_donhangs",
+          include: [
+            {
+              model: sanpham,
+              as: "MaSP_sanpham",
+              attributes: ["TenSP", "MaSP", "DVT", "SLTon", "GiaBan", "MaCH"]
+            }
+          ]
+        },
+        {
+          model: taikhoan,
+          as: "MaTK_taikhoan",
+          attributes: ["TenDangNhap", "Email", "SoDienThoai"]
+        },
+        {
+          model: pttt,
+          as: "MaPTTT_pttt",
+          attributes: ["TenPTTT"]
+        },
+        {
+          model: ptvc,
+          as: "MaPTVC_ptvc",
+          attributes: ["TenPTVC", "MoTa"]
+        },
+        {
+          model: lichsu_trangthai,
+          as: "lichsu_trangthais",
+          order: [["NgayCapNhat", "DESC"]],
+          attributes: ["TrangThaiCu", "TrangThaiMoi", "NgayCapNhat", "GhiChu", "NguoiCapNhat"]
+        }
+      ]
+    });
+
+    if (!order) {
+      return res.status(404).json({ message: "Không tìm thấy đơn hàng" });
+    }
+
+    console.log(`✅ Đã tìm thấy đơn hàng ${MaDH}`);
+
+    return res.json({
+      success: true,
+      data: order
+    });
+
+  } catch (err) {
+    console.error("❌ Lỗi lấy chi tiết đơn hàng:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Lỗi server khi lấy chi tiết đơn hàng",
+      error: process.env.NODE_ENV === "development" ? err.message : undefined
+    });
   }
 };
