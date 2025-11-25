@@ -489,6 +489,7 @@ const CheckoutPage: React.FC = () => {
           MaPTTT: formData.MaPTTT,
           TongTien: discountResult.finalTotal,
           items: processedItems,
+          PhiVanChuyen: dynamicShippingFee,
           appliedVouchers: Object.values(selectedVouchers)
             .filter(Boolean)
             .map((voucher) => voucher!.MaKM),

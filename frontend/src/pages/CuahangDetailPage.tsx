@@ -5,6 +5,7 @@ import CuahangDetail from "../components/cuahang/CuahangDetail";
 import CuahangProductList from "../components/cuahang/CuahangProductList";
 import CuahangEditForm from "../components/cuahang/CuahangEditForm";
 import ProductManager from "../components/cuahang/ProductManager";
+import OrderManager from "../components/cuahang/OrderManager";
 import type { Store, Product, UserData } from "../components/cuahang/store";
 import { Header } from "../components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
@@ -503,7 +504,6 @@ export default function CuahangDetailPage() {
                 setActiveTab("edit");
               }}
             />
-
             {/* Danh sách sản phẩm */}
             <div className="bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden">
               <div className="bg-gradient-to-r from-emerald-50 to-green-50 px-8 py-6 border-b border-gray-200">
@@ -631,6 +631,77 @@ export default function CuahangDetailPage() {
             )}
           </div>
         );
+        
+        case "orders":
+          if (!isOwner) {
+            return (
+              <div className="space-y-8">
+                {renderAuthStatus()}
+                <div className="text-center py-12">
+                  <div className="w-20 h-20 bg-red-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                    <span className="text-3xl">🚫</span>
+                  </div>
+                  <h3 className="text-xl font-semibold text-gray-700 mb-2">
+                    {!currentUser ? "Vui lòng đăng nhập" : "Không có quyền truy cập"}
+                  </h3>
+                  <p className="text-gray-500 mb-6">
+                    {!currentUser
+                      ? "Bạn cần đăng nhập để quản lý đơn hàng"
+                      : "Chỉ chủ cửa hàng mới có quyền quản lý đơn hàng."}
+                  </p>
+                  <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                    {!currentUser && (
+                      <button
+                        onClick={() => navigate("/dang-nhap")}
+                        className="bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-200"
+                      >
+                        Đăng nhập
+                      </button>
+                    )}
+                    <button
+                      onClick={() => setActiveTab("products")}
+                      className="bg-gray-500 hover:bg-gray-600 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-200"
+                    >
+                      Quay lại trang sản phẩm
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          }
+
+          return (
+            <div className="space-y-8">
+              {renderAuthStatus()}
+              
+              {/* Header trang quản lý đơn hàng */}
+              <div className="bg-gradient-to-r from-purple-600 to-indigo-700 text-white rounded-3xl p-8 shadow-2xl">
+                <div className="text-center">
+                  <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                    <span className="text-2xl">📦</span>
+                  </div>
+                  <h2 className="text-2xl lg:text-3xl font-bold mb-2">
+                    Quản lý đơn hàng
+                  </h2>
+                  <p className="text-purple-100 opacity-90">
+                    Theo dõi và quản lý tất cả đơn hàng của cửa hàng
+                  </p>
+                </div>
+              </div>
+
+              {/* Component OrderManager */}
+              {store && (
+                <OrderManager
+                  store={store}
+                  isOwner={isOwner}
+                  onOrdersUpdate={() => {
+                    // Có thể thêm logic refresh nếu cần
+                    console.log("Đơn hàng đã được cập nhật");
+                  }}
+                />
+              )}
+            </div>
+          );
 
       case "edit":
         if (!isOwner) {
@@ -839,6 +910,22 @@ export default function CuahangDetailPage() {
                     }`}
                   >
                     ⚙️ Quản lý
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (!currentUser) {
+                        handleRequireLogin();
+                        return;
+                      }
+                      setActiveTab("orders");
+                    }}
+                    className={`px-4 py-4 text-sm font-semibold border-b-2 transition-all duration-200 whitespace-nowrap ${
+                      activeTab === "orders"
+                        ? "border-emerald-500 text-emerald-600"
+                        : "border-transparent text-gray-600 hover:text-gray-800"
+                    }`}
+                  >
+                    📦 Đơn hàng
                   </button>
                   <button
                     onClick={() => {

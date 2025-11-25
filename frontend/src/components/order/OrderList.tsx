@@ -49,14 +49,15 @@ const OrderList: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>('Tất cả');
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string>('');
+  const [updatingOrder, setUpdatingOrder] = useState<string | null>(null);
 
   const statusTabs = [
     { key: 'Tất cả', icon: '📦' },
     { key: 'Chờ xác nhận', icon: '⏳' },
     { key: 'Chờ lấy hàng', icon: '📥' },
     { key: 'Chờ giao hàng', icon: '🚚' },
-    { key: 'Đã giao', icon: '✅' },
-    { key: 'Trả hàng', icon: '🔄' },
+    { key: 'Đã giao hàng', icon: '📬' }, 
+    { key: 'Lịch sử', icon: '📋' },     // 🆕 ĐỔI "Trả hàng" THÀNH "Lịch sử"
     { key: 'Đã hủy', icon: '❌' }
   ];
 
@@ -115,14 +116,30 @@ const OrderList: React.FC = () => {
         return;
       }
 
-      const response = await axios.get(`http://localhost:3000/api/order/status/${encodeURIComponent(status)}`, {
+      // 🆕 XỬ LÝ TAB "LỊCH SỬ" - LẤY CẢ "Hoàn thành" VÀ "Trả hàng"
+      let apiStatus = status;
+      if (status === 'Lịch sử') {
+        // Không gửi filter status cho tab Lịch sử, sẽ filter ở client
+        apiStatus = 'Tất cả';
+      }
+
+      const response = await axios.get(`http://localhost:3000/api/order/status/${encodeURIComponent(apiStatus)}`, {
         headers: {
           Authorization: `Bearer ${token}`
         }
       });
       
       if (response.data.success) {
-        setOrders(response.data.data);
+        let filteredOrders = response.data.data;
+        
+        // 🆕 FILTER CLIENT CHO TAB "LỊCH SỬ"
+        if (status === 'Lịch sử') {
+          filteredOrders = response.data.data.filter((order: Order) => 
+            order.TrangThai === 'Hoàn thành' || order.TrangThai === 'Trả hàng'
+          );
+        }
+        
+        setOrders(filteredOrders);
       }
     } catch (error: any) {
       console.error('Lỗi khi lấy đơn hàng theo trạng thái:', error);
@@ -146,11 +163,47 @@ const OrderList: React.FC = () => {
     setLoading(false);
   };
 
+  const handleConfirmReceived = async (orderId: string) => {
+    if (window.confirm('Bạn đã nhận được hàng? Xác nhận này sẽ hoàn tất đơn hàng.')) {
+      try {
+        setUpdatingOrder(orderId);
+        const token = localStorage.getItem('token');
+        
+        const response = await axios.put(`http://localhost:3000/api/order/update-status/${orderId}`, {
+          TrangThai: 'Hoàn tất'
+        }, {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        });
+        
+        if (response.data.success) {
+          alert('✅ Đã xác nhận nhận hàng! Cảm ơn bạn đã mua sắm.');
+          // Refresh danh sách
+          if (activeTab === 'Đã giao hàng') {
+            await fetchOrdersByStatus('Đã giao hàng');
+          } else {
+            fetchAllOrders();
+          }
+        } else {
+          alert('❌ Có lỗi xảy ra: ' + response.data.message);
+        }
+      } catch (error: any) {
+        console.error('Lỗi khi xác nhận nhận hàng:', error);
+        alert('❌ Có lỗi xảy ra khi xác nhận nhận hàng: ' + 
+          (error.response?.data?.message || 'Lỗi không xác định'));
+      } finally {
+        setUpdatingOrder(null);
+      }
+    }
+  };
+
   const handleCancelOrder = async (orderId: string) => {
     if (window.confirm('Bạn có chắc muốn hủy đơn hàng này?')) {
       try {
+        setUpdatingOrder(orderId);
         const token = localStorage.getItem('token');
-        await axios.put(`http://localhost:3000/api/order/update-status/${orderId}`, {
+        const response = await axios.put(`http://localhost:3000/api/order/update-status/${orderId}`, {
           TrangThai: 'Đã hủy'
         }, {
           headers: {
@@ -158,11 +211,18 @@ const OrderList: React.FC = () => {
           }
         });
         
-        // Refresh danh sách
-        fetchAllOrders();
-      } catch (error) {
+        if (response.data.success) {
+          alert('✅ Đã hủy đơn hàng thành công!');
+          fetchAllOrders();
+        } else {
+          alert('❌ Có lỗi xảy ra: ' + response.data.message);
+        }
+      } catch (error: any) {
         console.error('Lỗi khi hủy đơn hàng:', error);
-        alert('Có lỗi xảy ra khi hủy đơn hàng');
+        alert('❌ Có lỗi xảy ra khi hủy đơn hàng: ' + 
+          (error.response?.data?.message || 'Lỗi không xác định'));
+      } finally {
+        setUpdatingOrder(null);
       }
     }
   };
@@ -213,14 +273,9 @@ const OrderList: React.FC = () => {
     <div className="max-w-6xl mx-auto p-4 font-sans">
       <h1 className="text-2xl font-bold mb-6 text-gray-800">Đơn hàng của tôi</h1>
       
-      {/* Debug info */}
-      {/* <div className="mb-4 p-3 bg-blue-50 rounded text-sm text-blue-700">
-        <div>📊 Tổng số đơn: {statusCounts['Tất cả'] || 0}</div>
-        <div>📦 Số đơn hiển thị: {orders.length}</div>
-      </div> */}
-
-      {/* Tab trạng thái - Căn đều hai bên */}
-        <div className="flex justify-between items-center mb-6 border-b border-gray-200 pb-4 overflow-x-auto pt-4">        {statusTabs.map((tab) => (
+      {/* Tab trạng thái */}
+      <div className="flex justify-between items-center mb-6 border-b border-gray-200 pb-4 overflow-x-auto pt-4">
+        {statusTabs.map((tab) => (
           <button
             key={tab.key}
             className={`flex flex-col items-center justify-center px-3 py-2 rounded-lg border-none cursor-pointer relative transition-all min-w-[80px] mx-1 ${
@@ -238,9 +293,12 @@ const OrderList: React.FC = () => {
             </span>
             
             {/* Hiển thị số lượng cho các trạng thái quan trọng */}
-            {['Chờ xác nhận', 'Chờ lấy hàng', 'Chờ giao hàng'].includes(tab.key) && (
+            {['Chờ xác nhận', 'Chờ lấy hàng', 'Chờ giao hàng', 'Đã giao hàng', 'Lịch sử'].includes(tab.key) && (
               <span className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center">
-                {statusCounts[tab.key] || 0}
+                {tab.key === 'Lịch sử' 
+                  ? (statusCounts['Hoàn thành'] || 0) + (statusCounts['Trả hàng'] || 0) // 🆕 TÍNH TỔNG CHO LỊCH SỬ
+                  : statusCounts[tab.key] || 0
+                }
               </span>
             )}
             
@@ -260,7 +318,13 @@ const OrderList: React.FC = () => {
           <div className="text-center py-10 text-gray-600 bg-gray-50 rounded-lg">
             <div className="text-6xl mb-4">📦</div>
             <p className="text-lg mb-2">Không có đơn hàng nào</p>
-            <p className="text-sm text-gray-500">Hãy bắt đầu mua sắm và đặt hàng!</p>
+            <p className="text-sm text-gray-500">
+              {activeTab === 'Đã giao hàng' 
+                ? 'Chưa có đơn hàng nào đã được giao' 
+                : activeTab === 'Lịch sử'
+                ? 'Chưa có đơn hàng nào trong lịch sử' // 🆕 THÔNG BÁO CHO LỊCH SỬ
+                : 'Hãy bắt đầu mua sắm và đặt hàng!'}
+            </p>
             <button 
               onClick={() => window.location.href = '/'}
               className="mt-4 px-6 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
@@ -284,14 +348,16 @@ const OrderList: React.FC = () => {
                     order.TrangThai === 'Chờ xác nhận' ? 'bg-yellow-100 text-yellow-800' :
                     order.TrangThai === 'Chờ lấy hàng' ? 'bg-blue-100 text-blue-800' :
                     order.TrangThai === 'Chờ giao hàng' ? 'bg-cyan-100 text-cyan-800' :
-                    order.TrangThai === 'Đã giao' ? 'bg-green-100 text-green-800' :
+                    order.TrangThai === 'Đã giao hàng' ? 'bg-purple-100 text-purple-800' :
+                    order.TrangThai === 'Hoàn thành' ? 'bg-green-100 text-green-800' :
                     order.TrangThai === 'Trả hàng' ? 'bg-orange-100 text-orange-800' :
                     'bg-gray-100 text-gray-600'
                   }`}>
                     {order.TrangThai === 'Chờ xác nhận' && '⏳'}
                     {order.TrangThai === 'Chờ lấy hàng' && '📥'}
                     {order.TrangThai === 'Chờ giao hàng' && '🚚'}
-                    {order.TrangThai === 'Đã giao' && '✅'}
+                    {order.TrangThai === 'Đã giao hàng' && '📬'}
+                    {order.TrangThai === 'Hoàn thành' && '✅'}
                     {order.TrangThai === 'Trả hàng' && '🔄'}
                     {order.TrangThai === 'Đã hủy' && '❌'}
                     {order.TrangThai}
@@ -336,13 +402,44 @@ const OrderList: React.FC = () => {
                     <span>👁️</span>
                     Xem chi tiết
                   </button>
+                  
+                  {order.TrangThai === 'Đã giao hàng' && (
+                    <button 
+                      className="px-4 py-2 border border-green-500 rounded bg-white text-green-500 cursor-pointer transition-all text-sm hover:bg-green-500 hover:text-white flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                      onClick={() => handleConfirmReceived(order.MaDH)}
+                      disabled={updatingOrder === order.MaDH}
+                    >
+                      {updatingOrder === order.MaDH ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-green-500 border-t-transparent rounded-full animate-spin"></div>
+                          Đang xử lý...
+                        </>
+                      ) : (
+                        <>
+                          <span>✅</span>
+                          Đã nhận hàng
+                        </>
+                      )}
+                    </button>
+                  )}
+                  
                   {order.TrangThai === 'Chờ xác nhận' && (
                     <button 
-                      className="px-4 py-2 border border-red-500 rounded bg-white text-red-500 cursor-pointer transition-all text-sm hover:bg-red-500 hover:text-white flex items-center gap-1"
+                      className="px-4 py-2 border border-red-500 rounded bg-white text-red-500 cursor-pointer transition-all text-sm hover:bg-red-500 hover:text-white flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
                       onClick={() => handleCancelOrder(order.MaDH)}
+                      disabled={updatingOrder === order.MaDH}
                     >
-                      <span>❌</span>
-                      Hủy đơn
+                      {updatingOrder === order.MaDH ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-red-500 border-t-transparent rounded-full animate-spin"></div>
+                          Đang xử lý...
+                        </>
+                      ) : (
+                        <>
+                          <span>❌</span>
+                          Hủy đơn
+                        </>
+                      )}
                     </button>
                   )}
                 </div>
