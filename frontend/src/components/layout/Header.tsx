@@ -312,22 +312,22 @@ export const Header: React.FC = () => {
             </Link>
 
             {/* 🟢 THANH TÌM KIẾM CHÍNH */}
-            <div className="flex-1 max-w-2xl mx-8">
-              <div className="relative">
+            <div className="flex-1 max-w-2xl mx-8 ">
+              <div className="relative ">
                 <input
                   type="text"
                   value={searchText}
                   onChange={(e) => setSearchText(e.target.value)}
                   onKeyDown={handleKeyDown}
                   placeholder="Tìm kiếm sản phẩm nông sản tươi ngon..."
-                  className="w-full px-5 py-3 pr-24 border-1 border-gray-100 rounded-full text-sm focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-200 transition-all"
+                  className="w-full px-5 py-3 pr-24 shadow-inner bg-gray-50 rounded-full text-sm focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-200 transition-all"
                 />
 
                 {/* Nút tìm bằng hình ảnh */}
                 <button
                   onClick={() => fileInputRef.current?.click()}
                   disabled={isAnalyzing}
-                  className="absolute right-14 top-1/2 -translate-y-1/2 text-gray-500 hover:text-green-600 p-2 rounded-full transition-all duration-300"
+                  className="absolute right-14 top-1/2 -translate-y-1/2 text-gray-800 hover:text-green-800 p-2 rounded-full transition-all duration-300"
                   title="Tìm kiếm bằng hình ảnh"
                 >
                   {isAnalyzing ? (
@@ -349,9 +349,9 @@ export const Header: React.FC = () => {
                 {/* Nút tìm kiếm Text */}
                 <button
                   onClick={handleTextSearch}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 bg-green-600 hover:bg-green-700 text-white p-2 rounded-full transition-colors"
+                  className="absolute right-2 top-1/2 -translate-y-1/2   text-black p-2 rounded-full transition-colors"
                 >
-                  <Search className="w-4 h-4" />
+                  <Search className="w-5 h-5" />
                 </button>
               </div>
             </div>

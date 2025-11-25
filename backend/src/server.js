@@ -47,6 +47,8 @@ import khuyenMaiRoutes from "./routes/khuyenmaiRoutes.js";
 import blockchainRoutes from "./routes/blockchainRoutes.js";
 import { getCategoriesForRFQ } from "./controllers/rfqController.js";
 
+import aiRoutes from "./routes/aiRoutes.js";
+
 // ==============================
 // 🟢 LOAD ENV
 // ==============================
@@ -144,8 +146,6 @@ app.use(
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
-// app.use("/uploads", express.static(path.join(__dirname, "public", "uploads")));
-
 // WebSocket Setup
 const io = new Server(httpServer, {
   cors: {
@@ -193,6 +193,8 @@ io.on("connection", (socket) => {
 
 // Preflight requests
 app.options("*", cors());
+
+app.use("/api/ai", aiRoutes);
 
 // Body parsing middleware
 app.use(express.json({ limit: "10mb" }));
