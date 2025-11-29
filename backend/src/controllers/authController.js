@@ -32,7 +32,7 @@ import { sendEmail } from "../services/emailService.js";
 import { Op } from "sequelize";
 
 const authController = {
-   // ==============================
+  // ==============================
   // ĐĂNG NHẬP GOOGLE
   // ==============================
   googleLogin: async (req, res) => {
@@ -53,22 +53,14 @@ const authController = {
         });
 
         const payload = ticket.getPayload();
-        const {
-          sub: googleId,
-          email,
-          name,
-          picture,
-        } = payload;
+        const { sub: googleId, email, name, picture } = payload;
 
         console.log("✅ Google payload:", { googleId, email, name });
 
         // Tìm tài khoản theo email hoặc googleId
         let user = await taikhoan.findOne({
           where: {
-            [Op.or]: [
-              { Email: email },
-              { GoogleId: googleId }
-            ]
+            [Op.or]: [{ Email: email }, { GoogleId: googleId }],
           },
           include: [
             {
@@ -93,11 +85,12 @@ const authController = {
         // Nếu user chưa tồn tại, tạo mới
         if (!user) {
           console.log("🆕 Tạo user mới từ Google");
-          
+
           // Tạo mã tài khoản mới
           const now = new Date();
-          const prefix = "TK" + 
-            now.getFullYear().toString().slice(2) + 
+          const prefix =
+            "TK" +
+            now.getFullYear().toString().slice(2) +
             String(now.getMonth() + 1).padStart(2, "0");
 
           const last = await taikhoan.findOne({
@@ -118,7 +111,10 @@ const authController = {
             Email: email,
             HoTen: name,
             GoogleId: googleId,
-            MatKhau: await bcrypt.hash(crypto.randomBytes(16).toString('hex'), 10),
+            MatKhau: await bcrypt.hash(
+              crypto.randomBytes(16).toString("hex"),
+              10
+            ),
             NgayTao: new Date(),
             TrangThai: "Hoạt động",
           });
@@ -165,15 +161,16 @@ const authController = {
         }
 
         // Lấy danh sách vai trò
-        const roleNames = user.taikhoan_vaitros?.map((relation) => 
-          relation.vaitro?.TenVT
-        ).filter(Boolean) || [];
-        
-        const primaryRole = roleNames.includes("Admin") 
-          ? "Admin" 
-          : roleNames.length > 0 
-            ? roleNames[0] 
-            : null;
+        const roleNames =
+          user.taikhoan_vaitros
+            ?.map((relation) => relation.vaitro?.TenVT)
+            .filter(Boolean) || [];
+
+        const primaryRole = roleNames.includes("Admin")
+          ? "Admin"
+          : roleNames.length > 0
+          ? roleNames[0]
+          : null;
 
         const userStoreId = user.cuahangs?.[0]?.MaCH || null;
 
@@ -201,27 +198,28 @@ const authController = {
           MaCH: userStoreId,
         };
 
-        console.log("✅ Google login thành công cho user:", userResponse.TenDangNhap);
+        console.log(
+          "✅ Google login thành công cho user:",
+          userResponse.TenDangNhap
+        );
 
         return res.json({
           message: "Đăng nhập Google thành công",
           token: jwtToken,
           user: userResponse,
         });
-
       } catch (googleError) {
         console.error("❌ Lỗi xác minh Google token:", googleError);
-        return res.status(400).json({ 
-          message: "Token Google không hợp lệ", 
-          error: googleError.message 
+        return res.status(400).json({
+          message: "Token Google không hợp lệ",
+          error: googleError.message,
         });
       }
-
     } catch (error) {
       console.error("❌ Lỗi đăng nhập Google:", error);
-      return res.status(500).json({ 
-        message: "Lỗi đăng nhập Google", 
-        error: error.message 
+      return res.status(500).json({
+        message: "Lỗi đăng nhập Google",
+        error: error.message,
       });
     }
   },
@@ -249,9 +247,9 @@ const authController = {
 
         if (!fbResponse.ok) {
           console.error("❌ Facebook API error:", fbData.error);
-          return res.status(400).json({ 
+          return res.status(400).json({
             message: "Token Facebook không hợp lệ",
-            error: fbData.error?.message 
+            error: fbData.error?.message,
           });
         }
 
@@ -261,10 +259,7 @@ const authController = {
         // Tìm tài khoản theo email hoặc facebookId
         let user = await taikhoan.findOne({
           where: {
-            [Op.or]: [
-              { Email: email },
-              { FacebookId: facebookId }
-            ]
+            [Op.or]: [{ Email: email }, { FacebookId: facebookId }],
           },
           include: [
             {
@@ -289,11 +284,12 @@ const authController = {
         // Nếu user chưa tồn tại, tạo mới
         if (!user) {
           console.log("🆕 Tạo user mới từ Facebook");
-          
+
           // Tạo mã tài khoản mới
           const now = new Date();
-          const prefix = "TK" + 
-            now.getFullYear().toString().slice(2) + 
+          const prefix =
+            "TK" +
+            now.getFullYear().toString().slice(2) +
             String(now.getMonth() + 1).padStart(2, "0");
 
           const last = await taikhoan.findOne({
@@ -314,7 +310,10 @@ const authController = {
             Email: email,
             HoTen: name,
             FacebookId: facebookId,
-            MatKhau: await bcrypt.hash(crypto.randomBytes(16).toString('hex'), 10),
+            MatKhau: await bcrypt.hash(
+              crypto.randomBytes(16).toString("hex"),
+              10
+            ),
             NgayTao: new Date(),
             TrangThai: "Hoạt động",
           });
@@ -361,15 +360,16 @@ const authController = {
         }
 
         // Lấy danh sách vai trò
-        const roleNames = user.taikhoan_vaitros?.map((relation) => 
-          relation.vaitro?.TenVT
-        ).filter(Boolean) || [];
-        
-        const primaryRole = roleNames.includes("Admin") 
-          ? "Admin" 
-          : roleNames.length > 0 
-            ? roleNames[0] 
-            : null;
+        const roleNames =
+          user.taikhoan_vaitros
+            ?.map((relation) => relation.vaitro?.TenVT)
+            .filter(Boolean) || [];
+
+        const primaryRole = roleNames.includes("Admin")
+          ? "Admin"
+          : roleNames.length > 0
+          ? roleNames[0]
+          : null;
 
         const userStoreId = user.cuahangs?.[0]?.MaCH || null;
 
@@ -397,27 +397,28 @@ const authController = {
           MaCH: userStoreId,
         };
 
-        console.log("✅ Facebook login thành công cho user:", userResponse.TenDangNhap);
+        console.log(
+          "✅ Facebook login thành công cho user:",
+          userResponse.TenDangNhap
+        );
 
         return res.json({
           message: "Đăng nhập Facebook thành công",
           token: jwtToken,
           user: userResponse,
         });
-
       } catch (fbError) {
         console.error("❌ Lỗi xác minh Facebook token:", fbError);
-        return res.status(400).json({ 
-          message: "Token Facebook không hợp lệ", 
-          error: fbError.message 
+        return res.status(400).json({
+          message: "Token Facebook không hợp lệ",
+          error: fbError.message,
         });
       }
-
     } catch (error) {
       console.error("❌ Lỗi đăng nhập Facebook:", error);
-      return res.status(500).json({ 
-        message: "Lỗi đăng nhập Facebook", 
-        error: error.message 
+      return res.status(500).json({
+        message: "Lỗi đăng nhập Facebook",
+        error: error.message,
       });
     }
   },
@@ -510,8 +511,7 @@ const authController = {
       }
 
       // Tạo URL cho file
-      const fileUrl = `/uploads/${req.file.filename}`;
-
+      const fileUrl = `/uploads/avatars/${req.file.filename}`;
       // Tạo bản ghi ảnh mới
       const now = new Date();
       const prefix =
@@ -576,43 +576,30 @@ const authController = {
   // Cập nhật thông tin cá nhân
   // ==============================
   updatePersonalInfo: async (req, res) => {
+    const transaction = await sequelize.transaction(); // 🟢 Dùng transaction để an toàn
     try {
+      // ... (Đoạn lấy token giữ nguyên) ...
       const authHeader = req.headers.authorization;
-      if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      if (!authHeader)
         return res.status(401).json({ message: "Không có token" });
-      }
-
       const token = authHeader.split(" ")[1];
-      let decoded;
-      try {
-        decoded = jwt.verify(token, process.env.JWT_SECRET);
-      } catch (err) {
-        return res.status(401).json({ message: "Token không hợp lệ" });
-      }
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const { MaTK } = decoded;
 
-      const { MaTK } = decoded; // lấy từ token hoặc body khi test
-      const { HoTen, SDT, Email, TenDangNhap, AvtURL, AvtMoTa, AvtMaHA } =
-        req.body;
+      const { HoTen, SDT, Email, TenDangNhap } = req.body;
 
-      const account = await taikhoan.findByPk(MaTK);
+      const account = await taikhoan.findByPk(MaTK, { transaction });
       if (!account) {
+        await transaction.rollback();
         return res.status(404).json({ message: "Không tìm thấy tài khoản" });
       }
 
-      // ==========================
-      // Xử lý ảnh đại diện
-      // ==========================
-      if (AvtMaHA) {
-        // Nếu client gửi sẵn mã ảnh
-        const avatar = await hinhanh.findByPk(AvtMaHA);
-        if (!avatar) {
-          return res
-            .status(400)
-            .json({ message: `Không tìm thấy ảnh với mã ${AvtMaHA}` });
-        }
-        account.MaHA_Avatar = AvtMaHA;
-      } else if (AvtURL) {
-        // Nếu client gửi URL mới => tạo bản ghi ảnh mới
+      // 🟢 1. XỬ LÝ FILE ẢNH (Nếu có gửi lên)
+      if (req.file) {
+        // a. Tạo URL (đặt vào thư mục avatars để khớp với nơi multer lưu)
+        const fileUrl = `/uploads/avatars/${req.file.filename}`;
+
+        // b. Tạo mã hình ảnh
         const now = new Date();
         const prefix =
           "HA" +
@@ -622,6 +609,7 @@ const authController = {
         const lastImage = await hinhanh.findOne({
           where: { MaHA: { [Op.like]: `${prefix}%` } },
           order: [["MaHA", "DESC"]],
+          transaction,
         });
 
         let newId = prefix + "0001";
@@ -630,53 +618,55 @@ const authController = {
           newId = prefix + num.toString().padStart(4, "0");
         }
 
-        const newImage = await hinhanh.create({
-          MaHA: newId,
-          URL: AvtURL,
-          MoTa: AvtMoTa || null,
-        });
+        // c. Tạo bản ghi hình ảnh mới
+        const newImage = await hinhanh.create(
+          {
+            MaHA: newId,
+            URL: fileUrl,
+            MoTa: `Avatar của ${TenDangNhap || account.TenDangNhap}`,
+          },
+          { transaction }
+        );
 
+        // d. Cập nhật tài khoản trỏ về ảnh mới
         account.MaHA_Avatar = newImage.MaHA;
       }
 
-      // ==========================
-      // Cập nhật các trường khác
-      // ==========================
+      // 🟢 2. CẬP NHẬT THÔNG TIN KHÁC
       if (HoTen !== undefined) account.HoTen = HoTen;
       if (SDT !== undefined) account.SDT = SDT;
       if (Email !== undefined) account.Email = Email;
       if (TenDangNhap !== undefined) account.TenDangNhap = TenDangNhap;
 
-      await account.save();
+      await account.save({ transaction });
+      await transaction.commit(); // ✅ Lưu tất cả
 
-      // Lấy thông tin avatar nếu có
-      let avatarInfo = null;
-      if (account.MaHA_Avatar) {
-        avatarInfo = await hinhanh.findByPk(account.MaHA_Avatar);
-      }
+      // 🟢 3. TRẢ VỀ KẾT QUẢ MỚI NHẤT
+      // Lấy lại thông tin đầy đủ (bao gồm ảnh) để trả về frontend
+      const updatedAccount = await taikhoan.findByPk(MaTK, {
+        include: [{ model: hinhanh, as: "MaHA_Avatar_hinhanh" }],
+      });
 
-      // Format response thủ công (KHÔNG DÙNG INCLUDE)
+      // Format dữ liệu trả về
       const responseData = {
-        MaTK: account.MaTK,
-        TenDangNhap: account.TenDangNhap,
-        HoTen: account.HoTen,
-        SDT: account.SDT,
-        Email: account.Email,
-        MaHA_Avatar: account.MaHA_Avatar,
-        Avatar: avatarInfo
+        MaTK: updatedAccount.MaTK,
+        TenDangNhap: updatedAccount.TenDangNhap,
+        HoTen: updatedAccount.HoTen,
+        SDT: updatedAccount.SDT,
+        Email: updatedAccount.Email,
+        Avatar: updatedAccount.MaHA_Avatar_hinhanh
           ? {
-              MaHA: avatarInfo.MaHA,
-              URL: avatarInfo.URL,
-              MoTa: avatarInfo.MoTa,
+              URL: updatedAccount.MaHA_Avatar_hinhanh.URL,
             }
           : null,
       };
 
       return res.json({
-        message: "Cập nhật thông tin cá nhân thành công",
-        data: account,
+        message: "Cập nhật thông tin thành công",
+        data: responseData,
       });
     } catch (err) {
+      await transaction.rollback();
       console.error("❌ Lỗi cập nhật thông tin:", err);
       return res.status(500).json({ message: err.message });
     }
@@ -799,8 +789,9 @@ const authController = {
 
       // 📝 Lấy danh sách vai trò từ bảng liên kết
       const roleNames =
-        user.taikhoan_vaitros?.map((relation) => relation.vaitro?.TenVT).filter(Boolean) ||
-        [];
+        user.taikhoan_vaitros
+          ?.map((relation) => relation.vaitro?.TenVT)
+          .filter(Boolean) || [];
       // Ưu tiên Admin nếu có, nếu không lấy vai trò đầu tiên làm mặc định
       const primaryRole = roleNames.includes("Admin")
         ? "Admin"

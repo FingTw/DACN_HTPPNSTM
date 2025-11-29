@@ -4,21 +4,21 @@ import type { Store, Product } from "./store";
 
 // 🟢 STATUS MAPPING - LOGIC CHUẨN
 const STATUS_MAPPING = {
-  'Chờ xác nhận': 'cho_xac_nhan',
-  'Đang chuẩn bị hàng': 'dang_chuan_bi', 
-  'Chờ lấy hàng': 'cho_lay_hang',
-  'Đang giao hàng': 'dang_giao_hang',
-  'Hoàn thành': 'hoan_thanh',
-  'Đã hủy': 'da_huy'
+  "Chờ xác nhận": "cho_xac_nhan",
+  "Đang chuẩn bị hàng": "dang_chuan_bi",
+  "Chờ lấy hàng": "cho_lay_hang",
+  "Đang giao hàng": "dang_giao_hang",
+  "Hoàn thành": "hoan_thanh",
+  "Đã hủy": "da_huy",
 } as const;
 
 const REVERSE_STATUS_MAPPING = {
-  'cho_xac_nhan': 'Chờ xác nhận',
-  'dang_chuan_bi': 'Đang chuẩn bị hàng', 
-  'cho_lay_hang': 'Chờ lấy hàng',
-  'dang_giao_hang': 'Đang giao hàng',
-  'hoan_thanh': 'Hoàn thành',
-  'da_huy': 'Đã hủy'
+  cho_xac_nhan: "Chờ xác nhận",
+  dang_chuan_bi: "Đang chuẩn bị hàng",
+  cho_lay_hang: "Chờ lấy hàng",
+  dang_giao_hang: "Đang giao hàng",
+  hoan_thanh: "Hoàn thành",
+  da_huy: "Đã hủy",
 } as const;
 
 interface OrderManagerProps {
@@ -31,29 +31,29 @@ export interface Order {
   MaDH: string;
   MaCH: string;
   MaTK: string;
-  TrangThai: 
-    | 'cho_xac_nhan'     // Chờ xác nhận
-    | 'dang_chuan_bi'    // Đang chuẩn bị hàng  
-    | 'cho_lay_hang'     // Chờ lấy hàng
-    | 'dang_giao_hang'   // Đang giao hàng
-    | 'hoan_thanh'       // Hoàn thành
-    | 'da_huy';          // Đã hủy
+  TrangThai:
+    | "cho_xac_nhan" // Chờ xác nhận
+    | "dang_chuan_bi" // Đang chuẩn bị hàng
+    | "cho_lay_hang" // Chờ lấy hàng
+    | "dang_giao_hang" // Đang giao hàng
+    | "hoan_thanh" // Hoàn thành
+    | "da_huy"; // Đã hủy
   TongTien: number;
   PhiVanChuyen: number;
   GiamGia: number;
   GhiChu?: string;
   NgayTao: string;
   NgayCapNhat: string;
-  
+
   DiaChiGiaoHang?: {
     HoTen: string;
     SoDienThoai: string;
     DiaChi: string;
     GhiChu?: string;
   };
-  
+
   chiTietDonHang?: OrderItem[];
-  
+
   khachHang?: {
     MaTK: string;
     TenDangNhap: string;
@@ -109,15 +109,15 @@ const ORDER_STATUS_CONFIG = {
     nextAction: "Xác nhận đơn hàng",
     nextStatus: "dang_chuan_bi" as const,
     description: "Đơn hàng đang chờ cửa hàng xác nhận",
-    nextStep: "Đang chuẩn bị hàng"
+    nextStep: "Đang chuẩn bị hàng",
   },
   dang_chuan_bi: {
     label: "Đang chuẩn bị hàng",
-    color: "bg-blue-100 text-blue-800 border-blue-300", 
+    color: "bg-blue-100 text-blue-800 border-blue-300",
     nextAction: "Hoàn tất chuẩn bị",
     nextStatus: "cho_lay_hang" as const,
     description: "Cửa hàng đang chuẩn bị hàng",
-    nextStep: "Chờ lấy hàng"
+    nextStep: "Chờ lấy hàng",
   },
   cho_lay_hang: {
     label: "Chờ lấy hàng",
@@ -125,7 +125,7 @@ const ORDER_STATUS_CONFIG = {
     nextAction: "Đã giao cho vận chuyển",
     nextStatus: "dang_giao_hang" as const,
     description: "Chờ đơn vị vận chuyển đến lấy hàng",
-    nextStep: "Đang giao hàng"
+    nextStep: "Đang giao hàng",
   },
   dang_giao_hang: {
     label: "Đang giao hàng",
@@ -133,7 +133,7 @@ const ORDER_STATUS_CONFIG = {
     nextAction: "Giao hàng thành công",
     nextStatus: "hoan_thanh" as const,
     description: "Đơn vị vận chuyển đang giao hàng",
-    nextStep: "Hoàn thành"
+    nextStep: "Hoàn thành",
   },
   hoan_thanh: {
     label: "Hoàn thành",
@@ -141,7 +141,7 @@ const ORDER_STATUS_CONFIG = {
     nextAction: null,
     nextStatus: null,
     description: "Đơn hàng đã giao thành công",
-    nextStep: null
+    nextStep: null,
   },
   da_huy: {
     label: "Đã hủy",
@@ -149,19 +149,30 @@ const ORDER_STATUS_CONFIG = {
     nextAction: null,
     nextStatus: null,
     description: "Đơn hàng đã bị hủy",
-    nextStep: null
+    nextStep: null,
   },
 };
 
 // 🟢 ORDER CARD COMPONENT
 interface OrderCardProps {
   order: Order;
-  onStatusUpdate: (orderId: string, newStatus: Order['TrangThai']) => void;
+  onStatusUpdate: (orderId: string, newStatus: Order["TrangThai"]) => void;
   loading: boolean;
 }
 
-const OrderCard: React.FC<OrderCardProps> = ({ order, onStatusUpdate, loading }) => {
-  const statusConfig = ORDER_STATUS_CONFIG[order.TrangThai];
+const OrderCard: React.FC<OrderCardProps> = ({
+  order,
+  onStatusUpdate,
+  loading,
+}) => {
+  const statusConfig = ORDER_STATUS_CONFIG[order.TrangThai] || {
+    label: `Lỗi: ${order.TrangThai}`,
+    color: "bg-gray-100 text-gray-800 border-gray-300",
+    nextAction: null,
+    nextStatus: null,
+    description: "Trạng thái không xác định",
+    nextStep: null,
+  };
   const hasNextAction = statusConfig.nextAction !== null;
 
   return (
@@ -169,10 +180,14 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, onStatusUpdate, loading })
       {/* Header */}
       <div className="flex justify-between items-start mb-4">
         <div>
-          <h3 className="font-bold text-gray-900 text-lg">Đơn hàng #{order.MaDH}</h3>
+          <h3 className="font-bold text-gray-900 text-lg">
+            Đơn hàng #{order.MaDH}
+          </h3>
           <p className="text-gray-600 text-sm">{formatDate(order.NgayTao)}</p>
         </div>
-        <span className={`px-3 py-1 rounded-full text-sm font-semibold border ${statusConfig.color}`}>
+        <span
+          className={`px-3 py-1 rounded-full text-sm font-semibold border ${statusConfig.color}`}
+        >
           {statusConfig.label}
         </span>
       </div>
@@ -218,7 +233,7 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, onStatusUpdate, loading })
 
           if (phiVanChuyen > 0 || giamGia > 0) {
             const tongTienHang = tongTien - phiVanChuyen + giamGia;
-            
+
             return (
               <>
                 <div className="flex justify-between text-sm">
@@ -227,7 +242,7 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, onStatusUpdate, loading })
                     {formatCurrency(tongTienHang)}
                   </span>
                 </div>
-                
+
                 {phiVanChuyen > 0 && (
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600">Phí vận chuyển:</span>
@@ -236,7 +251,7 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, onStatusUpdate, loading })
                     </span>
                   </div>
                 )}
-                
+
                 {giamGia > 0 && (
                   <div className="flex justify-between text-sm text-green-600">
                     <span>Giảm giá:</span>
@@ -245,7 +260,7 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, onStatusUpdate, loading })
                     </span>
                   </div>
                 )}
-                
+
                 <div className="flex justify-between text-lg font-bold border-t border-gray-200 pt-2">
                   <span className="text-gray-900">Tổng thanh toán:</span>
                   <span className="text-green-600">
@@ -272,7 +287,9 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, onStatusUpdate, loading })
         <div className="mt-4 pt-4 border-t border-gray-200">
           <div className="mb-3 text-sm text-gray-600 text-center">
             <span className="font-medium">Chuyển sang: </span>
-            <span className="text-blue-600 font-semibold">{statusConfig.nextStep}</span>
+            <span className="text-blue-600 font-semibold">
+              {statusConfig.nextStep}
+            </span>
           </div>
           <button
             onClick={() => onStatusUpdate(order.MaDH, statusConfig.nextStatus!)}
@@ -300,16 +317,29 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, onStatusUpdate, loading })
       </div>
 
       {/* Progress Indicator */}
-      {order.TrangThai !== 'da_huy' && order.TrangThai !== 'hoan_thanh' && (
+      {order.TrangThai !== "da_huy" && order.TrangThai !== "hoan_thanh" && (
         <div className="mt-4 pt-4 border-t border-gray-200">
           <div className="flex justify-between text-xs text-gray-500 mb-2">
             <span>Tiến trình đơn hàng:</span>
-            <span>{Math.round(((ORDER_STATUSES.indexOf(order.TrangThai) + 1) / ORDER_STATUSES.length) * 100)}%</span>
+            <span>
+              {Math.round(
+                ((ORDER_STATUSES.indexOf(order.TrangThai) + 1) /
+                  ORDER_STATUSES.length) *
+                  100
+              )}
+              %
+            </span>
           </div>
           <div className="w-full bg-gray-200 rounded-full h-2">
-            <div 
+            <div
               className="bg-green-600 h-2 rounded-full transition-all duration-500"
-              style={{ width: `${((ORDER_STATUSES.indexOf(order.TrangThai) + 1) / ORDER_STATUSES.length) * 100}%` }}
+              style={{
+                width: `${
+                  ((ORDER_STATUSES.indexOf(order.TrangThai) + 1) /
+                    ORDER_STATUSES.length) *
+                  100
+                }%`,
+              }}
             ></div>
           </div>
         </div>
@@ -333,7 +363,9 @@ const StatsCard: React.FC<StatsCardProps> = ({ title, value, color, icon }) => (
         <p className="text-gray-600 text-sm font-medium">{title}</p>
         <p className="text-2xl font-bold text-gray-900 mt-1">{value}</p>
       </div>
-      <div className={`w-12 h-12 rounded-xl ${color} flex items-center justify-center`}>
+      <div
+        className={`w-12 h-12 rounded-xl ${color} flex items-center justify-center`}
+      >
         <span className="text-xl">{icon}</span>
       </div>
     </div>
@@ -341,25 +373,32 @@ const StatsCard: React.FC<StatsCardProps> = ({ title, value, color, icon }) => (
 );
 
 // 🟢 ORDER STATUS FLOW (cho progress indicator)
-const ORDER_STATUSES: Order['TrangThai'][] = [
-  'cho_xac_nhan',
-  'dang_chuan_bi', 
-  'cho_lay_hang',
-  'dang_giao_hang',
-  'hoan_thanh'
+const ORDER_STATUSES: Order["TrangThai"][] = [
+  "cho_xac_nhan",
+  "dang_chuan_bi",
+  "cho_lay_hang",
+  "dang_giao_hang",
+  "hoan_thanh",
 ];
 
 // 🟢 MAIN COMPONENT
-const OrderManager: React.FC<OrderManagerProps> = ({ store, isOwner, onOrdersUpdate }) => {
+const OrderManager: React.FC<OrderManagerProps> = ({
+  store,
+  isOwner,
+  onOrdersUpdate,
+}) => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [updating, setUpdating] = useState<boolean>(false);
-  const [selectedStatus, setSelectedStatus] = useState<Order['TrangThai'] | 'all'>('all');
+  const [selectedStatus, setSelectedStatus] = useState<
+    Order["TrangThai"] | "all"
+  >("all");
 
   // 🟢 API CONFIG
   const API_CONFIG = {
-    getOrders: `${API_BASE_URL}/order/cua-hang/${store.MaCH}`, 
-    updateStatus: (maDH: string) => `${API_BASE_URL}/order/${maDH}/trang-thai-cua-hang`,
+    getOrders: `${API_BASE_URL}/order/cua-hang/${store.MaCH}`,
+    updateStatus: (maDH: string) =>
+      `${API_BASE_URL}/order/${maDH}/trang-thai-cua-hang`,
   };
 
   // 🟢 FETCH ORDERS
@@ -367,7 +406,7 @@ const OrderManager: React.FC<OrderManagerProps> = ({ store, isOwner, onOrdersUpd
     try {
       setLoading(true);
       const token = getAuthToken();
-      
+
       if (!token) {
         console.log("❌ Không có token");
         setOrders([]);
@@ -379,22 +418,24 @@ const OrderManager: React.FC<OrderManagerProps> = ({ store, isOwner, onOrdersUpd
           Authorization: `Bearer ${token}`,
         },
       });
-      
+
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
       const data = await response.json();
-      
+
       if (data.success) {
         const ordersData = data.data?.orders || data.data || data.orders || [];
-        
+
         // 🟢 NORMALIZE DỮ LIỆU - CHUYỂN ĐỔI TRẠNG THÁI
         const normalizedOrders = ordersData.map((order: any) => ({
           ...order,
-          TrangThai: STATUS_MAPPING[order.TrangThai as keyof typeof STATUS_MAPPING] || order.TrangThai
+          TrangThai:
+            STATUS_MAPPING[order.TrangThai as keyof typeof STATUS_MAPPING] ||
+            order.TrangThai,
         }));
-        
+
         setOrders(Array.isArray(normalizedOrders) ? normalizedOrders : []);
       } else {
         console.error("❌ API returned success: false", data.message);
@@ -409,18 +450,21 @@ const OrderManager: React.FC<OrderManagerProps> = ({ store, isOwner, onOrdersUpd
   }, [store.MaCH]);
 
   // 🟢 UPDATE ORDER STATUS - FIXED VERSION
-  const handleUpdateOrderStatus = async (orderId: string, newStatus: Order['TrangThai']): Promise<void> => {
+  const handleUpdateOrderStatus = async (
+    orderId: string,
+    newStatus: Order["TrangThai"]
+  ): Promise<void> => {
     try {
       setUpdating(true);
       const token = getAuthToken();
-      
+
       if (!token) {
         alert("❌ Vui lòng đăng nhập lại");
         return;
       }
 
       // 🟢 LẤY TRẠNG THÁI HIỆN TẠI TỪ STATE
-      const currentOrder = orders.find(o => o.MaDH === orderId);
+      const currentOrder = orders.find((o) => o.MaDH === orderId);
       if (!currentOrder) {
         alert("❌ Không tìm thấy đơn hàng");
         return;
@@ -429,11 +473,11 @@ const OrderManager: React.FC<OrderManagerProps> = ({ store, isOwner, onOrdersUpd
       const currentStatus = currentOrder.TrangThai;
       const beStatus = REVERSE_STATUS_MAPPING[newStatus];
       const currentBeStatus = REVERSE_STATUS_MAPPING[currentStatus];
-      
+
       console.log("🔄 Chuyển trạng thái:", {
         orderId,
         from: currentBeStatus,
-        to: beStatus
+        to: beStatus,
       });
 
       const response = await fetch(API_CONFIG.updateStatus(orderId), {
@@ -466,19 +510,27 @@ const OrderManager: React.FC<OrderManagerProps> = ({ store, isOwner, onOrdersUpd
 
       if (data.success) {
         // 🟢 CẬP NHẬT STATE NGAY LẬP TỨC
-        setOrders(prev => prev.map(order => 
-          order.MaDH === orderId 
-            ? { ...order, TrangThai: newStatus, NgayCapNhat: new Date().toISOString() }
-            : order
-        ));
-        
+        setOrders((prev) =>
+          prev.map((order) =>
+            order.MaDH === orderId
+              ? {
+                  ...order,
+                  TrangThai: newStatus,
+                  NgayCapNhat: new Date().toISOString(),
+                }
+              : order
+          )
+        );
+
         // 🟢 LÀM MỚI DANH SÁCH SAU 2 GIÂY ĐỂ ĐỒNG BỘ
         setTimeout(() => {
           fetchOrders();
         }, 2000);
-        
+
         onOrdersUpdate?.();
-        alert(`✅ Đã chuyển sang "${ORDER_STATUS_CONFIG[newStatus].label}" thành công!`);
+        alert(
+          `✅ Đã chuyển sang "${ORDER_STATUS_CONFIG[newStatus].label}" thành công!`
+        );
       } else {
         if (data.message?.includes("Không thể chuyển từ")) {
           fetchOrders(); // Làm mới để đồng bộ với database
@@ -500,19 +552,21 @@ const OrderManager: React.FC<OrderManagerProps> = ({ store, isOwner, onOrdersUpd
   }, [store?.MaCH, isOwner, fetchOrders]);
 
   // 🟢 FILTERED ORDERS
-  const filteredOrders = selectedStatus === 'all' 
-    ? orders 
-    : orders.filter(order => order.TrangThai === selectedStatus);
+  const filteredOrders =
+    selectedStatus === "all"
+      ? orders
+      : orders.filter((order) => order.TrangThai === selectedStatus);
 
   // 🟢 STATISTICS
   const stats = {
     total: orders.length,
-    cho_xac_nhan: orders.filter(o => o.TrangThai === 'cho_xac_nhan').length,
-    dang_chuan_bi: orders.filter(o => o.TrangThai === 'dang_chuan_bi').length,
-    cho_lay_hang: orders.filter(o => o.TrangThai === 'cho_lay_hang').length,
-    dang_giao_hang: orders.filter(o => o.TrangThai === 'dang_giao_hang').length,
-    hoan_thanh: orders.filter(o => o.TrangThai === 'hoan_thanh').length,
-    da_huy: orders.filter(o => o.TrangThai === 'da_huy').length,
+    cho_xac_nhan: orders.filter((o) => o.TrangThai === "cho_xac_nhan").length,
+    dang_chuan_bi: orders.filter((o) => o.TrangThai === "dang_chuan_bi").length,
+    cho_lay_hang: orders.filter((o) => o.TrangThai === "cho_lay_hang").length,
+    dang_giao_hang: orders.filter((o) => o.TrangThai === "dang_giao_hang")
+      .length,
+    hoan_thanh: orders.filter((o) => o.TrangThai === "hoan_thanh").length,
+    da_huy: orders.filter((o) => o.TrangThai === "da_huy").length,
   };
 
   if (!isOwner) {
@@ -554,47 +608,47 @@ const OrderManager: React.FC<OrderManagerProps> = ({ store, isOwner, onOrdersUpd
 
       {/* Statistics */}
       <div className="grid grid-cols-2 lg:grid-cols-7 gap-4">
-        <StatsCard 
-          title="Tổng đơn" 
-          value={stats.total} 
-          color="bg-gradient-to-br from-gray-100 to-gray-200" 
-          icon="📦" 
+        <StatsCard
+          title="Tổng đơn"
+          value={stats.total}
+          color="bg-gradient-to-br from-gray-100 to-gray-200"
+          icon="📦"
         />
-        <StatsCard 
-          title="Chờ xác nhận" 
-          value={stats.cho_xac_nhan} 
-          color="bg-gradient-to-br from-yellow-100 to-yellow-200" 
-          icon="⏳" 
+        <StatsCard
+          title="Chờ xác nhận"
+          value={stats.cho_xac_nhan}
+          color="bg-gradient-to-br from-yellow-100 to-yellow-200"
+          icon="⏳"
         />
-        <StatsCard 
-          title="Đang chuẩn bị" 
-          value={stats.dang_chuan_bi} 
-          color="bg-gradient-to-br from-blue-100 to-blue-200" 
-          icon="👨‍🍳" 
+        <StatsCard
+          title="Đang chuẩn bị"
+          value={stats.dang_chuan_bi}
+          color="bg-gradient-to-br from-blue-100 to-blue-200"
+          icon="👨‍🍳"
         />
-        <StatsCard 
-          title="Chờ lấy hàng" 
-          value={stats.cho_lay_hang} 
-          color="bg-gradient-to-br from-purple-100 to-purple-200" 
-          icon="🚚" 
+        <StatsCard
+          title="Chờ lấy hàng"
+          value={stats.cho_lay_hang}
+          color="bg-gradient-to-br from-purple-100 to-purple-200"
+          icon="🚚"
         />
-        <StatsCard 
-          title="Đang giao" 
-          value={stats.dang_giao_hang} 
-          color="bg-gradient-to-br from-indigo-100 to-indigo-200" 
-          icon="📦" 
+        <StatsCard
+          title="Đang giao"
+          value={stats.dang_giao_hang}
+          color="bg-gradient-to-br from-indigo-100 to-indigo-200"
+          icon="📦"
         />
-        <StatsCard 
-          title="Hoàn thành" 
-          value={stats.hoan_thanh} 
-          color="bg-gradient-to-br from-green-100 to-green-200" 
-          icon="✅" 
+        <StatsCard
+          title="Hoàn thành"
+          value={stats.hoan_thanh}
+          color="bg-gradient-to-br from-green-100 to-green-200"
+          icon="✅"
         />
-        <StatsCard 
-          title="Đã hủy" 
-          value={stats.da_huy} 
-          color="bg-gradient-to-br from-red-100 to-red-200" 
-          icon="❌" 
+        <StatsCard
+          title="Đã hủy"
+          value={stats.da_huy}
+          color="bg-gradient-to-br from-red-100 to-red-200"
+          icon="❌"
         />
       </div>
 
@@ -602,21 +656,41 @@ const OrderManager: React.FC<OrderManagerProps> = ({ store, isOwner, onOrdersUpd
       <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm">
         <div className="flex flex-wrap gap-2">
           {[
-            { key: 'all' as const, label: 'Tất cả', count: stats.total },
-            { key: 'cho_xac_nhan' as const, label: 'Chờ xác nhận', count: stats.cho_xac_nhan },
-            { key: 'dang_chuan_bi' as const, label: 'Đang chuẩn bị', count: stats.dang_chuan_bi },
-            { key: 'cho_lay_hang' as const, label: 'Chờ lấy hàng', count: stats.cho_lay_hang },
-            { key: 'dang_giao_hang' as const, label: 'Đang giao', count: stats.dang_giao_hang },
-            { key: 'hoan_thanh' as const, label: 'Hoàn thành', count: stats.hoan_thanh },
-            { key: 'da_huy' as const, label: 'Đã hủy', count: stats.da_huy },
+            { key: "all" as const, label: "Tất cả", count: stats.total },
+            {
+              key: "cho_xac_nhan" as const,
+              label: "Chờ xác nhận",
+              count: stats.cho_xac_nhan,
+            },
+            {
+              key: "dang_chuan_bi" as const,
+              label: "Đang chuẩn bị",
+              count: stats.dang_chuan_bi,
+            },
+            {
+              key: "cho_lay_hang" as const,
+              label: "Chờ lấy hàng",
+              count: stats.cho_lay_hang,
+            },
+            {
+              key: "dang_giao_hang" as const,
+              label: "Đang giao",
+              count: stats.dang_giao_hang,
+            },
+            {
+              key: "hoan_thanh" as const,
+              label: "Hoàn thành",
+              count: stats.hoan_thanh,
+            },
+            { key: "da_huy" as const, label: "Đã hủy", count: stats.da_huy },
           ].map(({ key, label, count }) => (
             <button
               key={key}
               onClick={() => setSelectedStatus(key)}
               className={`px-4 py-2 rounded-xl font-medium transition-all duration-200 ${
                 selectedStatus === key
-                  ? 'bg-gradient-to-r from-purple-500 to-indigo-600 text-white shadow-lg'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  ? "bg-gradient-to-r from-purple-500 to-indigo-600 text-white shadow-lg"
+                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
               }`}
             >
               {label} ({count})
@@ -648,11 +722,13 @@ const OrderManager: React.FC<OrderManagerProps> = ({ store, isOwner, onOrdersUpd
             <span className="text-4xl">📦</span>
           </div>
           <h3 className="text-2xl font-bold text-gray-800 mb-3">
-            {selectedStatus === 'all' ? 'Chưa có đơn hàng nào' : 'Không có đơn hàng'}
+            {selectedStatus === "all"
+              ? "Chưa có đơn hàng nào"
+              : "Không có đơn hàng"}
           </h3>
           <p className="text-gray-600 text-lg max-w-md mx-auto">
-            {selectedStatus === 'all' 
-              ? 'Các đơn hàng từ khách hàng sẽ xuất hiện tại đây' 
+            {selectedStatus === "all"
+              ? "Các đơn hàng từ khách hàng sẽ xuất hiện tại đây"
               : `Không có đơn hàng nào ở trạng thái "${ORDER_STATUS_CONFIG[selectedStatus]?.label}"`}
           </p>
         </div>

@@ -37,7 +37,14 @@ const CuahangDetail: React.FC<CuahangDetailProps> = ({
     : 1;
 
   // Xử lý hình ảnh
-  const imageUrl = store.MaHA_CuaHang_hinhanh?.URL || "/logoshopdefault.jpg";
+  const getFullImageUrl = (url?: string) => {
+    if (!url) return "/logoshopdefault.jpg";
+    if (url.startsWith("http")) return url;
+    // Nối thêm domain server vào trước đường dẫn tương đối
+    return `http://localhost:3000${url.startsWith("/") ? url : `/${url}`}`;
+  };
+
+  const imageUrl = getFullImageUrl(store.MaHA_CuaHang_hinhanh?.URL);
 
   return (
     <div className="bg-gradient-to-br from-white to-emerald-50 rounded-3xl shadow-2xl border border-emerald-100 overflow-hidden">

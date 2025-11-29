@@ -64,11 +64,13 @@ export default function BuyerDashboard() {
         <div className="p-6 border-b border-gray-200">
           <h2 className="text-xl font-semibold">Yêu cầu gần đây</h2>
         </div>
-        <div className="divide-y divide-gray-200">
+
+        {/* SỬA ĐỔI Ở ĐÂY: Thay div bọc ngoài, bỏ divide-y, thêm padding */}
+        <div className="p-6">
           {reqLoading ? (
             <div className="p-12 text-center text-gray-500">Đang tải...</div>
           ) : requests.length === 0 ? (
-            <div className="p-16 text-center">
+            <div className="p-12 text-center">
               <Package className="w-16 h-16 mx-auto text-gray-300 mb-4" />
               <p className="text-gray-500 mb-4">Bạn chưa tạo yêu cầu nào</p>
               <button
@@ -79,13 +81,21 @@ export default function BuyerDashboard() {
               </button>
             </div>
           ) : (
-            requests.map((req) => (
-              <RequestCard
-                key={req.MaYCDH}
-                request={req}
-                link={`/rfq/buyer/requests/${req.MaYCDH}`}
-              />
-            ))
+            /* GRID LAYOUT:
+         - grid-cols-1: Mobile 1 cột
+         - sm:grid-cols-2: Tablet 2 cột
+         - lg:grid-cols-3: Laptop/PC 3 cột
+         - gap-6: Khoảng cách giữa các thẻ là 24px
+      */
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {requests.map((req) => (
+                <RequestCard
+                  key={req.MaYCDH}
+                  request={req}
+                  link={`/rfq/buyer/requests/${req.MaYCDH}`}
+                />
+              ))}
+            </div>
           )}
         </div>
       </div>

@@ -84,9 +84,9 @@ export default function ChatWidget() {
     <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end">
       {/* CỬA SỔ CHAT */}
       {isOpen && (
-        <div className="bg-white w-80 md:w-96 h-[500px] rounded-2xl shadow-2xl flex flex-col mb-4 overflow-hidden animate-in slide-in-from-bottom-10 duration-300">
+        <div className="bg-white/20 backdrop-blur-sm w-80 md:w-96 h-[500px] rounded-2xl shadow-2xl flex flex-col mb-4 overflow-hidden animate-in slide-in-from-bottom-10 duration-300">
           {/* Header */}
-          <div className="bg-gradient-to-r from-green-500 to-emerald-500 p-4 flex justify-between items-center text-white">
+          <div className="bg-green-500 p-4 flex justify-between items-center text-white">
             <div className="flex items-center gap-2">
               <div className="bg-white/20 p-1.5 rounded-full">
                 <Bot className="w-5 h-5" />
@@ -108,7 +108,7 @@ export default function ChatWidget() {
           </div>
 
           {/* Nội dung tin nhắn */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
+          <div className="bg-white/20 backdrop-blur-sm flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
             {messages.map((msg) => (
               <div
                 key={msg.id}
@@ -142,7 +142,7 @@ export default function ChatWidget() {
           </div>
 
           {/* Input */}
-          <div className="p-3 bg-green-200">
+          <div className=" p-3 bg-gray-200">
             <div className="flex gap-2">
               <input
                 type="text"
@@ -150,7 +150,7 @@ export default function ChatWidget() {
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleSendMessage()}
                 placeholder="Hỏi gì đó..."
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                className="bg-white flex-1 px-4 py-2 border border-gray-300 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
               />
               <button
                 onClick={handleSendMessage}
@@ -164,7 +164,7 @@ export default function ChatWidget() {
                 )}
               </button>
             </div>
-            <p className="text-center text-[10px] text-gray-400 mt-2">
+            <p className="text-center text-[10px] text-green-400 mt-2">
               AI có thể đưa ra thông tin chưa chính xác.
             </p>
           </div>
@@ -174,12 +174,12 @@ export default function ChatWidget() {
       {/* NÚT MỞ CHAT */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="bg-gradient-to-r from-green-500 to-emerald-500 text-white p-4 rounded-full shadow-lg hover:shadow-xl hover:scale-110 transition-all duration-300 group"
+        className="bg-white/20 backdrop-blur-sm text-green-500 p-4 rounded-full shadow-lg hover:shadow-xl hover:scale-110 transition-all duration-300 group"
       >
         {isOpen ? (
-          <X className="w-6 h-6" />
+          <X className="w-6 h-6 font-bold " />
         ) : (
-          <MessageSquare className="w-6 h-6" />
+          <MessageSquare className="w-6 h-6 font-bold" />
         )}
       </button>
     </div>

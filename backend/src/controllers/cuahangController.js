@@ -55,11 +55,14 @@ const authenticateToken = (req, res, next) => {
 
 // 🟢 TẠO THƯ MỤC UPLOAD
 const ensureUploadDir = (type = "stores") => {
-  const uploadDir = path.join(process.cwd(), "public", "uploads", type);
+  const rootDir = process.cwd();
+
+  const uploadDir = path.join(rootDir, "public", "uploads", type);
+
   if (!fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir, { recursive: true });
   }
-  return uploadDir;
+  return `/uploads/${type}/${fileName}`;
 };
 
 // 🟢 XỬ LÝ UPLOAD FILE
@@ -380,52 +383,46 @@ export const getAllCuahang = async (req, res) => {
   }
 };
 
-// 🟢 LẤY THÔNG TIN GIAN HÀNG THEO MÃ - AI CŨNG XEM ĐƯỢC
+// 🟢 LẤY THÔNG TIN GIAN HÀNG THEO MÃ
 export const getCuahangById = async (req, res) => {
   try {
     const { MaCH } = req.params;
     const { include } = req.query;
 
-    let options = {
-      where: { MaCH },
-    };
+    let includeOptions = [];
 
-    if (include) {
-      const includes = include.split(",");
-      options.include = [];
-
-      if (includes.includes("taikhoan")) {
-        options.include.push({
-          model: taikhoan,
-          as: "MaTK_taikhoan",
-          attributes: ["MaTK", "TenDangNhap", "Email", "LoaiTK"],
-        });
-      }
-
-      if (includes.includes("hinhanh")) {
-        options.include.push({
-          model: hinhanh,
-          as: "MaHA_CuaHang_hinhanh",
-          attributes: ["MaHA", "URL", "MoTa", "NgayTao"],
-        });
-      }
-
-      if (includes.includes("hdbanhang")) {
-        options.include.push({
-          model: hdbanhang,
-          as: "MaHD_hdbanhang",
-          attributes: [
-            "MaHD",
-            "NgayLap",
-            "LoaiHinhKD",
-            "MaSoThue",
-            "DCLayHang",
-          ],
-        });
-      }
+    // 1. Include Hình Ảnh
+    if (include && include.includes("hinhanh")) {
+      includeOptions.push({
+        model: hinhanh,
+        as: "MaHA_CuaHang_hinhanh",
+        attributes: ["MaHA", "URL", "MoTa"],
+      });
     }
 
-    const item = await cuahang.findOne(options);
+    // 2. Include Tài khoản
+    if (include && include.includes("taikhoan")) {
+      includeOptions.push({
+        model: taikhoan,
+        as: "MaTK_taikhoan",
+        attributes: ["MaTK", "TenDangNhap", "Email", "LoaiTK"],
+      });
+    }
+
+    // 3. Include Hợp đồng
+    if (include && include.includes("hdbanhang")) {
+      includeOptions.push({
+        model: hdbanhang,
+        as: "MaHD_hdbanhang",
+        attributes: ["MaHD", "NgayLap", "LoaiHinhKD", "MaSoThue", "DCLayHang"],
+      });
+    }
+
+    // Query Database
+    const item = await cuahang.findOne({
+      where: { MaCH },
+      include: includeOptions, // Đưa mảng include vào đây
+    });
 
     if (!item) {
       return res.status(404).json({
@@ -440,6 +437,7 @@ export const getCuahangById = async (req, res) => {
       data: item,
     });
   } catch (err) {
+    console.error("❌ Lỗi getCuahangById:", err); // Log lỗi ra terminal để debug
     res.status(500).json({
       success: false,
       message: "Lỗi khi lấy thông tin gian hàng",

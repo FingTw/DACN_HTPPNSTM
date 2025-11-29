@@ -1492,15 +1492,35 @@ const ProductManager: React.FC<ProductManagerProps> = ({
   };
 
   // 🟢 RENDER FUNCTIONS
+  const getFullImageUrl = (url?: string) => {
+    if (!url) return "/placeholder-image.png"; // Đảm bảo bạn có file này trong thư mục public
+    if (url.startsWith("http") || url.startsWith("https")) return url;
+    if (url.startsWith("blob:")) return url; // Cho ảnh xem trước khi upload
+
+    // Nối domain backend vào (Lưu ý: cổng 3000)
+    return `http://localhost:3000${url.startsWith("/") ? url : "/" + url}`;
+  };
+
+  // 2. Hàm render giao diện
   const renderProductImage = (product: Product): React.ReactElement => {
-    const imageUrl = product.hinhanhs?.[0]?.URL || product.MaHA_SanPham;
+    // Lấy link gốc từ dữ liệu sản phẩm
+    const rawUrl = product.hinhanhs?.[0]?.URL || product.MaHA_SanPham;
+
+    // Xử lý link gốc thành link đầy đủ
+    const finalUrl = getFullImageUrl(rawUrl);
+
     return (
       <div className="w-16 h-16 flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200 rounded-xl overflow-hidden shadow-sm">
-        {imageUrl ? (
+        {rawUrl ? (
           <img
-            src={imageUrl}
+            src={finalUrl} // 🟢 Dùng link đã xử lý ở đây
             alt={product.TenSP}
             className="w-full h-full object-cover"
+            onError={(e) => {
+              // Xử lý nếu ảnh bị lỗi (404) thì hiện ảnh placeholder
+              const target = e.target as HTMLImageElement;
+              target.src = "/placeholder-image.png";
+            }}
           />
         ) : (
           <span className="text-gray-400 text-2xl">🖼️</span>

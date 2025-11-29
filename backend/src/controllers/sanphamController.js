@@ -59,7 +59,9 @@ const authenticateUser = async (req) => {
 
 // 🟢 TẠO THƯ MỤC UPLOAD
 const ensureUploadDir = (type = "products") => {
-  const uploadDir = path.join(process.cwd(), "public", "uploads", type);
+  const srcDir = path.dirname(new URL(import.meta.url).pathname);
+  const backendDir = path.join(srcDir, "..", "..");
+  const uploadDir = path.join(backendDir, "public", "uploads", type);
   if (!fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir, { recursive: true });
   }
@@ -1096,8 +1098,19 @@ export const deleteSanpham = async (req, res) => {
     // 🟢 XÁC THỰC USER
     const user = await authenticateUser(req);
 
-    // Tìm sản phẩm
-    const product = await sanpham.findByPk(MaSP, { transaction });
+    // 1. Tìm sản phẩm VÀ KÈM THEO HÌNH ẢNH LUÔN
+    // Dùng alias "hinhanhs" là chuẩn vì đang query từ sanpham
+    const product = await sanpham.findByPk(MaSP, {
+      include: [
+        {
+          model: hinhanh,
+          as: "hinhanhs", // ✅ Alias đúng chiều: Sản phẩm -> Hình ảnh
+          through: { attributes: [] },
+        },
+      ],
+      transaction,
+    });
+
     if (!product) {
       await transaction.rollback();
       return res.status(404).json({
@@ -1106,7 +1119,7 @@ export const deleteSanpham = async (req, res) => {
       });
     }
 
-    // Tìm cửa hàng của user
+    // 2. Tìm cửa hàng của user
     const cuaHang = await cuahang.findOne({
       where: { MaTK: user.MaTK },
       transaction,
@@ -1120,7 +1133,7 @@ export const deleteSanpham = async (req, res) => {
       });
     }
 
-    // KIỂM TRA QUYỀN SỞ HỮU
+    // 3. KIỂM TRA QUYỀN SỞ HỮU
     if (product.MaCH !== cuaHang.MaCH) {
       await transaction.rollback();
       return res.status(403).json({
@@ -1129,37 +1142,44 @@ export const deleteSanpham = async (req, res) => {
       });
     }
 
-    // Lấy danh sách hình ảnh để xóa file vật lý
-    const productImages = await hinhanh.findAll({
-      include: [
-        {
-          model: sanpham,
-          as: "MaSP_sanpham_sanpham_hinhanhs",
-          where: { MaSP: MaSP },
-          through: { attributes: [] },
-        },
-      ],
-      transaction,
-    });
+    // 4. Xóa file hình ảnh vật lý trước
+    if (product.hinhanhs && product.hinhanhs.length > 0) {
+      product.hinhanhs.forEach((image) => {
+        // Đảm bảo hàm deletePhysicalFile đã được khai báo ở trên
+        // Nếu chưa có hàm riêng, có thể dùng code fs.unlinkSync trực tiếp tại đây
+        try {
+          const filePath = path.join(process.cwd(), "public", image.URL);
+          if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+        } catch (e) {
+          console.log("Không xóa được file:", image.URL);
+        }
+      });
+    }
 
-    // Xóa dữ liệu liên quan
+    // 5. Xóa dữ liệu liên quan trong DB
+    // Xóa liên kết danh mục
     await sanpham_danhmuc.destroy({
       where: { MaSP: MaSP },
       transaction,
     });
 
+    // Xóa liên kết hình ảnh (sanpham_hinhanh)
     await sanpham_hinhanh.destroy({
       where: { MaSP: MaSP },
       transaction,
     });
 
-    // Xóa sản phẩm
-    await product.destroy({ transaction });
+    // Xóa bản ghi trong bảng hinhanh (nếu muốn xóa triệt để khỏi DB)
+    const imageIds = product.hinhanhs.map((img) => img.MaHA);
+    if (imageIds.length > 0) {
+      await hinhanh.destroy({
+        where: { MaHA: imageIds },
+        transaction,
+      });
+    }
 
-    // Xóa file hình ảnh vật lý
-    productImages.forEach((image) => {
-      deletePhysicalFile(image.URL);
-    });
+    // 6. Xóa sản phẩm
+    await product.destroy({ transaction });
 
     await transaction.commit();
 
@@ -1169,13 +1189,12 @@ export const deleteSanpham = async (req, res) => {
       data: {
         deletedProduct: MaSP,
         store: cuaHang.MaCH,
-        deletedImages: productImages.length,
       },
     });
   } catch (err) {
     await transaction.rollback();
 
-    if (err.message.includes("Token")) {
+    if (err.message.includes("Token") || err.message.includes("đăng nhập")) {
       return res.status(401).json({
         success: false,
         message: err.message,

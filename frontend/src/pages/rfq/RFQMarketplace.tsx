@@ -116,30 +116,53 @@ export default function RFQMarketplace() {
           {requests.map((req) => (
             <div
               key={req.MaYCDH}
-              className={`group bg-white rounded-xl hover:shadow-md shadow-xl transition-all hover:scale-105 duration-300 flex flex-col h-full ${
+              className={`group bg-white rounded-xl hover:shadow-md shadow-xl transition-alls duration-300 flex flex-col h-full ${
                 isSeller ? "hover:border-green-500" : "hover:border-blue-500"
               }`}
             >
               {/* HEADER CARD */}
-              <div className="p-5 bg-gray-100 shadow-sm rounded-b-xl">
-                <div className="flex justify-between items-start">
-                  <span className="px-3 py-1 bg-blue-50 text-blue-700 text-xs font-bold rounded-full uppercase tracking-wide">
-                    Cần mua
-                  </span>
-                  <span className="flex items-center gap-1 text-xs font-medium text-orange-600 bg-orange-50 px-2 py-1 rounded-lg">
-                    <Clock className="w-3 h-3" />
-                    Còn {getDaysLeft(req.ThoiHan)}
-                  </span>
+              {/* Thẻ bao ngoài cùng */}
+              <div className="flex flex-col rounded-xl shadow-sm hover:shadow-md transition-all duration-300 group bg-white h-full">
+                {/* --- PHẦN 1: HÌNH ẢNH & BADGES (Nằm trên) --- */}
+                <div className="relative w-full h-48 overflow-hidden rounded-t-xl">
+                  {/* 1.1: Ảnh nền (Nằm dưới cùng) */}
+                  <img
+                    src="/banner1.jpg" // Nhớ thay bằng src={req.HinhAnh || "/banner1.jpg"} nếu có API
+                    alt={req.TenSP_YeuCau}
+                    className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                  />
+
+                  {/* 1.2: Lớp phủ đen mờ (Dimmed Overlay) - Giúp ảnh tối đi để thấy chữ */}
+                  <div className="absolute inset-0 bg-black/40 group-hover:bg-black/30 transition-all duration-300"></div>
+
+                  {/* 1.3: Thông tin nổi lên trên ảnh (Badges) */}
+                  {/* z-10 để nổi lên, p-4 để căn lề */}
+                  <div className="relative z-10 p-4 flex justify-between items-start w-full">
+                    {/* Badge Trạng thái: Dùng nền trắng mờ (white/90) để nổi bật trên nền tối */}
+                    <span className="px-3 py-1 bg-white/90 backdrop-blur-sm text-blue-700 text-xs font-bold rounded-full uppercase tracking-wide shadow-sm">
+                      Cần mua
+                    </span>
+
+                    {/* Badge Thời gian */}
+                    <span className="flex items-center gap-1 text-xs font-bold text-orange-700 bg-white/90 backdrop-blur-sm px-2 py-1 rounded-lg shadow-sm">
+                      <Clock className="w-3 h-3" />
+                      Còn {getDaysLeft(req.ThoiHan)}
+                    </span>
+                  </div>
                 </div>
-                <h3
-                  className={`mt-3 text-lg font-bold text-gray-900 line-clamp-2 min-h-[3.5rem] transition ${
-                    isSeller
-                      ? "group-hover:text-green-700"
-                      : "group-hover:text-blue-700"
-                  }`}
-                >
-                  {req.TenSP_YeuCau}
-                </h3>
+
+                {/* --- PHẦN 2: TÊN SẢN PHẨM (Nằm ngoài, bên dưới) --- */}
+                <div className="p-5 bg-gray-100 rounded-b-xl border-t border-gray-200 flex-1 flex flex-col justify-center">
+                  <h3
+                    className={`text-lg font-bold text-gray-900 line-clamp-2 transition ${
+                      isSeller
+                        ? "group-hover:text-green-700"
+                        : "group-hover:text-blue-700"
+                    }`}
+                  >
+                    {req.TenSP_YeuCau}
+                  </h3>
+                </div>
               </div>
 
               {/* BODY CARD */}

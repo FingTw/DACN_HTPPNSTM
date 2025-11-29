@@ -83,7 +83,12 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
     setIsAdding(false);
   };
 
-  const image = getImageUrl(product.hinhanhs?.[0]?.URL);
+  const rawImage =
+    product.hinhanhs?.[0]?.URL ||
+    (product as any).HinhAnh ||
+    (product as any).image;
+
+  const image = getImageUrl(rawImage);
   const stock = product.SLTon;
 
   return (

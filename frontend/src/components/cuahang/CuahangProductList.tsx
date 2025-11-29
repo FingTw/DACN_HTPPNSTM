@@ -1,5 +1,5 @@
 import React from "react";
-import { ProductCard } from "../home/ProductCard"; // Import ProductCard
+import { ProductCard } from "../home/ProductCard";
 
 interface CuahangProductListProps {
   products: any[];

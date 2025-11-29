@@ -250,7 +250,7 @@ export const Header: React.FC = () => {
 
             <div className="flex items-center gap-4">
               <Link
-                to="/viewshop"
+                to="/kenh-nguoi-ban"
                 className="flex items-center gap-1 text-green-700 hover:text-green-900 font-medium transition-colors"
               >
                 <svg

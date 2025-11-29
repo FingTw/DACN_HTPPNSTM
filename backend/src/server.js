@@ -200,7 +200,11 @@ app.use("/api/ai", aiRoutes);
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
-const publicDir = path.join(process.cwd(), "public");
+// 🟢 Tính toán đường dẫn tuyệt đối dựa vào vị trí của server.js
+const srcDir = path.dirname(fileURLToPath(import.meta.url));
+const backendDir = path.join(srcDir, "..");
+const publicDir = path.join(backendDir, "public");
+
 console.log("📂 Static Directory:", publicDir);
 app.use(express.static(publicDir));
 
@@ -212,7 +216,7 @@ const storage = multer.diskStorage({
     if (req.originalUrl.includes("avatar")) folder = "avatars";
     else if (req.originalUrl.includes("product")) folder = "products";
 
-    const uploadDir = path.join(process.cwd(), "public", "uploads", folder);
+    const uploadDir = path.join(backendDir, "public", "uploads", folder);
 
     if (!fs.existsSync(uploadDir)) {
       fs.mkdirSync(uploadDir, { recursive: true });

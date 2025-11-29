@@ -163,13 +163,13 @@ export const CartPage: React.FC = () => {
       <Header />
       <div className="min-h-screen bg-gray-50 py-8">
         <div className="max-w-6xl mx-auto px-4">
-          {/* <h1 className="text-3xl font-bold text-gray-900 mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 mb-8">
             Giỏ Hàng Của Tôi
-          </h1> */}
+          </h1>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Danh sách sản phẩm */}
-            <div className="lg:col-span-4 flex justify-center">
+            <div className="lg:col-span-2 flex justify-center">
               {cartItems.length === 0 ? (
                 <div className="bg-white rounded-lg shadow-sm p-8 text-center">
                   <div className="text-gray-400 mb-4">

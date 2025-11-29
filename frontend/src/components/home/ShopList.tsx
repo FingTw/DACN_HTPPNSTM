@@ -13,7 +13,7 @@ const ShopList: React.FC = () => {
         console.log("🔍 Fetching stores...");
         const data = await cuahangService.getAll({
           limit: 6, // Chỉ lấy 6 cửa hàng
-          include: "MaHA_CuaHang_hinhanh,hdbanhang",
+          include: "hinhanh,hdbanhang",
         });
 
         console.log("✅ API data:", data);
@@ -75,7 +75,9 @@ const ShopList: React.FC = () => {
       <div className="flex items-center justify-between mb-4 px-4">
         <div className="flex items-center space-x-3">
           <div className="w-1 h-6 bg-gradient-to-b from-emerald-500 to-teal-500 rounded-full"></div>
-          <h2 className="text-xl font-bold text-gray-800">Cửa Hàng Nông Sản</h2>
+          <h2 className="text-xl font-bold text-gray-800">
+            Cửa Hàng Tiêu Biểu
+          </h2>
         </div>
         <a
           href="/cua-hang"

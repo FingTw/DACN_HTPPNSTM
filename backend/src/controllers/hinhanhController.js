@@ -49,7 +49,9 @@ const authenticateUser = async (req) => {
 
 // 🟢 TẠO THƯ MỤC UPLOAD
 const ensureUploadDir = (type = "products") => {
-  const uploadDir = path.join(process.cwd(), "public", "uploads", type);
+  const rootDir = process.cwd();
+  const uploadDir = path.join(rootDir, "public", "public", type);
+
   if (!fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir, { recursive: true });
   }
@@ -59,7 +61,7 @@ const ensureUploadDir = (type = "products") => {
 // 🟢 XỬ LÝ UPLOAD FILE
 const handleFileUpload = (file, type = "products") => {
   ensureUploadDir(type);
-  const uploadDir = path.join(process.cwd(), "public", "uploads", type);
+  const uploadDir = path.join(process.cwd(), "public", "public", type);
 
   const fileExt = path.extname(file.originalname);
   const fileName = `${type}_${Date.now()}_${Math.random()
@@ -78,7 +80,7 @@ const handleFileUpload = (file, type = "products") => {
     fs.writeFileSync(filePath, file.buffer);
   }
 
-  return `/uploads/${type}/${fileName}`;
+  return `/public/${type}/${fileName}`;
 };
 
 // 🟢 TẠO MÃ HÌNH ẢNH

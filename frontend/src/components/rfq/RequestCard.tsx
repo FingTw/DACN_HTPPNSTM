@@ -21,6 +21,7 @@ interface RequestCardProps {
   };
   link: string;
 }
+const defaultBanner = "/banner1.jpg";
 
 const statusConfig: Record<
   string,
@@ -87,25 +88,52 @@ export default function RequestCard({ request, link }: RequestCardProps) {
       className="group relative block bg-white rounded-xl border border-gray-200 p-5 hover:shadow-lg hover:border-blue-400 transition-all duration-300 flex flex-col h-full"
     >
       {/* Header: Trạng thái & Ngày */}
-      <div className="flex justify-between items-start mb-3">
-        <div
-          className={`px-2.5 py-1 rounded-md text-xs font-bold uppercase tracking-wider border ${status.bg} ${status.color} ${status.border} flex items-center gap-1`}
-        >
-          <span className="relative flex h-2 w-2 mr-1">
-            {request.TrangThai === "Open" && (
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-            )}
-            <span
-              className={`relative inline-flex rounded-full h-2 w-2 ${
-                request.TrangThai === "Open" ? "bg-green-500" : "bg-gray-400"
-              }`}
-            ></span>
-          </span>
-          {status.label}
-        </div>
-        <div className="text-xs text-gray-500 flex items-center gap-1 bg-gray-50 px-2 py-1 rounded">
-          <Calendar className="w-3 h-3" />
-          Hạn: {format(new Date(request.ThoiHan), "dd/MM/yyyy", { locale: vi })}
+      {/* Container chính: Cần có relative và overflow-hidden để bo góc ảnh */}
+      <div className="relative w-full h-48 overflow-hidden rounded-xl shadow-lg group">
+        {/* 1. ẢNH NỀN (Nằm dưới cùng) */}
+        <img
+          // src={defaultBanner}
+          src="https://images.unsplash.com/photo-1542838132-92c53300491e?q=80&w=1000&auto=format&fit=crop"
+          alt="Background"
+          className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+        />
+
+        {/* 2. LỚP PHỦ MỜ (Overlay - Giúp nội dung dễ đọc hơn trên nền ảnh) */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent"></div>
+
+        {/* 3. NỘI DUNG CHÍNH (Nổi lên trên) */}
+        <div className="relative z-10 p-4 w-full h-full flex flex-col justify-between">
+          {/* Header: Trạng thái & Ngày (Code cũ của bạn đặt vào đây) */}
+          <div className="flex justify-between items-start mb-3">
+            {/* Badge Trạng Thái */}
+            <div
+              className={`px-2.5 py-1 rounded-md text-xs font-bold uppercase tracking-wider border shadow-sm backdrop-blur-md ${status.bg} ${status.color} ${status.border} flex items-center gap-1`}
+            >
+              <span className="relative flex h-2 w-2 mr-1">
+                {request.TrangThai === "Open" && (
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                )}
+                <span
+                  className={`relative inline-flex rounded-full h-2 w-2 ${
+                    request.TrangThai === "Open"
+                      ? "bg-green-500"
+                      : "bg-gray-400"
+                  }`}
+                ></span>
+              </span>
+              {status.label}
+            </div>
+
+            {/* Badge Ngày tháng - Thêm backdrop-blur để đẹp hơn trên nền ảnh */}
+            <div className="text-xs text-gray-700 font-medium flex items-center gap-1 bg-white/90 backdrop-blur-sm px-2 py-1 rounded shadow-sm">
+              <Calendar className="w-3 h-3" />
+              Hạn:{" "}
+              {format(new Date(request.ThoiHan), "dd/MM/yyyy", { locale: vi })}
+            </div>
+          </div>
+
+          {/* Bạn có thể thêm các nội dung khác ở dưới đây nếu muốn */}
+          {/* <h3 className="text-white font-bold text-lg mt-auto">{request.TieuDe}</h3> */}
         </div>
       </div>
 
@@ -123,7 +151,7 @@ export default function RequestCard({ request, link }: RequestCardProps) {
           </div>
           <p className="font-bold text-gray-900">
             {request.SoLuongYeuCau}{" "}
-            <span className="text-xs font-normal text-gray-500">đơn vị</span>
+            <span className="text-xs font-normal text-gray-500">kg</span>
           </p>
         </div>
 

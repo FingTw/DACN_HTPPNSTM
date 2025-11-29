@@ -222,9 +222,8 @@ export default function CuahangDetailPage() {
 
       // Fetch thông tin cửa hàng
       const storeResponse = await fetch(
-        `http://localhost:3000/api/cuahang/${MaCH}`
+        `http://localhost:3000/api/cuahang/${MaCH}?include=hinhanh`
       );
-
       if (!storeResponse.ok) {
         throw new Error(`Lỗi HTTP! status: ${storeResponse.status}`);
       }
@@ -243,7 +242,7 @@ export default function CuahangDetailPage() {
       let productsData: Product[] = [];
       try {
         const productsResponse = await fetch(
-          `http://localhost:3000/api/sanpham/cua-hang/${MaCH}`
+          `http://localhost:3000/api/sanpham/cua-hang/${MaCH}?include=hinhanh`
         );
 
         console.log("📦 Response status sản phẩm:", productsResponse.status);
@@ -303,7 +302,7 @@ export default function CuahangDetailPage() {
   }, [MaCH, refreshProducts]);
 
   // Hàm cập nhật thông tin cửa hàng
-  const handleUpdateStore = async (updatedData: any) => {
+  const handleUpdateStore = async (formData: FormData) => {
     try {
       console.log("🔄 [UPDATE] Bắt đầu cập nhật cửa hàng...");
 
@@ -335,7 +334,7 @@ export default function CuahangDetailPage() {
       }
 
       console.log("✅ [UPDATE] Đã có token:", token.substring(0, 30) + "...");
-      console.log("📦 [UPDATE] Dữ liệu gửi:", updatedData);
+      console.log("📦 [UPDATE] Dữ liệu gửi:");
 
       const url = `http://localhost:3000/api/cuahang/chinh-sua/${MaCH}`;
       console.log("🌐 [UPDATE] Gửi request đến:", url);
@@ -343,10 +342,10 @@ export default function CuahangDetailPage() {
       const response = await fetch(url, {
         method: "PUT",
         headers: {
-          "Content-Type": "application/json",
+          // "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(updatedData),
+        body: formData,
       });
 
       console.log("📨 [UPDATE] Response status:", response.status);
@@ -424,6 +423,25 @@ export default function CuahangDetailPage() {
   // Hàm refresh danh sách sản phẩm
   const handleProductsUpdate = () => {
     setRefreshProducts((prev) => prev + 1);
+  };
+
+  // HÀM XỬ LÝ URL ẢNH
+  const getImageUrl = (url?: string) => {
+    console.log("🖼️ Input URL:", url);
+    if (!url) return "/default-store-banner.jpg"; // Bạn có thể thay bằng ảnh mặc định khác
+
+    // 2. Nếu URL đã là đường dẫn tuyệt đối (bắt đầu bằng http hoặc https)
+    if (url.startsWith("http://") || url.startsWith("https://")) {
+      return url;
+    }
+    const cleanUrl = url.startsWith("/") ? url : `/${url}`;
+
+    // Sử dụng biến môi trường cho domain server nếu có, hoặc hardcode localhost
+    const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+
+    const final = `${API_URL}${cleanUrl}`;
+    console.log("✅ Final URL:", final); // <--- THÊM DÒNG NÀY
+    return final;
   };
 
   const safeStore = store || ({} as Store);
@@ -631,77 +649,79 @@ export default function CuahangDetailPage() {
             )}
           </div>
         );
-        
-        case "orders":
-          if (!isOwner) {
-            return (
-              <div className="space-y-8">
-                {renderAuthStatus()}
-                <div className="text-center py-12">
-                  <div className="w-20 h-20 bg-red-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                    <span className="text-3xl">🚫</span>
-                  </div>
-                  <h3 className="text-xl font-semibold text-gray-700 mb-2">
-                    {!currentUser ? "Vui lòng đăng nhập" : "Không có quyền truy cập"}
-                  </h3>
-                  <p className="text-gray-500 mb-6">
-                    {!currentUser
-                      ? "Bạn cần đăng nhập để quản lý đơn hàng"
-                      : "Chỉ chủ cửa hàng mới có quyền quản lý đơn hàng."}
-                  </p>
-                  <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                    {!currentUser && (
-                      <button
-                        onClick={() => navigate("/dang-nhap")}
-                        className="bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-200"
-                      >
-                        Đăng nhập
-                      </button>
-                    )}
-                    <button
-                      onClick={() => setActiveTab("products")}
-                      className="bg-gray-500 hover:bg-gray-600 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-200"
-                    >
-                      Quay lại trang sản phẩm
-                    </button>
-                  </div>
-                </div>
-              </div>
-            );
-          }
 
+      case "orders":
+        if (!isOwner) {
           return (
             <div className="space-y-8">
               {renderAuthStatus()}
-              
-              {/* Header trang quản lý đơn hàng */}
-              <div className="bg-gradient-to-r from-purple-600 to-indigo-700 text-white rounded-3xl p-8 shadow-2xl">
-                <div className="text-center">
-                  <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                    <span className="text-2xl">📦</span>
-                  </div>
-                  <h2 className="text-2xl lg:text-3xl font-bold mb-2">
-                    Quản lý đơn hàng
-                  </h2>
-                  <p className="text-purple-100 opacity-90">
-                    Theo dõi và quản lý tất cả đơn hàng của cửa hàng
-                  </p>
+              <div className="text-center py-12">
+                <div className="w-20 h-20 bg-red-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                  <span className="text-3xl">🚫</span>
+                </div>
+                <h3 className="text-xl font-semibold text-gray-700 mb-2">
+                  {!currentUser
+                    ? "Vui lòng đăng nhập"
+                    : "Không có quyền truy cập"}
+                </h3>
+                <p className="text-gray-500 mb-6">
+                  {!currentUser
+                    ? "Bạn cần đăng nhập để quản lý đơn hàng"
+                    : "Chỉ chủ cửa hàng mới có quyền quản lý đơn hàng."}
+                </p>
+                <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                  {!currentUser && (
+                    <button
+                      onClick={() => navigate("/dang-nhap")}
+                      className="bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-200"
+                    >
+                      Đăng nhập
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setActiveTab("products")}
+                    className="bg-gray-500 hover:bg-gray-600 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-200"
+                  >
+                    Quay lại trang sản phẩm
+                  </button>
                 </div>
               </div>
-
-              {/* Component OrderManager */}
-              {store && (
-                <OrderManager
-                  store={store}
-                  isOwner={isOwner}
-                  onOrdersUpdate={() => {
-                    // Có thể thêm logic refresh nếu cần
-                    console.log("Đơn hàng đã được cập nhật");
-                  }}
-                />
-              )}
             </div>
           );
+        }
+
+        return (
+          <div className="space-y-8">
+            {renderAuthStatus()}
+
+            {/* Header trang quản lý đơn hàng */}
+            <div className="bg-gradient-to-r from-purple-600 to-indigo-700 text-white rounded-3xl p-8 shadow-2xl">
+              <div className="text-center">
+                <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                  <span className="text-2xl">📦</span>
+                </div>
+                <h2 className="text-2xl lg:text-3xl font-bold mb-2">
+                  Quản lý đơn hàng
+                </h2>
+                <p className="text-purple-100 opacity-90">
+                  Theo dõi và quản lý tất cả đơn hàng của cửa hàng
+                </p>
+              </div>
+            </div>
+
+            {/* Component OrderManager */}
+            {store && (
+              <OrderManager
+                store={store}
+                isOwner={isOwner}
+                onOrdersUpdate={() => {
+                  // Có thể thêm logic refresh nếu cần
+                  console.log("Đơn hàng đã được cập nhật");
+                }}
+              />
+            )}
+          </div>
+        );
 
       case "edit":
         if (!isOwner) {
@@ -856,22 +876,43 @@ export default function CuahangDetailPage() {
       <Header />
       <div className="pt-20">
         {/* Hero Banner */}
-        <div className="relative bg-gradient-to-r from-emerald-500 via-green-500 to-teal-500 text-white overflow-hidden">
-          <div className="absolute inset-0 bg-black/10"></div>
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 relative">
+        <div className="relative h-64 md:h-80 lg:h-96 bg-gray-900 overflow-hidden text-white">
+          {/* 1. ẢNH NỀN: Sử dụng hàm getImageUrl có sẵn để xử lý link */}
+          <img
+            src={getImageUrl(safeStore.MaHA_CuaHang_hinhanh?.URL)}
+            alt={safeStore.TenCH}
+            className="absolute inset-0 w-full h-full object-cover opacity-60"
+            onError={(e) => {
+              // Fallback: Nếu ảnh lỗi thì ẩn đi và hiện màu nền xanh
+              const target = e.target as HTMLImageElement;
+              target.style.display = "none";
+              target.parentElement!.style.background =
+                "linear-gradient(to right, #10b981, #14b8a6)";
+            }}
+          />
+
+          {/* 2. Lớp phủ đen mờ để chữ dễ đọc hơn */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent"></div>
+
+          {/* 3. Nội dung chính (Giữ nguyên logic cũ nhưng căn chỉnh lại) */}
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 relative h-full flex items-center justify-center">
             <div className="text-center">
-              <div className="inline-flex items-center bg-white/20 backdrop-blur-sm rounded-full px-6 py-3 text-base mb-6 border border-white/30">
-                <span className="w-3 h-3 bg-lime-300 rounded-full mr-3 animate-pulse"></span>
+              <div className="inline-flex items-center bg-white/20 backdrop-blur-sm rounded-full px-6 py-3 text-base mb-6 border border-white/30 shadow-lg">
+                <span className="w-3 h-3 bg-lime-400 rounded-full mr-3 animate-pulse"></span>
                 {isOwner
-                  ? "🎯 CỬA HÀNG CỦA BẠN"
-                  : "🚜 Cửa hàng nông sản uy tín"}
+                  ? "🎯 QUẢN LÝ CỬA HÀNG"
+                  : "✅ Cửa hàng nông sản uy tín"}
               </div>
-              <h1 className="text-4xl lg:text-5xl font-bold mb-4 leading-tight">
+
+              <h1 className="text-4xl lg:text-6xl font-bold mb-4 leading-tight drop-shadow-md">
                 {safeStore.TenCH}
               </h1>
-              <p className="text-emerald-100 text-xl max-w-2xl mx-auto leading-relaxed">
+
+              <p className="text-emerald-50 text-xl max-w-2xl mx-auto leading-relaxed font-light drop-shadow-sm">
                 {isOwner
                   ? "Chào mừng bạn trở lại! Quản lý cửa hàng thật dễ dàng"
+                  : safeStore.MoTa
+                  ? safeStore.MoTa.substring(0, 100) + "..."
                   : "Chuyên cung cấp nông sản sạch, an toàn và chất lượng cao"}
               </p>
             </div>

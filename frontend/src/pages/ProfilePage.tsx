@@ -1,14 +1,18 @@
-// src/components/ProfilePage.tsx
+// src/pages/ProfilePage.tsx
 import React, { useState, useEffect, useRef } from "react";
 import { useProfile } from "../hooks/useProfile";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
-
-const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
-  const target = e.target as HTMLImageElement;
-  target.src = "/default-image.png"; // Fallback image
-  target.onerror = null; // Ngăn lỗi lặp vô hạn
-};
+import {
+  ArrowLeft,
+  Camera,
+  Save,
+  X,
+  User,
+  Mail,
+  Phone,
+  Shield,
+} from "lucide-react";
 
 const ProfilePage: React.FC = () => {
   const {
@@ -24,6 +28,8 @@ const ProfilePage: React.FC = () => {
   } = useProfile();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // State form local
   const [formData, setFormData] = useState({
     HoTen: "",
     SDT: "",
@@ -31,26 +37,24 @@ const ProfilePage: React.FC = () => {
     TenDangNhap: "",
   });
 
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
 
-  // Hàm xử lý URL ảnh
+  // 🟢 HÀM XỬ LÝ URL ẢNH CHUẨN
   const getImageUrl = (url: string | undefined | null): string => {
-    if (!url) return "/default-avatar.png";
+    if (!url) return "https://github.com/shadcn.png";
 
-    // Nếu URL bắt đầu bằng /uploads, thêm domain (chỉ trong development)
-    if (url.startsWith("/uploads/")) {
-      return `http://localhost:3000${url}`;
-    }
+    // Nếu là link online (google, facebook...) -> giữ nguyên
+    if (url.startsWith("http")) return url;
 
-    // Nếu là URL đầy đủ
-    if (url.startsWith("http")) {
-      return url;
-    }
-
-    return "/default-avatar.png";
+    // Nếu là link tương đối từ server -> nối thêm localhost
+    // Backend trả về: /uploads/filename.jpg
+    const cleanUrl = url.startsWith("/") ? url : `/${url}`;
+    return `http://localhost:3000${cleanUrl}`;
   };
 
-  // Cập nhật form data khi profile thay đổi
+  // Cập nhật dữ liệu khi profile thay đổi
   useEffect(() => {
     if (profile) {
       setFormData({
@@ -60,103 +64,36 @@ const ProfilePage: React.FC = () => {
         TenDangNhap: profile.TenDangNhap || "",
       });
 
+      // Cập nhật preview ảnh từ profile nếu chưa có preview local (hoặc khi profile update)
       if (profile.Avatar?.URL) {
         setAvatarPreview(getImageUrl(profile.Avatar.URL));
-      } else {
-        setAvatarPreview("/default-avatar.png");
       }
     }
   }, [profile]);
 
-  // DEBUG EFFECT - tách riêng
-  useEffect(() => {
-    console.log("🐛 Starting debug for product images...");
-
-    // Cách 1: Network observer
-    const performanceObserver = new PerformanceObserver((list) => {
-      list.getEntries().forEach((entry) => {
-        if (entry.name.includes("product-")) {
-          console.log("📡 Network request to product image:", entry.name);
-        }
-      });
-    });
-    performanceObserver.observe({ entryTypes: ["resource"] });
-
-    // Cách 2: Error event listener
-    const errorHandler = (event: ErrorEvent) => {
-      if (event.message.includes("404") && event.filename) {
-        console.log("❌ 404 Error:", event.filename);
-      }
-    };
-    window.addEventListener("error", errorHandler);
-
-    // Cách 3: Console error override
-    const originalError = console.error;
-    console.error = (...args) => {
-      if (args[0]?.includes?.("404") || args[1]?.includes?.("product-")) {
-        console.log("🔍 Detailed 404 info:", {
-          args: args,
-          stack: new Error().stack,
-        });
-      }
-      originalError.apply(console, args);
-    };
-
-    return () => {
-      performanceObserver.disconnect();
-      window.removeEventListener("error", errorHandler);
-      console.error = originalError;
-    };
-  }, []); // QUAN TRỌNG: empty dependencies
-
+  // Xử lý thay đổi input
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-
+    setFormData((prev) => ({ ...prev, [name]: value }));
     if (error) clearError();
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Xử lý chọn file ảnh
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      // Validate file type
-      if (!file.type.startsWith("image/")) {
-        clearError();
+      // Validate cơ bản
+      if (!file.type.startsWith("image/") || file.size > 5 * 1024 * 1024) {
+        alert("Vui lòng chọn file ảnh dưới 5MB");
         return;
       }
 
-      // Validate file size (5MB)
-      if (file.size > 5 * 1024 * 1024) {
-        clearError();
-        return;
-      }
+      setSelectedFile(file);
 
-      // Create preview
+      // 1. Preview ngay lập tức (Client side preview)
       const reader = new FileReader();
-      reader.onload = (e) => {
-        setAvatarPreview(e.target?.result as string);
-      };
+      reader.onload = (e) => setAvatarPreview(e.target?.result as string);
       reader.readAsDataURL(file);
-
-      // Upload file
-      uploadAvatar(file)
-        .then(() => {
-          if (fileInputRef.current) {
-            fileInputRef.current.value = "";
-          }
-        })
-        .catch(() => {
-          // Error handled in hook
-        });
-    }
-  };
-
-  const handleAvatarClick = () => {
-    if (isEditing) {
-      fileInputRef.current?.click();
     }
   };
 
@@ -164,22 +101,29 @@ const ProfilePage: React.FC = () => {
     e.preventDefault();
 
     try {
-      // Loại bỏ các trường rỗng
-      const payload: any = {};
-      Object.entries(formData).forEach(([key, value]) => {
-        if (value !== "") {
-          payload[key] = value;
-        }
-      });
+      // Tạo FormData để gửi cả text lẫn file
+      const dataToSend = new FormData();
+      dataToSend.append("HoTen", formData.HoTen);
+      dataToSend.append("SDT", formData.SDT);
+      dataToSend.append("Email", formData.Email);
+      dataToSend.append("TenDangNhap", formData.TenDangNhap);
 
-      await updateProfile(payload);
+      // Nếu có chọn ảnh mới thì append vào
+      if (selectedFile) {
+        dataToSend.append("avatar", selectedFile); // Key phải là 'avatar' giống bên Route
+      }
+
+      // Gọi API update (Bạn cần sửa service để nhận FormData)
+      await updateProfile(dataToSend);
+
+      setIsEditing(false);
+      // Reset file đã chọn
+      setSelectedFile(null);
     } catch (err) {
-      // Error đã được xử lý trong hook
+      console.error(err);
     }
   };
-
   const handleCancel = () => {
-    // Reset form data về giá trị ban đầu
     if (profile) {
       setFormData({
         HoTen: profile.HoTen || "",
@@ -187,481 +131,249 @@ const ProfilePage: React.FC = () => {
         Email: profile.Email || "",
         TenDangNhap: profile.TenDangNhap || "",
       });
-
-      // Reset avatar preview
-      if (profile.Avatar?.URL) {
-        setAvatarPreview(getImageUrl(profile.Avatar.URL));
-      } else {
-        setAvatarPreview("/default-avatar.png");
-      }
+      // Reset về ảnh cũ từ server
+      setAvatarPreview(getImageUrl(profile.Avatar?.URL));
     }
     setIsEditing(false);
     clearError();
   };
 
-  const handleBack = () => {
-    if (isEditing) {
-      handleCancel();
-    } else {
-      // Điều hướng về trang trước hoặc trang chủ
-      window.history.back();
-    }
-  };
-
-  if (!profile) {
+  if (loading && !profile) {
     return (
-      <div style={styles.container}>
-        <div style={styles.loading}>Đang tải thông tin...</div>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+          <span className="text-gray-500 font-medium">Đang tải hồ sơ...</span>
+        </div>
       </div>
     );
   }
 
+  // Fallback nếu không có profile (ví dụ chưa login)
+  if (!profile) return null;
+
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-50 via-white to-emerald-50/30">
+    <div className="min-h-screen flex flex-col bg-gray-50">
       <Header />
-      <div style={styles.container}>
-        {/* Header với nút back và tiêu đề */}
-        <div style={styles.profileHeader}>
-          <div style={styles.headerLeft}>
-            <button
-              style={styles.backButton}
-              onClick={handleBack}
-              title="Quay lại"
-            >
-              <svg
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-              >
-                <path d="M19 12H5M12 19l-7-7 7-7" />
-              </svg>
-            </button>
-            <h1 style={styles.title}>Thông tin cá nhân</h1>
-          </div>
-          {!isEditing && (
-            <button
-              style={styles.editButton}
-              onClick={() => setIsEditing(true)}
-            >
-              Chỉnh sửa
-            </button>
-          )}
-        </div>
 
-        {error && <div style={styles.errorMessage}>{error}</div>}
+      <main className="flex-grow py-10 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-4xl mx-auto">
+          {/* Nút Quay lại */}
+          <button
+            onClick={() => window.history.back()}
+            className="flex items-center text-gray-500 hover:text-emerald-600 transition-colors mb-6 font-medium"
+          >
+            <ArrowLeft className="w-5 h-5 mr-2" />
+            Quay lại
+          </button>
 
-        <div style={styles.profileContent}>
-          {/* Avatar section - Đơn giản hóa, chỉ còn upload file */}
-          <div style={styles.avatarSection}>
-            <div
-              style={{
-                ...styles.avatarPreview,
-                ...(isEditing ? styles.avatarEditable : {}),
-              }}
-              onClick={handleAvatarClick}
-            >
-              {avatarPreview ? (
-                <img
-                  src={avatarPreview}
-                  alt="Avatar"
-                  style={styles.avatarImage}
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).src = "/default-avatar.png";
-                    (e.target as HTMLImageElement).onerror = null;
-                  }}
-                />
-              ) : (
-                <div style={styles.avatarPlaceholder}>
-                  <span>No Avatar</span>
+          {/* Card Container */}
+          <div className="bg-white rounded-3xl shadow-xl overflow-hidden border border-gray-100">
+            {/* 🟢 BANNER HEADER */}
+            <div className="h-48 bg-gradient-to-r from-emerald-500 to-teal-600 relative">
+              <div className="absolute inset-0 bg-black/10"></div>
+            </div>
+
+            {/* 🟢 AVATAR & MAIN INFO SECTION */}
+            <div className="relative px-8 pb-8">
+              <div className="flex flex-col sm:flex-row items-center sm:items-end -mt-20 mb-8 gap-6">
+                {/* Avatar Circle */}
+                <div className="relative group">
+                  <div className="w-40 h-40 rounded-full border-[6px] border-white shadow-lg overflow-hidden bg-gray-200 relative">
+                    <img
+                      src={avatarPreview || "https://github.com/shadcn.png"}
+                      alt="Profile"
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.src = "https://github.com/shadcn.png";
+                      }}
+                    />
+
+                    {/* Overlay loading */}
+                    {uploadLoading && (
+                      <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-10">
+                        <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Nút Camera */}
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploadLoading}
+                    // Cho phép bấm camera ngay cả khi không ở chế độ edit (UX tốt hơn)
+                    // Hoặc giữ logic cũ: disabled={!isEditing}
+                    className={`absolute bottom-2 right-2 p-2.5 rounded-full shadow-md transition-all duration-200 cursor-pointer bg-emerald-500 text-white hover:bg-emerald-600 hover:scale-110 z-20`}
+                    title="Đổi ảnh đại diện"
+                  >
+                    <Camera className="w-5 h-5" />
+                  </button>
+
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleFileChange}
+                    accept="image/*"
+                    className="hidden"
+                  />
                 </div>
-              )}
-              {isEditing && (
-                <div style={styles.avatarOverlay}>
-                  {uploadLoading ? (
-                    <div style={styles.uploadLoading}>Đang upload...</div>
-                  ) : (
-                    <div style={styles.avatarEditText}>Click để đổi ảnh</div>
-                  )}
+
+                {/* Tên & Role */}
+                <div className="text-center sm:text-left flex-1 pb-2">
+                  <h1 className="text-3xl font-bold text-gray-900 mb-1">
+                    {profile.HoTen || profile.TenDangNhap}
+                  </h1>
+                  <div className="flex items-center justify-center sm:justify-start gap-2 text-gray-500 font-medium">
+                    <span className="px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-sm border border-emerald-100 flex items-center gap-1">
+                      <Shield className="w-3 h-3" />
+                      {profile.TenDangNhap}
+                    </span>
+                  </div>
                 </div>
-              )}
-            </div>
 
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={handleFileChange}
-              accept="image/*"
-              style={styles.fileInput}
-            />
-
-            {isEditing && (
-              <div style={styles.uploadHint}>Nhấn vào ảnh để đổi avatar</div>
-            )}
-          </div>
-
-          {/* Profile form */}
-          <form onSubmit={handleSubmit} style={styles.profileForm}>
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Mã tài khoản:</label>
-              <input
-                type="text"
-                value={profile.MaTK}
-                disabled
-                style={styles.disabledInput}
-              />
-            </div>
-
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Tên đăng nhập:</label>
-              {isEditing ? (
-                <input
-                  type="text"
-                  name="TenDangNhap"
-                  value={formData.TenDangNhap}
-                  onChange={handleChange}
-                  required
-                  style={styles.input}
-                />
-              ) : (
-                <input
-                  type="text"
-                  value={profile.TenDangNhap}
-                  disabled
-                  style={styles.disabledInput}
-                />
-              )}
-            </div>
-
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Họ và tên:</label>
-              {isEditing ? (
-                <input
-                  type="text"
-                  name="HoTen"
-                  value={formData.HoTen}
-                  onChange={handleChange}
-                  style={styles.input}
-                  placeholder="Nhập họ và tên"
-                />
-              ) : (
-                <div style={styles.profileValue}>
-                  {profile.HoTen || "Chưa cập nhật"}
-                </div>
-              )}
-            </div>
-
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Email:</label>
-              {isEditing ? (
-                <input
-                  type="email"
-                  name="Email"
-                  value={formData.Email}
-                  onChange={handleChange}
-                  style={styles.input}
-                  placeholder="Nhập email"
-                />
-              ) : (
-                <div style={styles.profileValue}>
-                  {profile.Email || "Chưa cập nhật"}
-                </div>
-              )}
-            </div>
-
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Số điện thoại:</label>
-              {isEditing ? (
-                <input
-                  type="text"
-                  name="SDT"
-                  value={formData.SDT}
-                  onChange={handleChange}
-                  style={styles.input}
-                  placeholder="Nhập số điện thoại"
-                />
-              ) : (
-                <div style={styles.profileValue}>
-                  {profile.SDT || "Chưa cập nhật"}
-                </div>
-              )}
-            </div>
-
-            {isEditing && (
-              <div style={styles.formActions}>
-                <button
-                  type="submit"
-                  style={{
-                    ...styles.saveButton,
-                    ...(loading ? styles.disabledButton : {}),
-                  }}
-                  disabled={loading}
-                >
-                  {loading ? "Đang cập nhật..." : "Lưu thay đổi"}
-                </button>
-                <button
-                  type="button"
-                  style={{
-                    ...styles.cancelButton,
-                    ...(loading ? styles.disabledButton : {}),
-                  }}
-                  onClick={handleCancel}
-                  disabled={loading}
-                >
-                  Hủy
-                </button>
+                {/* Nút Chỉnh sửa */}
+                {!isEditing && (
+                  <button
+                    onClick={() => setIsEditing(true)}
+                    className="hidden sm:flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-2.5 rounded-xl font-semibold transition-all shadow-sm hover:shadow-md"
+                  >
+                    Chỉnh sửa hồ sơ
+                  </button>
+                )}
               </div>
-            )}
-          </form>
+
+              {/* Error Message */}
+              {error && (
+                <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl flex items-center gap-2 animate-pulse">
+                  <span>⚠️</span> {error}
+                </div>
+              )}
+
+              {/* 🟢 FORM THÔNG TIN */}
+              <form onSubmit={handleSubmit}>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                  {/* Field: Họ tên */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                      <User className="w-4 h-4 text-gray-400" /> Họ và tên
+                    </label>
+                    <input
+                      type="text"
+                      name="HoTen"
+                      value={formData.HoTen}
+                      onChange={handleChange}
+                      disabled={!isEditing}
+                      className={`w-full px-4 py-3 rounded-xl border transition-all duration-200 outline-none ${
+                        isEditing
+                          ? "bg-white border-gray-300 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
+                          : "bg-gray-50 border-transparent text-gray-600 cursor-not-allowed"
+                      }`}
+                      placeholder="Chưa cập nhật"
+                    />
+                  </div>
+
+                  {/* Field: Số điện thoại */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                      <Phone className="w-4 h-4 text-gray-400" /> Số điện thoại
+                    </label>
+                    <input
+                      type="text"
+                      name="SDT"
+                      value={formData.SDT}
+                      onChange={handleChange}
+                      disabled={!isEditing}
+                      className={`w-full px-4 py-3 rounded-xl border transition-all duration-200 outline-none ${
+                        isEditing
+                          ? "bg-white border-gray-300 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
+                          : "bg-gray-50 border-transparent text-gray-600 cursor-not-allowed"
+                      }`}
+                      placeholder="Chưa cập nhật"
+                    />
+                  </div>
+
+                  {/* Field: Email */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                      <Mail className="w-4 h-4 text-gray-400" /> Email
+                    </label>
+                    <input
+                      type="email"
+                      name="Email"
+                      value={formData.Email}
+                      onChange={handleChange}
+                      disabled={!isEditing} // Email thường không cho sửa, hoặc logic riêng
+                      className={`w-full px-4 py-3 rounded-xl border transition-all duration-200 outline-none ${
+                        isEditing
+                          ? "bg-white border-gray-300 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
+                          : "bg-gray-50 border-transparent text-gray-600 cursor-not-allowed"
+                      }`}
+                      placeholder="example@email.com"
+                    />
+                  </div>
+
+                  {/* Field: Mã Tài Khoản */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                      <Shield className="w-4 h-4 text-gray-400" /> Mã tài khoản
+                    </label>
+                    <input
+                      type="text"
+                      value={profile.MaTK}
+                      disabled
+                      className="w-full px-4 py-3 rounded-xl border border-transparent bg-gray-100 text-gray-500 cursor-not-allowed font-mono text-sm"
+                    />
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                {isEditing && (
+                  <div className="mt-10 flex items-center justify-end gap-4 pt-6 border-t border-gray-100">
+                    <button
+                      type="button"
+                      onClick={handleCancel}
+                      className="flex items-center gap-2 px-6 py-2.5 rounded-xl border border-gray-300 text-gray-700 font-semibold hover:bg-gray-50 transition-colors"
+                    >
+                      <X className="w-4 h-4" /> Hủy bỏ
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-8 py-2.5 rounded-xl font-bold shadow-lg shadow-emerald-200 hover:shadow-xl transition-all transform active:scale-95 disabled:opacity-70 disabled:transform-none"
+                    >
+                      {loading ? (
+                        <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                      ) : (
+                        <>
+                          <Save className="w-4 h-4" /> Lưu thay đổi
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )}
+
+                {/* Mobile Edit Button */}
+                {!isEditing && (
+                  <div className="mt-8 sm:hidden">
+                    <button
+                      type="button"
+                      onClick={() => setIsEditing(true)}
+                      className="w-full flex justify-center items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-xl font-semibold shadow-md"
+                    >
+                      Chỉnh sửa hồ sơ
+                    </button>
+                  </div>
+                )}
+              </form>
+            </div>
+          </div>
         </div>
-      </div>
+      </main>
+
       <Footer />
     </div>
   );
 };
-
-// CSS Styles
-const styles = {
-  container: {
-    maxWidth: "800px",
-    margin: "0 auto",
-    padding: "20px",
-    fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
-    backgroundColor: "#f8f9fa",
-    minHeight: "100vh",
-  },
-  loading: {
-    textAlign: "center" as const,
-    padding: "40px",
-    fontSize: "18px",
-    color: "#7f8c8d",
-  },
-  profileHeader: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: "30px",
-    borderBottom: "2px solid #e1e5e9",
-    paddingBottom: "15px",
-  },
-  headerLeft: {
-    display: "flex",
-    alignItems: "center",
-    gap: "15px",
-  },
-  backButton: {
-    background: "none",
-    border: "none",
-    cursor: "pointer",
-    padding: "8px",
-    borderRadius: "50%",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    transition: "all 0.3s ease",
-    color: "#2c3e50",
-  },
-  title: {
-    color: "#2c3e50",
-    margin: 0,
-    fontSize: "28px",
-    fontWeight: 600,
-  },
-  editButton: {
-    backgroundColor: "#3498db",
-    color: "white",
-    border: "none",
-    padding: "10px 20px",
-    borderRadius: "6px",
-    cursor: "pointer",
-    fontSize: "14px",
-    transition: "all 0.3s ease",
-  },
-  errorMessage: {
-    backgroundColor: "#fee",
-    border: "1px solid #f5c6cb",
-    color: "#721c24",
-    padding: "12px",
-    borderRadius: "6px",
-    marginBottom: "20px",
-  },
-  profileContent: {
-    display: "grid",
-    gridTemplateColumns: "250px 1fr",
-    gap: "40px",
-    alignItems: "start",
-    backgroundColor: "white",
-    padding: "30px",
-    borderRadius: "8px",
-    boxShadow: "0 2px 10px rgba(0,0,0,0.1)",
-  },
-  avatarSection: {
-    textAlign: "center" as const,
-  },
-  avatarPreview: {
-    marginBottom: "15px",
-    position: "relative" as const,
-    cursor: "pointer",
-    width: "150px",
-    height: "150px",
-    margin: "0 auto",
-  },
-  avatarEditable: {
-    cursor: "pointer",
-  },
-  avatarImage: {
-    width: "100%",
-    height: "100%",
-    borderRadius: "50%",
-    objectFit: "cover" as const,
-    border: "3px solid #e1e5e9",
-  },
-  avatarPlaceholder: {
-    width: "100%",
-    height: "100%",
-    borderRadius: "50%",
-    backgroundColor: "#e1e5e9",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    border: "3px solid #e1e5e9",
-    color: "#7f8c8d",
-    fontSize: "12px",
-  },
-  avatarOverlay: {
-    position: "absolute" as const,
-    top: "0",
-    left: "0",
-    width: "100%",
-    height: "100%",
-    backgroundColor: "rgba(0,0,0,0.5)",
-    borderRadius: "50%",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    color: "white",
-    fontSize: "12px",
-    fontWeight: 600,
-    zIndex: 1,
-  },
-  avatarEditText: {
-    textAlign: "center" as const,
-    padding: "10px",
-  },
-  uploadLoading: {
-    textAlign: "center" as const,
-    color: "#3498db",
-    fontWeight: 600,
-  },
-  uploadHint: {
-    fontSize: "12px",
-    color: "#7f8c8d",
-    textAlign: "center" as const,
-    marginTop: "10px",
-  },
-  fileInput: {
-    display: "none",
-  },
-  profileForm: {
-    display: "flex",
-    flexDirection: "column" as const,
-    gap: "20px",
-  },
-  formGroup: {
-    display: "flex",
-    flexDirection: "column" as const,
-  },
-  label: {
-    fontWeight: 600,
-    marginBottom: "8px",
-    color: "#2c3e50",
-    fontSize: "14px",
-  },
-  input: {
-    padding: "10px",
-    border: "1px solid #ddd",
-    borderRadius: "4px",
-    fontSize: "14px",
-    transition: "all 0.3s ease",
-  },
-  disabledInput: {
-    padding: "10px",
-    border: "1px solid #ddd",
-    borderRadius: "4px",
-    fontSize: "14px",
-    backgroundColor: "#f8f9fa",
-    color: "#6c757d",
-    cursor: "not-allowed",
-  },
-  profileValue: {
-    padding: "10px",
-    backgroundColor: "#f8f9fa",
-    border: "1px solid #e9ecef",
-    borderRadius: "4px",
-    color: "#495057",
-    minHeight: "40px",
-    display: "flex",
-    alignItems: "center",
-    fontSize: "14px",
-  },
-  formActions: {
-    display: "flex",
-    gap: "10px",
-    marginTop: "20px",
-  },
-  saveButton: {
-    backgroundColor: "#27ae60",
-    color: "white",
-    border: "none",
-    padding: "12px 24px",
-    borderRadius: "6px",
-    cursor: "pointer",
-    fontSize: "14px",
-    transition: "all 0.3s ease",
-  },
-  cancelButton: {
-    backgroundColor: "#95a5a6",
-    color: "white",
-    border: "none",
-    padding: "12px 24px",
-    borderRadius: "6px",
-    cursor: "pointer",
-    fontSize: "14px",
-    transition: "all 0.3s ease",
-  },
-  disabledButton: {
-    opacity: 0.6,
-    cursor: "not-allowed",
-  },
-};
-
-// Thêm hover effects
-const addHoverEffects = () => {
-  const style = document.createElement("style");
-  style.textContent = `
-    button:hover:not(:disabled) {
-      opacity: 0.9;
-      transform: translateY(-1px);
-    }
-    .back-button:hover {
-      background-color: #e1e5e9 !important;
-    }
-    input:focus {
-      outline: none;
-      border-color: #3498db !important;
-      box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
-    }
-    button:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-      transform: none !important;
-    }
-  `;
-  document.head.appendChild(style);
-};
-
-addHoverEffects();
 
 export default ProfilePage;

@@ -1,5 +1,6 @@
 // components/cuahang/CuahangEditForm.tsx
 import React, { useState, useEffect } from "react";
+import { Camera } from "lucide-react"; // 🟢 THÊM IMPORT ICON CAMERA
 
 interface Store {
   MaCH: string;
@@ -24,7 +25,8 @@ interface Store {
 
 interface CuahangEditFormProps {
   store: Store;
-  onUpdate: (data: any) => Promise<{ success: boolean; message: string }>;
+  // 🟢 SỬA TYPE: onUpdate nhận FormData thay vì any object
+  onUpdate: (data: FormData) => Promise<{ success: boolean; message: string }>;
   onCancel: () => void;
 }
 
@@ -37,10 +39,14 @@ const CuahangEditForm: React.FC<CuahangEditFormProps> = ({
     TenCH: store.TenCH || "",
     MoTa: store.MoTa || "",
     DCLayHang: store.DCLayHang || "",
-    MaHA_CuaHang: store.MaHA_CuaHang || "",
+    // MaHA_CuaHang không cần nhập tay nữa
     LoaiHinhKD: store.hdbanhang?.LoaiHinhKD || "",
     MaSoThue: store.hdbanhang?.MaSoThue || "",
   });
+
+  // 🟢 THÊM STATE QUẢN LÝ ẢNH
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{
@@ -48,7 +54,6 @@ const CuahangEditForm: React.FC<CuahangEditFormProps> = ({
     text: string;
   } | null>(null);
 
-  // Các loại hình kinh doanh
   const loaiHinhKDOptions = [
     "Bán buôn và bán lẻ",
     "Bán buôn",
@@ -58,6 +63,28 @@ const CuahangEditForm: React.FC<CuahangEditFormProps> = ({
     "Dịch vụ",
     "Khác",
   ];
+
+  // 🟢 USE EFFECT: LOAD ẢNH CŨ NẾU CÓ
+  useEffect(() => {
+    if (store.MaHA_CuaHang_hinhanh?.URL) {
+      const url = store.MaHA_CuaHang_hinhanh.URL;
+      // Nếu url chưa có http thì nối thêm localhost (tuỳ vào dữ liệu của bạn)
+      const fullUrl = url.startsWith("http")
+        ? url
+        : `http://localhost:3000${url}`;
+      setPreviewUrl(fullUrl);
+    }
+  }, [store]);
+
+  // 🟢 HÀM XỬ LÝ CHỌN FILE
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setSelectedFile(file);
+      // Tạo link preview tạm thời
+      setPreviewUrl(URL.createObjectURL(file));
+    }
+  };
 
   const handleChange = (
     e: React.ChangeEvent<
@@ -77,23 +104,26 @@ const CuahangEditForm: React.FC<CuahangEditFormProps> = ({
     setMessage(null);
 
     try {
-      // 🟢 CHUẨN BỊ DỮ LIỆU GỬI LÊN
-      const updateData = {
-        TenCH: formData.TenCH,
-        MoTa: formData.MoTa,
-        DCLayHang: formData.DCLayHang,
-        MaHA_CuaHang: formData.MaHA_CuaHang || null,
-        LoaiHinhKD: formData.LoaiHinhKD,
-        MaSoThue: formData.MaSoThue,
-      };
+      // 🟢 SỬA LOGIC GỬI: DÙNG FORMDATA
+      const data = new FormData();
+      data.append("TenCH", formData.TenCH);
+      data.append("MoTa", formData.MoTa);
+      data.append("DCLayHang", formData.DCLayHang);
+      data.append("LoaiHinhKD", formData.LoaiHinhKD);
+      data.append("MaSoThue", formData.MaSoThue);
 
-      console.log("📤 Dữ liệu gửi lên server:", updateData);
+      // Nếu người dùng có chọn file mới thì gửi kèm
+      if (selectedFile) {
+        // 'image' là tên field mà Multer bên backend đang chờ
+        data.append("image", selectedFile);
+      }
 
-      const result = await onUpdate(updateData);
+      console.log("📤 Đang gửi FormData...");
+
+      const result = await onUpdate(data);
 
       if (result.success) {
         setMessage({ type: "success", text: result.message });
-        // Tự động ẩn thông báo sau 3 giây
         setTimeout(() => {
           setMessage(null);
         }, 3000);
@@ -133,11 +163,7 @@ const CuahangEditForm: React.FC<CuahangEditFormProps> = ({
           }`}
         >
           <div className="flex items-center">
-            <span
-              className={`mr-2 text-lg ${
-                message.type === "success" ? "✅" : "❌"
-              }`}
-            >
+            <span className="mr-2 text-lg">
               {message.type === "success" ? "✅" : "❌"}
             </span>
             {message.text}
@@ -147,7 +173,6 @@ const CuahangEditForm: React.FC<CuahangEditFormProps> = ({
 
       {/* Form */}
       <form onSubmit={handleSubmit} className="p-8 space-y-8">
-        {/* Thông tin cơ bản */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Cột trái - Thông tin cửa hàng */}
           <div className="space-y-6">
@@ -158,6 +183,39 @@ const CuahangEditForm: React.FC<CuahangEditFormProps> = ({
                 </span>
                 Thông tin cửa hàng
               </h3>
+
+              {/* 🟢 UI CHỌN ẢNH (Thay thế ô nhập mã hình ảnh cũ) */}
+              <div className="mb-6 flex flex-col items-center">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Logo / Ảnh đại diện
+                </label>
+                <div className="relative group cursor-pointer w-32 h-32">
+                  {/* Ảnh Preview */}
+                  <img
+                    src={previewUrl || "https://placehold.co/150?text=Logo"}
+                    alt="Store Logo"
+                    className="w-full h-full rounded-full object-cover border-4 border-white shadow-lg"
+                  />
+                  {/* Overlay khi hover */}
+                  <label
+                    htmlFor="upload-photo"
+                    className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer"
+                  >
+                    <Camera className="w-8 h-8 text-white" />
+                  </label>
+                  {/* Input ẩn */}
+                  <input
+                    type="file"
+                    id="upload-photo"
+                    accept="image/*"
+                    onChange={handleFileChange}
+                    className="hidden"
+                  />
+                </div>
+                <p className="text-xs text-gray-500 mt-2">
+                  Nhấn vào ảnh để thay đổi
+                </p>
+              </div>
 
               {/* Tên cửa hàng */}
               <div className="mb-6">
@@ -175,7 +233,6 @@ const CuahangEditForm: React.FC<CuahangEditFormProps> = ({
                   onChange={handleChange}
                   required
                   className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white"
-                  placeholder="Nhập tên cửa hàng"
                 />
               </div>
 
@@ -194,35 +251,12 @@ const CuahangEditForm: React.FC<CuahangEditFormProps> = ({
                   onChange={handleChange}
                   rows={4}
                   className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white resize-none"
-                  placeholder="Mô tả về cửa hàng của bạn..."
                 />
-              </div>
-
-              {/* Mã hình ảnh */}
-              <div>
-                <label
-                  htmlFor="MaHA_CuaHang"
-                  className="block text-sm font-medium text-gray-700 mb-2"
-                >
-                  Mã hình ảnh cửa hàng
-                </label>
-                <input
-                  type="text"
-                  id="MaHA_CuaHang"
-                  name="MaHA_CuaHang"
-                  value={formData.MaHA_CuaHang}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white"
-                  placeholder="Nhập mã hình ảnh (ví dụ: HA001)"
-                />
-                <p className="text-xs text-gray-500 mt-2">
-                  Mã hình ảnh từ hệ thống (nếu có)
-                </p>
               </div>
             </div>
           </div>
 
-          {/* Cột phải - Thông tin kinh doanh */}
+          {/* Cột phải - Thông tin kinh doanh (Giữ nguyên) */}
           <div className="space-y-6">
             <div className="bg-gradient-to-br from-green-50 to-emerald-100 rounded-2xl p-6">
               <h3 className="text-lg font-semibold text-green-800 mb-4 flex items-center">
@@ -274,11 +308,7 @@ const CuahangEditForm: React.FC<CuahangEditFormProps> = ({
                   className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 bg-white"
                   placeholder="Nhập mã số thuế (10-13 số)"
                   pattern="[0-9]{10,13}"
-                  title="Mã số thuế phải có 10-13 chữ số"
                 />
-                <p className="text-xs text-gray-500 mt-2">
-                  Định dạng: 10-13 chữ số
-                </p>
               </div>
 
               {/* Địa chỉ lấy hàng */}
@@ -297,17 +327,13 @@ const CuahangEditForm: React.FC<CuahangEditFormProps> = ({
                   onChange={handleChange}
                   required
                   className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 bg-white"
-                  placeholder="Nhập địa chỉ lấy hàng đầy đủ"
                 />
-                <p className="text-xs text-gray-500 mt-2">
-                  Địa chỉ đầy đủ để khách hàng đến lấy hàng
-                </p>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Thông tin hiện tại */}
+        {/* Thông tin hiện tại (Giữ nguyên) */}
         <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl p-6">
           <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
             <span className="w-6 h-6 bg-gray-500 rounded-full flex items-center justify-center text-white text-sm mr-2">
@@ -328,20 +354,6 @@ const CuahangEditForm: React.FC<CuahangEditFormProps> = ({
                   : "Chưa có thông tin"}
               </span>
             </div>
-            <div>
-              <span className="font-medium text-gray-600">
-                Số lượt theo dõi:
-              </span>
-              <span className="ml-2 text-gray-800">
-                {store.SLTheoDoi?.toLocaleString() || 0}
-              </span>
-            </div>
-            <div>
-              <span className="font-medium text-gray-600">Điểm đánh giá:</span>
-              <span className="ml-2 text-gray-800">
-                {store.DiemDG?.toFixed(1) || "0.0"}
-              </span>
-            </div>
           </div>
         </div>
 
@@ -351,14 +363,14 @@ const CuahangEditForm: React.FC<CuahangEditFormProps> = ({
             type="button"
             onClick={onCancel}
             disabled={loading}
-            className="px-8 py-3 border-2 border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-8 py-3 border-2 border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-all duration-200"
           >
             Hủy bỏ
           </button>
           <button
             type="submit"
             disabled={loading}
-            className="px-8 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl font-semibold hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center min-w-[120px]"
+            className="px-8 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl font-semibold hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 flex items-center justify-center min-w-[120px]"
           >
             {loading ? (
               <>

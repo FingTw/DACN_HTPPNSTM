@@ -134,7 +134,9 @@ export const cuahangService = {
   // 4. Lấy cửa hàng của tôi
   getMyStore: async (): Promise<Cuahang | null> => {
     try {
-      const response = await api.get<ApiResponse<Cuahang>>("/cuahang/tao");
+      const response = await api.get<ApiResponse<Cuahang>>(
+        "/cuahang/cua-toi/thong-tin"
+      );
       return response.data.data;
     } catch (error: any) {
       console.error("Lỗi lấy cửa hàng của tôi:", error);

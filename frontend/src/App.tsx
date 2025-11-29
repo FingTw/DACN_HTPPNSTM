@@ -35,6 +35,8 @@ import KhuyenMaiPage from "./pages/KhuyenMaiPage";
 import KhuyenMaiDaNhanPage from "./pages/KhuyenMaiDaNhanPage";
 import QuanLyKhuyenMaiPage from "./pages/QuanLyKhuyenMaiPage";
 
+import MyStoreRedirect from "./pages/MyStoreRedirect";
+
 // ✅ Import PrivateRoute
 import PrivateRoute from "./components/PrivateRoute";
 import RFQMarketplace from "./pages/rfq/RFQMarketplace";
@@ -64,6 +66,7 @@ function App() {
               <Route path="/san-pham" element={<SanPhamPage />} />
 
               <Route path="/cuahang/:MaCH" element={<CuahangDetailPage />} />
+              <Route path="/kenh-nguoi-ban" element={<MyStoreRedirect />} />
 
               <Route path="/cart" element={<CartPage />} />
               <Route path="/checkout" element={<CheckoutPage />} />

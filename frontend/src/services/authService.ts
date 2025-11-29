@@ -18,9 +18,9 @@ export interface LoginData {
 
 // 🔥 CẬP NHẬT INTERFACE CHO SOCIAL LOGIN
 export interface SocialLoginData {
-  token?: string;        // Access Token hoặc ID Token
-  accessToken?: string;  // Cho Facebook
-  id_token?: string;     // 🔥 THÊM ID TOKEN CHO GOOGLE
+  token?: string; // Access Token hoặc ID Token
+  accessToken?: string; // Cho Facebook
+  id_token?: string; // 🔥 THÊM ID TOKEN CHO GOOGLE
 }
 
 export interface ClientConfig {
@@ -124,7 +124,7 @@ api.interceptors.response.use(
 // API endpoints
 export const authAPI = {
   register: (userData: SignupData) => api.post("/auth/register", userData),
-  
+
   login: async (credentials: LoginData) => {
     const response = await api.post<AuthResponse>("/auth/login", credentials);
     const { token, user } = response.data;
@@ -139,7 +139,7 @@ export const authAPI = {
 
     return response;
   },
-  
+
   // 🔥 CẬP NHẬT GOOGLE LOGIN
   googleLogin: async (data: SocialLoginData) => {
     const response = await api.post<AuthResponse>("/auth/google", data);
@@ -171,23 +171,33 @@ export const authAPI = {
 
     return response;
   },
-  
+
   logout: () => api.get("/auth/logout"),
 
   // API lấy thông tin profile từ server
   getProfile: () => api.get("/auth/profile"),
-  
-  updatePersonalInfo: (data: UpdateProfileData) => 
-    api.put("/auth/update-personal-info", data),
-  
+
+  updatePersonalInfo: (data: UpdateProfileData | FormData) => {
+    if (typeof FormData !== "undefined" && data instanceof FormData) {
+      return api.put("/auth/update-personal-info", data, {
+        headers: {
+          // Let browser set boundary; but ensure axios does not force JSON
+          "Content-Type": "multipart/form-data",
+        },
+      });
+    }
+
+    return api.put("/auth/update-personal-info", data);
+  },
+
   // API upload avatar
-  uploadAvatar: (formData: FormData) => 
+  uploadAvatar: (formData: FormData) =>
     api.post("/auth/upload-avatar", formData, {
       headers: {
-        'Content-Type': 'multipart/form-data'
-      }
+        "Content-Type": "multipart/form-data",
+      },
     }),
-    getClientConfig: () => api.get<ConfigResponse>('/auth/client-config'),
+  getClientConfig: () => api.get<ConfigResponse>("/auth/client-config"),
 };
 
 export default api;
