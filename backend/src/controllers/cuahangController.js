@@ -449,6 +449,7 @@ export const getCuahangById = async (req, res) => {
 };
 
 // ✏️ CHỈNH SỬA THÔNG TIN GIAN HÀNG - CHỈ CHỦ CỬA HÀNG
+// ✏️ CHỈNH SỬA THÔNG TIN GIAN HÀNG - CHỈ CHỦ CỬA HÀNG
 export const updateCuahang = async (req, res) => {
   const transaction = await sequelize.transaction();
 
@@ -457,6 +458,7 @@ export const updateCuahang = async (req, res) => {
 
     console.log("🔄 [UPDATE] Nhận request update store:", MaCH);
     console.log("👤 [UPDATE] User:", req.user);
+    console.log("📦 [UPDATE] Body data:", req.body); // THÊM DÒNG NÀY
     console.log("📦 [UPDATE] Có file upload:", !!req.file);
 
     const user = req.user;
@@ -483,7 +485,16 @@ export const updateCuahang = async (req, res) => {
     }
 
     // 🟢 TÌM CỬA HÀNG
-    const store = await cuahang.findByPk(MaCH, { transaction });
+    const store = await cuahang.findByPk(MaCH, {
+      include: [
+        {
+          model: hdbanhang,
+          as: "MaHD_hdbanhang",
+        },
+      ],
+      transaction,
+    });
+
     if (!store) {
       await transaction.rollback();
       return res.status(404).json({
@@ -503,7 +514,15 @@ export const updateCuahang = async (req, res) => {
 
     const { TenCH, MoTa, DCLayHang, LoaiHinhKD, MaSoThue } = req.body;
 
-    // 🟢 XỬ LÝ HÌNH ẢNH MỚI (PHẦN THÊM MỚI)
+    console.log("📋 [UPDATE] Data nhận được:", {
+      TenCH,
+      MoTa,
+      DCLayHang,
+      LoaiHinhKD,
+      MaSoThue,
+    }); // THÊM LOG NÀY
+
+    // 🟢 XỬ LÝ HÌNH ẢNH MỚI
     let newImage = null;
     if (req.file) {
       try {
@@ -536,22 +555,23 @@ export const updateCuahang = async (req, res) => {
         }
       } catch (imageError) {
         console.error("❌ Lỗi upload ảnh mới:", imageError);
-        // Vẫn tiếp tục cập nhật thông tin khác
       }
     }
 
     // 🟢 CẬP NHẬT THÔNG TIN CỬA HÀNG
     const updateData = {};
-    if (TenCH !== undefined) updateData.TenCH = TenCH.trim();
+    if (TenCH !== undefined && TenCH !== null) updateData.TenCH = TenCH.trim();
     if (MoTa !== undefined) updateData.MoTa = MoTa?.trim() || null;
     if (DCLayHang !== undefined) updateData.DCLayHang = DCLayHang;
     if (newImage) updateData.MaHA_CuaHang = newImage.MaHA;
+
+    console.log("🔄 [UPDATE] Data cập nhật cửa hàng:", updateData);
 
     if (Object.keys(updateData).length > 0) {
       await store.update(updateData, { transaction });
     }
 
-    // 🟢 CẬP NHẬT THÔNG TIN HỢP ĐỒNG
+    // 🟢 CẬP NHẬT THÔNG TIN HỢP ĐỒNG - SỬA QUAN TRỌNG
     if (LoaiHinhKD !== undefined || MaSoThue !== undefined) {
       const contract = await hdbanhang.findOne({
         where: { MaHD: store.MaHD },
@@ -560,12 +580,24 @@ export const updateCuahang = async (req, res) => {
 
       if (contract) {
         const contractUpdate = {};
-        if (LoaiHinhKD !== undefined) contractUpdate.LoaiHinhKD = LoaiHinhKD;
-        if (MaSoThue !== undefined) contractUpdate.MaSoThue = MaSoThue;
+        if (LoaiHinhKD !== undefined && LoaiHinhKD !== null) {
+          contractUpdate.LoaiHinhKD = LoaiHinhKD;
+          console.log("🔄 [UPDATE] Cập nhật LoaiHinhKD:", LoaiHinhKD);
+        }
+        if (MaSoThue !== undefined) {
+          contractUpdate.MaSoThue = MaSoThue;
+          console.log("🔄 [UPDATE] Cập nhật MaSoThue:", MaSoThue);
+        }
 
         if (Object.keys(contractUpdate).length > 0) {
           await contract.update(contractUpdate, { transaction });
+          console.log("✅ [UPDATE] Đã cập nhật hợp đồng:", contractUpdate);
         }
+      } else {
+        console.log(
+          "⚠️ [UPDATE] Không tìm thấy hợp đồng cho cửa hàng:",
+          store.MaHD
+        );
       }
     }
 
@@ -599,6 +631,10 @@ export const updateCuahang = async (req, res) => {
     });
 
     console.log("✅ Cập nhật cửa hàng thành công");
+    console.log(
+      "📊 [UPDATE] LoaiHinhKD sau khi update:",
+      updatedStore.MaHD_hdbanhang?.LoaiHinhKD
+    );
 
     res.json({
       success: true,

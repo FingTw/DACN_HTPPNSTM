@@ -1086,18 +1086,23 @@ export const updateSanpham = async (req, res) => {
   }
 };
 
-// 🟢 XÓA SẢN PHẨM
+// 🟢 XÓA SẢN PHẨM - FIXED VERSION (KHÔNG DÙNG INCLUDE ĐỂ TRÁNH LỖI ALIAS)
 export const deleteSanpham = async (req, res) => {
   const transaction = await sequelize.transaction();
 
   try {
     const { MaSP } = req.params;
+    console.log(`🔄 Bắt đầu xóa sản phẩm: ${MaSP}`);
 
     // 🟢 XÁC THỰC USER
     const user = await authenticateUser(req);
 
-    // Tìm sản phẩm
-    const product = await sanpham.findByPk(MaSP, { transaction });
+    // 1. Tìm sản phẩm để kiểm tra tồn tại (KHÔNG include để tránh lỗi alias)
+    const product = await sanpham.findByPk(MaSP, {
+      attributes: ["MaSP", "TenSP", "MaCH"],
+      transaction,
+    });
+
     if (!product) {
       await transaction.rollback();
       return res.status(404).json({
@@ -1106,7 +1111,7 @@ export const deleteSanpham = async (req, res) => {
       });
     }
 
-    // Tìm cửa hàng của user
+    // 2. Tìm cửa hàng của user
     const cuaHang = await cuahang.findOne({
       where: { MaTK: user.MaTK },
       transaction,
@@ -1120,7 +1125,7 @@ export const deleteSanpham = async (req, res) => {
       });
     }
 
-    // KIỂM TRA QUYỀN SỞ HỮU
+    // 3. KIỂM TRA QUYỀN SỞ HỮU
     if (product.MaCH !== cuaHang.MaCH) {
       await transaction.rollback();
       return res.status(403).json({
@@ -1129,34 +1134,55 @@ export const deleteSanpham = async (req, res) => {
       });
     }
 
-    // Lấy danh sách hình ảnh để xóa file vật lý
+    console.log(`✅ Đã xác thực quyền xóa sản phẩm: ${product.TenSP}`);
+
+    // 🟢 FIX: Lấy danh sách hình ảnh TRƯỚC KHI xóa (dùng query riêng)
     const productImages = await hinhanh.findAll({
       include: [
         {
-          model: sanpham,
-          as: "MaSP_sanpham_sanpham_hinhanhs",
+          model: sanpham_hinhanh,
+          as: "sanpham_hinhanhs",
           where: { MaSP: MaSP },
-          through: { attributes: [] },
+          attributes: [],
         },
       ],
+      attributes: ["MaHA", "URL"],
       transaction,
     });
 
-    // Xóa dữ liệu liên quan
+    console.log(`📸 Tìm thấy ${productImages.length} hình ảnh cần xóa`);
+
+    // 🟢 FIX: Xóa theo đúng thứ tự để tránh constraint violation
+
+    // 1. Xóa từ bảng trung gian sanpham_danhmuc trước
     await sanpham_danhmuc.destroy({
       where: { MaSP: MaSP },
       transaction,
     });
+    console.log(`✅ Đã xóa danh mục của sản phẩm`);
 
+    // 2. Xóa từ bảng trung gian sanpham_hinhanh
     await sanpham_hinhanh.destroy({
       where: { MaSP: MaSP },
       transaction,
     });
+    console.log(`✅ Đã xóa liên kết hình ảnh`);
 
-    // Xóa sản phẩm
+    // 3. Xóa các bản ghi hình ảnh
+    if (productImages.length > 0) {
+      const imageIds = productImages.map((img) => img.MaHA);
+      await hinhanh.destroy({
+        where: { MaHA: { [Op.in]: imageIds } },
+        transaction,
+      });
+      console.log(`✅ Đã xóa ${productImages.length} bản ghi hình ảnh`);
+    }
+
+    // 4. Cuối cùng xóa sản phẩm
     await product.destroy({ transaction });
+    console.log(`✅ Đã xóa sản phẩm: ${product.TenSP}`);
 
-    // Xóa file hình ảnh vật lý
+    // 🟢 Xóa file vật lý (sau khi commit transaction)
     productImages.forEach((image) => {
       deletePhysicalFile(image.URL);
     });
@@ -1170,6 +1196,7 @@ export const deleteSanpham = async (req, res) => {
         deletedProduct: MaSP,
         store: cuaHang.MaCH,
         deletedImages: productImages.length,
+        productName: product.TenSP,
       },
     });
   } catch (err) {
@@ -1183,9 +1210,20 @@ export const deleteSanpham = async (req, res) => {
     }
 
     console.error("❌ Lỗi xóa sản phẩm:", err);
+
+    // Xử lý lỗi cụ thể
+    if (err.name === "SequelizeForeignKeyConstraintError") {
+      return res.status(500).json({
+        success: false,
+        message:
+          "Lỗi ràng buộc dữ liệu. Sản phẩm có thể đang được sử dụng trong đơn hàng.",
+      });
+    }
+
     res.status(500).json({
       success: false,
-      message: "Lỗi server: " + err.message,
+      message: "Lỗi server khi xóa sản phẩm",
+      error: process.env.NODE_ENV === "development" ? err.message : undefined,
     });
   }
 };
