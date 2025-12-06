@@ -1,4 +1,3 @@
-
 export default function(sequelize, DataTypes) {
   return sequelize.define('donhang', {
     MaDH: {
@@ -49,6 +48,39 @@ export default function(sequelize, DataTypes) {
         model: 'pttt',
         key: 'MaPTTT'
       }
+    },
+    // 🚚 THÊM CÁC TRƯỜNG MỚI CHO SHIPPER
+    MaShipper: {
+      type: DataTypes.STRING(10),
+      allowNull: true,
+      references: {
+        model: 'taikhoan',
+        key: 'MaTK'
+      }
+    },
+    NgayBatDauGiao: {
+      type: DataTypes.DATE,
+      allowNull: true
+    },
+    NgayGiaoHang: {
+      type: DataTypes.DATE,
+      allowNull: true
+    },
+    HinhAnhXacNhan: {
+      type: DataTypes.STRING(500),
+      allowNull: true
+    },
+    PhiVanChuyen: {
+      type: DataTypes.DECIMAL(10,2),
+      allowNull: true
+    },
+    MaKM: {
+      type: DataTypes.STRING(10),
+      allowNull: true,
+      references: {
+        model: 'khuyenmai',
+        key: 'MaKM'
+      }
     }
   }, {
     sequelize,
@@ -82,6 +114,14 @@ export default function(sequelize, DataTypes) {
         using: "BTREE",
         fields: [
           { name: "MaTK" },
+        ]
+      },
+      // 🚚 THÊM INDEX CHO MASHIPPER
+      {
+        name: "idx_donhang_mashipper",
+        using: "BTREE",
+        fields: [
+          { name: "MaShipper" },
         ]
       },
     ]

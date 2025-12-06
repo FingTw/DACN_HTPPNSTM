@@ -34,6 +34,7 @@ import OrdersPage from "./pages/OrdersPage";
 import KhuyenMaiPage from "./pages/KhuyenMaiPage";
 import KhuyenMaiDaNhanPage from "./pages/KhuyenMaiDaNhanPage";
 import QuanLyKhuyenMaiPage from "./pages/QuanLyKhuyenMaiPage";
+import ShipperDashboard from "./pages/ShipperDashboard";
 
 import MyStoreRedirect from "./pages/MyStoreRedirect";
 
@@ -130,6 +131,14 @@ function App() {
                 element={
                   <PrivateRoute allowedRoles={["Admin", "Cửa Hàng"]}>
                     <QuanLyKhuyenMaiPage />
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/shipper"
+                element={
+                  <PrivateRoute allowedRoles={["Shipper"]}>
+                    <ShipperDashboard />
                   </PrivateRoute>
                 }
               />

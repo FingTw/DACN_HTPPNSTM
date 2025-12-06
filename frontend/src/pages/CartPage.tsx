@@ -169,7 +169,7 @@ export const CartPage: React.FC = () => {
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Danh sách sản phẩm */}
-            <div className="lg:col-span-2 flex justify-center">
+            <div className="lg:col-span-4 flex justify-center">
               {cartItems.length === 0 ? (
                 <div className="bg-white rounded-lg shadow-sm p-8 text-center">
                   <div className="text-gray-400 mb-4">
