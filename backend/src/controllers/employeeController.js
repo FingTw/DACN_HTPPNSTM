@@ -29,8 +29,36 @@ const employeeController = {
     try {
       const { available } = req.query;
       if (available === "true") {
-        const rows = await giaohang.findAll({ where: { MaShipper: null } });
-        return res.json({ success: true, data: rows });
+        // Trả về danh sách các đơn hàng đang ở trạng thái "Chờ lấy hàng"
+        // mà chưa có shipper nhận (không có bản ghi giaohang hoặc MaShipper === null)
+        const orders = await donhang.findAll({
+          where: { TrangThai: "Chờ lấy hàng" },
+          include: [
+            {
+              model: giaohang,
+              as: "giaohangs",
+              required: false,
+            },
+          ],
+        });
+
+        const availableOrders = orders
+          .filter((o) => {
+            // nếu không có bản ghi giaohang hoặc tất cả các bản ghi chưa được gán shipper
+            if (!o.giaohangs || o.giaohangs.length === 0) return true;
+            return o.giaohangs.every((g) => !g.MaShipper);
+          })
+          .map((o) => ({
+            MaDH: o.MaDH,
+            MaGH: o.giaohangs?.[0]?.MaGH || null,
+            DeliveryAddress: o.DCNhanHang,
+            TongTien: o.TongTien,
+            GhiChu: o.GhiChu || null,
+            TrangThai: o.TrangThai,
+            NgayTao: o.NgayTao,
+          }));
+
+        return res.json({ success: true, data: availableOrders });
       }
 
       // nếu có token, trả về deliverires của shipper

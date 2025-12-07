@@ -288,9 +288,9 @@ export const shipperUploadProof = (req, res) => {
         record.TrangThai = "DELIVERED_BY_SHIPPER";
         await record.save({ transaction: t });
 
-        // Cập nhật trạng thái đơn hàng thành 'Hoàn tất' (hoàn thành giao nhận)
+        // Cập nhật trạng thái đơn hàng thành 'Hoàn thành' (hoàn thành giao nhận)
         await donhang.update(
-          { TrangThai: "Hoàn tất" },
+          { TrangThai: "Hoàn thành" },
           { where: { MaDH: record.MaDH }, transaction: t }
         );
 
@@ -349,18 +349,16 @@ export const shipperUploadProof = (req, res) => {
         res.json({
           success: true,
           message:
-            "Upload proof thành công, đơn hoàn tất và đã cộng tiền vào ví cửa hàng",
+            "Upload proof thành công, đơn hoàn thành và đã cộng tiền vào ví cửa hàng",
           data: record,
         });
       } catch (err2) {
         await t.rollback();
         console.error("🔥 shipperUploadProof (tx):", err2);
-        return res
-          .status(500)
-          .json({
-            message: "Lỗi khi cập nhật trạng thái/tài chính",
-            error: err2.message,
-          });
+        return res.status(500).json({
+          message: "Lỗi khi cập nhật trạng thái/tài chính",
+          error: err2.message,
+        });
       }
     } catch (error) {
       console.error("🔥 shipperUploadProof:", error);
