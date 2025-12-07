@@ -58,7 +58,7 @@ const OrderList: React.FC = () => {
     { key: "Chờ lấy hàng", icon: "📥" },
     { key: "Chờ giao hàng", icon: "🚚" },
     { key: "Đã giao hàng", icon: "📬" },
-    { key: "Lịch sử", icon: "📋" }, // 🆕 ĐỔI "Trả hàng" THÀNH "Lịch sử"
+    { key: "Lịch sử", icon: "📋" },
     { key: "Đã hủy", icon: "❌" },
   ];
 

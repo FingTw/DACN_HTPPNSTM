@@ -771,7 +771,7 @@ export const updateOrderStatus = async (req, res) => {
     // 🎯 THÔNG BÁO THÀNH CÔNG
     let successMessage = "";
 
-    if (TrangThai === "Hoàn tất") {
+    if (TrangThai === "Hoàn thành") {
       successMessage = "Đã xác nhận nhận hàng! Cảm ơn bạn đã mua sắm.";
     } else if (TrangThai === "Hủy đơn hàng") {
       successMessage =

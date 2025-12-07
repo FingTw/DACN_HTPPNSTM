@@ -1057,7 +1057,7 @@ const BlockchainDashboard: React.FC = () => {
       <div className="navbar">
         <h1>📦 Supply Chain Blockchain</h1>
         <div className="user-info">
-          <span className="user-role">{getRoleIcon(authUser.role)} {getRoleName(authUser.role)}</span>
+          <span className="user-role">{getRoleIcon(authUser.role || '')} {getRoleName(authUser.role || '')}</span>
           <span className="user-name">👤 {authUser.TenDangNhap}</span>
           <button className="nav-home" onClick={() => window.location.href = '/'}>🏠 Trang chủ</button>
         </div>
@@ -1107,15 +1107,15 @@ const BlockchainDashboard: React.FC = () => {
         {/* Main Content */}
         {activeSection === 'form' ? (
           <div className="input-section">
-            <h2>{getRoleIcon(authUser.role)} Ghi nhận thông tin {getRoleName(authUser.role)}</h2>
+            <h2>{getRoleIcon(authUser.role || '')} Ghi nhận thông tin {getRoleName(authUser.role || '')}</h2>
             
             {/* User Info & Stats */}
             <div className="user-stats">
               <div className="user-details">
                 <div className="user-name-display">
-                  <strong>{getRoleIcon(authUser.role)} {authUser.TenDangNhap}</strong>
+                  <strong>{getRoleIcon(authUser.role || '')} {authUser.TenDangNhap}</strong>
                 </div>
-                <div className="user-role-display">{getRoleName(authUser.role)}</div>
+                <div className="user-role-display">{getRoleName(authUser.role || '')}</div>
               </div>
               <div className="stats-display">
                 {statsLoading ? (

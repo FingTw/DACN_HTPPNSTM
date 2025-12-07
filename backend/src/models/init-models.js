@@ -32,8 +32,9 @@ import _thanhtoan from "./thanhtoan.js";
 import _khuyenmai from "./khuyenmai.js";
 import _khuyenmai_taikhoan from "./khuyenmai_taikhoan.js";
 import _donhang_khuyenmai from "./donhang_khuyenmai.js";
-import _danhgiasanpham from "./danhgiasanpham.js"; // 🆕 THÊM MODEL ĐÁNH GIÁ SẢN PHẨM
-import _danhgiacuahang from "./danhgiacuahang.js"; // 🆕 THÊM MODEL ĐÁNH GIÁ CỬA HÀNG
+import _danhgiasanpham from "./danhgiasanpham.js"; 
+import _danhgiacuahang from "./danhgiacuahang.js"; 
+import _UserKey from "./UserKey.js"; 
 
 function initModels(sequelize) {
   // 🟢 KHAI BÁO CÁC MODEL
@@ -71,6 +72,7 @@ function initModels(sequelize) {
   var lichsu_trangthai = _lichsu_trangthai(sequelize, DataTypes);
   var danhgiasanpham = _danhgiasanpham(sequelize, DataTypes); // 🆕 MODEL ĐÁNH GIÁ SẢN PHẨM
   var danhgiacuahang = _danhgiacuahang(sequelize, DataTypes); // 🆕 MODEL ĐÁNH GIÁ CỬA HÀNG
+  var UserKey = _UserKey(sequelize, DataTypes); 
 
   // 🟢 THIẾT LẬP QUAN HỆ GIỮA CÁC BẢNG
 
@@ -574,6 +576,15 @@ function initModels(sequelize) {
     foreignKey: "MaDNCC",
   });
 
+  UserKey.belongsTo(taikhoan, {
+    as: "TaiKhoan",
+    foreignKey: "MaTK",
+  });
+  taikhoan.hasMany(UserKey, {
+    as: "UserKeys",
+    foreignKey: "MaTK",
+  });
+
   // ======================================
   // 📤 RETURN TẤT CẢ MODELS
   // ======================================
@@ -610,8 +621,9 @@ function initModels(sequelize) {
     khuyenmai,
     khuyenmai_taikhoan,
     donhang_khuyenmai,
-    danhgiasanpham, // 🆕 THÊM VÀO RETURN
-    danhgiacuahang, // 🆕 THÊM VÀO RETURN
+    danhgiasanpham, 
+    danhgiacuahang, 
+    UserKey, 
   };
 }
 

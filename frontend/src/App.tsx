@@ -34,6 +34,7 @@ import OrdersPage from "./pages/OrdersPage";
 import KhuyenMaiPage from "./pages/KhuyenMaiPage";
 import KhuyenMaiDaNhanPage from "./pages/KhuyenMaiDaNhanPage";
 import QuanLyKhuyenMaiPage from "./pages/QuanLyKhuyenMaiPage";
+// import ShipperDashboard from "./pages/ShipperDashboard";
 
 import MyStoreRedirect from "./pages/MyStoreRedirect";
 
@@ -184,6 +185,14 @@ function App() {
                   }
                 />
               </Route>
+              <Route
+                path="/shipper"
+                element={
+                  <PrivateRoute allowedRoles={["Shipper"]}>
+                    <ShipperDashboard />
+                  </PrivateRoute>
+                }
+              />
             </Routes>
 
             <ChatWidget />
