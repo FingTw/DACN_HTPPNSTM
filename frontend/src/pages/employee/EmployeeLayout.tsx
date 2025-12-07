@@ -1,7 +1,8 @@
 // src/pages/employee/EmployeeLayout.tsx
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { Outlet, useNavigate, useLocation, Link } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
+import { adminService, type Employee } from "@/services/adminService";
 import {
   Truck,
   Package,
@@ -13,33 +14,80 @@ import {
 } from "lucide-react";
 
 const EmployeeLayout: React.FC = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Kiểm tra quyền truy cập
+  const [employee, setEmployee] = useState<Employee | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [employeeRole, setEmployeeRole] = useState<string | null>(null);
+
+  // Kiểm tra quyền truy cập và xác thực tài khoản là nhân viên
   useEffect(() => {
+    if (authLoading) return;
     if (!user) {
-      navigate("/dang-nhap");
+      navigate("/signin");
       return;
     }
 
-    const role = (user as any).Role || (user as any).vaitro; // Tùy vào cách bạn lưu trong context
+    const fetchEmployee = async () => {
+      try {
+        setLoading(true);
+        const MaTK =
+          (user as any).MaTK || (user as any).MaTk || (user as any).id;
+        if (!MaTK) {
+          alert("Không xác định được mã tài khoản");
+          navigate("/");
+          return;
+        }
 
-    if (
-      role !== "Nhân Viên" &&
-      role !== "NhanVienKho" &&
-      role !== "Shipper" &&
-      role !== "Admin"
-    ) {
-      alert("Bạn không có quyền truy cập trang nhân viên!");
-      navigate("/");
-    }
-  }, [user, navigate]);
+        const res = await adminService.getEmployeeDetail(MaTK);
+        // Nếu không có dữ liệu nhân viên, chặn truy cập
+        if (!res) {
+          alert("Bạn không phải nhân viên hệ thống");
+          navigate("/");
+          return;
+        }
 
-  if (!user) return null;
+        setEmployee(res);
 
-  const role = (user as any).Role || (user as any).vaitro;
+        // Xác định loại nhân viên: ưu tiên role từ token, fallback dựa trên TenCV
+        const tokenRole =
+          (user as any).Role || (user as any).role || (user as any).LoaiTK;
+        let type: string | null = null;
+        if (typeof tokenRole === "string" && /shipper/i.test(tokenRole))
+          type = "Shipper";
+        if (typeof tokenRole === "string" && /(kho|warehouse)/i.test(tokenRole))
+          type = "Warehouse";
+
+        const tenCV = res.MaCV_chucvu?.TenCV || "";
+        if (!type) {
+          if (/shipper|giao hàng|shp/i.test(tenCV)) type = "Shipper";
+          else if (/kho|thủ kho|warehouse/i.test(tenCV)) type = "Warehouse";
+        }
+
+        // Mặc định nếu vẫn chưa xác định, gán "Employee"
+        setEmployeeRole(type || "Employee");
+
+        // Nếu là Shipper, redirect về tasks; nếu Warehouse thì redirect về import page
+        if (type === "Shipper") navigate("/employee/shipper/tasks");
+        else if (type === "Warehouse") navigate("/employee/warehouse/import");
+      } catch (err: any) {
+        // Nếu server trả 404 hoặc lỗi -> không phải nhân viên
+        console.error("Lỗi kiểm tra nhân viên:", err?.message || err);
+        alert(
+          "Bạn không phải nhân viên hệ thống hoặc có lỗi khi kiểm tra quyền"
+        );
+        navigate("/");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchEmployee();
+  }, [user, navigate, authLoading]);
+
+  if (!user || loading) return null;
 
   // 🚚 MENU CHO SHIPPER
   const shipperMenu = [
@@ -79,8 +127,9 @@ const EmployeeLayout: React.FC = () => {
     },
   ];
 
-  const menuItems = role === "Shipper" ? shipperMenu : warehouseMenu;
-  const themeColor = role === "Shipper" ? "bg-blue-600" : "bg-orange-600";
+  const menuItems = employeeRole === "Shipper" ? shipperMenu : warehouseMenu;
+  const themeColor =
+    employeeRole === "Shipper" ? "bg-blue-600" : "bg-orange-600";
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col md:flex-row">
@@ -91,11 +140,11 @@ const EmployeeLayout: React.FC = () => {
         <div className="p-4 flex items-center justify-between md:block">
           <div>
             <h1 className="text-xl font-bold flex items-center gap-2">
-              {role === "Shipper" ? <Truck /> : <Box />}
-              {role === "Shipper" ? "SHIPPER APP" : "QUẢN LÝ KHO"}
+              {employeeRole === "Shipper" ? <Truck /> : <Box />}
+              {employeeRole === "Shipper" ? "SHIPPER APP" : "QUẢN LÝ KHO"}
             </h1>
             <p className="text-xs opacity-80 mt-1">
-              Xin chào, {user.TenDangNhap}
+              Xin chào, {employee?.HoTen || user.TenDangNhap}
             </p>
           </div>
 

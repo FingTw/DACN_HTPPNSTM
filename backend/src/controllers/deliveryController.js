@@ -15,6 +15,8 @@ const {
   ctgh,
   taikhoan,
   giaohang,
+  cuahang,
+  giaodich_vi,
   thanhtoan,
   pttt,
   taikhoan_vaitro,
@@ -145,7 +147,7 @@ export const shipperPickupOrder = async (req, res) => {
     }
 
     // Cập nhật trạng thái
-    order.TrangThai = "Đã lấy hàng"; // Hoặc "Đang luân chuyển"
+    order.TrangThai = "Đang giao"; // Chuẩn hóa trạng thái khi shipper đã lấy hàng
     await order.save();
 
     // Cập nhật bảng giaohang (Tracking)
@@ -160,6 +162,79 @@ export const shipperPickupOrder = async (req, res) => {
   } catch (error) {
     console.error("Lỗi pickup:", error);
     res.status(500).json({ message: "Lỗi server" });
+  }
+};
+
+/* ============================
+🚚  Shipper tự nhận đơn (self-assign)
+   POST /api/delivery/take  (body: { MaDH })
+   - Nếu đã có bản ghi giaohang cho MaDH và chưa có MaShipper -> gán
+   - Nếu chưa có -> tạo mới
+   - Cập nhật trạng thái đơn hàng sang 'Đang giao'
+============================ */
+export const shipperTakeOrder = async (req, res) => {
+  const t = await sequelize.transaction();
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader?.startsWith("Bearer "))
+      return res.status(401).json({ message: "Không có token" });
+
+    const token = authHeader.split(" ")[1];
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const MaShipper = decoded.MaTK;
+    if (!MaShipper) return res.status(401).json({ message: "Chưa xác thực" });
+
+    const { MaDH } = req.body;
+    if (!MaDH) return res.status(400).json({ message: "Thiếu MaDH" });
+
+    const order = await donhang.findByPk(MaDH, { transaction: t });
+    if (!order) {
+      await t.rollback();
+      return res.status(404).json({ message: "Đơn hàng không tồn tại" });
+    }
+
+    let gh = await giaohang.findOne({ where: { MaDH }, transaction: t });
+    if (gh) {
+      if (gh.MaShipper) {
+        await t.rollback();
+        return res
+          .status(400)
+          .json({ message: "Đơn đã được nhận bởi shipper khác" });
+      }
+      gh.MaShipper = MaShipper;
+      gh.TrangThai = "ASSIGNED";
+      await gh.save({ transaction: t });
+    } else {
+      const MaGH =
+        "GH" + uuidv4().replace(/-/g, "").substring(0, 8).toUpperCase();
+      gh = await giaohang.create(
+        {
+          MaGH,
+          MaShipper,
+          MaDH,
+          TrangThai: "ASSIGNED",
+          NgayTao: new Date(),
+        },
+        { transaction: t }
+      );
+    }
+
+    // Cập nhật trạng thái đơn
+    await donhang.update(
+      { TrangThai: "Đang giao" },
+      { where: { MaDH }, transaction: t }
+    );
+
+    await t.commit();
+    return res.json({
+      success: true,
+      message: "Bạn đã nhận đơn thành công",
+      data: gh,
+    });
+  } catch (err) {
+    await t.rollback();
+    console.error("🔥 shipperTakeOrder:", err);
+    return res.status(500).json({ message: "Lỗi server", error: err.message });
   }
 };
 
@@ -205,21 +280,88 @@ export const shipperUploadProof = (req, res) => {
         return res.status(400).json({ message: "Thiếu file proof" });
 
       const filePath = `/uploads/delivery/${req.file.filename}`;
-      record.ProofImage = filePath;
-      record.TrangThai = "DELIVERED_BY_SHIPPER";
-      await record.save();
-      // ngày giờ: in giờ sai
-      // Cập nhật trạng thái đơn hàng
-      await donhang.update(
-        { TrangThai: "Đã giao" },
-        { where: { MaDH: record.MaDH } }
-      );
 
-      res.json({
-        success: true,
-        message: "Upload proof thành công",
-        data: record,
-      });
+      // Bắt đầu transaction để cập nhật trạng thái và tài chính
+      const t = await sequelize.transaction();
+      try {
+        record.ProofImage = filePath;
+        record.TrangThai = "DELIVERED_BY_SHIPPER";
+        await record.save({ transaction: t });
+
+        // Cập nhật trạng thái đơn hàng thành 'Hoàn tất' (hoàn thành giao nhận)
+        await donhang.update(
+          { TrangThai: "Hoàn tất" },
+          { where: { MaDH: record.MaDH }, transaction: t }
+        );
+
+        // === PHẦN TÀI CHÍNH: Cộng tiền vào ví cửa hàng ===
+        // Lấy chi tiết đơn hàng để biết số tiền theo từng cửa hàng
+        const orderItems = await chitiet_donhang.findAll({
+          where: { MaDH: record.MaDH },
+          include: [
+            {
+              model: sanpham,
+              as: "MaSP_sanpham",
+              attributes: ["MaCH", "GiaBan"],
+            },
+          ],
+          transaction: t,
+        });
+
+        const revenueByShop = {};
+        for (const item of orderItems) {
+          const maCH = item.MaSP_sanpham?.MaCH;
+          const price = parseFloat(item.GiaBan || 0);
+          const qty = parseFloat(item.SoLuong || 1);
+          const amount = price * qty;
+          if (!maCH) continue;
+          revenueByShop[maCH] = (revenueByShop[maCH] || 0) + amount;
+        }
+
+        for (const [maCH, totalAmount] of Object.entries(revenueByShop)) {
+          const shop = await cuahang.findByPk(maCH, { transaction: t });
+          if (!shop) continue;
+
+          const newBalance = parseFloat(shop.SoDu || 0) + Number(totalAmount);
+          await cuahang.update(
+            { SoDu: newBalance },
+            { where: { MaCH: maCH }, transaction: t }
+          );
+
+          const MaGD =
+            "GD" + uuidv4().replace(/-/g, "").substring(0, 8).toUpperCase();
+          await giaodich_vi.create(
+            {
+              MaGD,
+              MaCH: maCH,
+              LoaiGD: "NHAN_TIEN_DON_HANG",
+              SoTien: totalAmount,
+              NoiDung: `Doanh thu từ đơn ${record.MaDH}`,
+              TrangThai: "ThanhCong",
+              NgayTao: new Date(),
+            },
+            { transaction: t }
+          );
+        }
+
+        await t.commit();
+
+        res.json({
+          success: true,
+          message:
+            "Upload proof thành công, đơn hoàn tất và đã cộng tiền vào ví cửa hàng",
+          data: record,
+        });
+      } catch (err2) {
+        await t.rollback();
+        console.error("🔥 shipperUploadProof (tx):", err2);
+        return res
+          .status(500)
+          .json({
+            message: "Lỗi khi cập nhật trạng thái/tài chính",
+            error: err2.message,
+          });
+      }
     } catch (error) {
       console.error("🔥 shipperUploadProof:", error);
       res.status(500).json({ message: "Lỗi server", error: error.message });

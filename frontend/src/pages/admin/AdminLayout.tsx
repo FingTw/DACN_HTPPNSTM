@@ -11,6 +11,11 @@ import {
   Settings,
   LogOut,
   Bell,
+  Building2,
+  Briefcase,
+  Tag,
+  Warehouse,
+  UserCog,
 } from "lucide-react";
 
 const AdminLayout: React.FC = () => {
@@ -37,11 +42,41 @@ const AdminLayout: React.FC = () => {
       icon: <LayoutDashboard size={20} />,
     },
     { path: "/admin/users", label: "Người dùng", icon: <Users size={20} /> },
+    {
+      path: "/admin/employees",
+      label: "Nhân viên",
+      icon: <Briefcase size={20} />,
+    },
+    {
+      path: "/admin/departments",
+      label: "Phòng ban",
+      icon: <Building2 size={20} />,
+    },
+    {
+      path: "/admin/positions",
+      label: "Chức vụ",
+      icon: <Users size={20} />,
+    },
     { path: "/admin/shops", label: "Cửa hàng", icon: <Store size={20} /> },
     { path: "/admin/products", label: "Sản phẩm", icon: <Box size={20} /> },
     {
+      path: "/admin/categories",
+      label: "Danh mục",
+      icon: <Tag size={20} />,
+    },
+    {
+      path: "/admin/warehouses",
+      label: "Kho bãi",
+      icon: <Warehouse size={20} />,
+    },
+    {
+      path: "/admin/account-assignment",
+      label: "Gán Tài Khoản",
+      icon: <UserCog size={20} />,
+    },
+    {
       path: "/admin/blockchain",
-      label: "Blockchain Monitor",
+      label: "Blockchain",
       icon: <LinkIcon size={20} />,
     },
     {

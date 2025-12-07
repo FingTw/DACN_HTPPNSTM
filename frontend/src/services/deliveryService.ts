@@ -31,13 +31,19 @@ export const deliveryService = {
     type: "pickup" | "delivery" | "history"
   ): Promise<DeliveryTask[]> => {
     try {
-      const response = await api.get<ApiResponse<DeliveryTask[]>>(
-        "/delivery/my-tasks",
-        {
-          params: { type },
-        }
-      );
-      return response.data.data;
+      // backend employee routes: /api/employee/deliveries
+      if (type === "pickup") {
+        const resp = await api.get("/employee/deliveries", {
+          params: { available: true },
+        });
+        return resp.data.data as DeliveryTask[];
+      }
+      if (type === "delivery") {
+        const resp = await api.get("/employee/deliveries");
+        return resp.data.data as DeliveryTask[];
+      }
+      const resp = await api.get("/employee/deliveries");
+      return resp.data.data as DeliveryTask[];
     } catch (error: any) {
       console.error("Lỗi lấy danh sách nhiệm vụ:", error);
       return [];
@@ -48,7 +54,7 @@ export const deliveryService = {
   // Backend cần API: POST /api/delivery/pickup
   confirmPickup: async (MaDH: string): Promise<boolean> => {
     try {
-      await api.post("/delivery/pickup", { MaDH });
+      await api.post("/employee/deliveries/take", { MaDH });
       return true;
     } catch (error: any) {
       console.error("Lỗi xác nhận lấy hàng:", error);
@@ -63,9 +69,9 @@ export const deliveryService = {
   uploadProof: async (MaGH: string, file: File): Promise<boolean> => {
     try {
       const formData = new FormData();
-      formData.append("image", file);
+      formData.append("proof", file);
 
-      await api.post(`/delivery/${MaGH}/proof`, formData, {
+      await api.put(`/employee/deliveries/${MaGH}`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
       return true;

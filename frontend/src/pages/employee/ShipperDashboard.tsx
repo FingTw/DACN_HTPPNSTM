@@ -36,9 +36,36 @@ const ShipperDashboard = () => {
     }
   };
 
-  const handleDeliverySuccess = async (orderId: string) => {
-    // Mở modal upload ảnh proof ở đây
-    console.log("Mở camera upload proof cho đơn:", orderId);
+  // Modal/File upload state
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<any>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+
+  const openProofModal = (task: any) => {
+    setSelectedTask(task);
+    setSelectedFile(null);
+    setIsModalOpen(true);
+  };
+
+  const closeProofModal = () => {
+    setIsModalOpen(false);
+    setSelectedTask(null);
+    setSelectedFile(null);
+  };
+
+  const submitProof = async () => {
+    if (!selectedTask) return;
+    try {
+      if (!selectedFile) return alert("Vui lòng chọn hình ảnh bằng chứng");
+      const MaGH = selectedTask.MaGH || selectedTask.MaGH;
+      await deliveryService.uploadProof(MaGH, selectedFile);
+      alert("Upload ảnh bằng chứng thành công");
+      closeProofModal();
+      loadTasks();
+    } catch (err: any) {
+      console.error(err);
+      alert(err.message || "Lỗi khi upload ảnh");
+    }
   };
 
   return (
@@ -150,7 +177,7 @@ const ShipperDashboard = () => {
                     Gọi khách
                   </button>
                   <button
-                    onClick={() => handleDeliverySuccess(task.MaDH)}
+                    onClick={() => openProofModal(task)}
                     className="bg-green-600 text-white py-3 rounded-lg font-bold hover:bg-green-700 flex items-center justify-center gap-2"
                   >
                     <Camera size={20} /> Giao thành công
@@ -161,6 +188,36 @@ const ShipperDashboard = () => {
           ))
         )}
       </div>
+
+      {/* Proof Modal */}
+      {isModalOpen && selectedTask && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-lg max-w-md w-full p-6">
+            <h3 className="text-lg font-bold mb-2">
+              Upload ảnh bằng chứng - {selectedTask.MaDH || selectedTask.MaGH}
+            </h3>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+            />
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                onClick={closeProofModal}
+                className="px-4 py-2 border rounded"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={submitProof}
+                className="px-4 py-2 bg-green-600 text-white rounded"
+              >
+                Gửi
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

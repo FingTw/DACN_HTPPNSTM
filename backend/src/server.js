@@ -45,6 +45,7 @@ import paymentRoutes from "./routes/paymentRoutes.js";
 import walletRoutes from "./routes/walletRoutes.js";
 
 import adminRoutes from "./routes/adminRoutes.js";
+import employeeRoutes from "./routes/employeeRoutes.js";
 
 // ==============================
 // 🟢 BLOCKCHAIN ROUTES
@@ -277,6 +278,7 @@ registerRoute("/api/rfq", rfqRoutes);
 registerRoute("/api/khuyen-mai", khuyenMaiRoutes);
 registerRoute("/api/danh-muc", danhmucRoutes);
 registerRoute("/api/admin", adminRoutes);
+registerRoute("/api/employee", employeeRoutes);
 registerRoute("/api/payment", paymentRoutes);
 registerRoute("/api/wallet", walletRoutes);
 

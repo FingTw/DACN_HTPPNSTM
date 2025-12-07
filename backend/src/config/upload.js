@@ -22,6 +22,14 @@ const storage = multer.diskStorage({
     ) {
       folder = "products";
     }
+    // Nếu API URL có chứa "delivery" hoặc fieldname là proof -> lưu vào deliveries
+    else if (
+      req.originalUrl.includes("delivery") ||
+      req.originalUrl.includes("giaohang") ||
+      file.fieldname === "proof"
+    ) {
+      folder = "deliveries";
+    }
 
     // Tạo đường dẫn vật lý: public/uploads/avatars HOẶC public/uploads/products
     const uploadPath = path.join(rootDir, "public", "uploads", folder);
