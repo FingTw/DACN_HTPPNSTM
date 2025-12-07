@@ -47,8 +47,14 @@ import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminUsers from "./pages/admin/AdminUsers";
 import AdminShops from "./pages/admin/AdminShops";
 import AdminProducts from "./pages/admin/AdminProducts";
+import AdminDepartments from "./pages/admin/AdminDepartments";
+import AdminPositions from "./pages/admin/AdminPositions";
+import AdminCategories from "./pages/admin/AdminCategories";
+import AdminWarehouses from "./pages/admin/AdminWarehouses";
+import AdminEmployees from "./pages/admin/AdminEmployees";
 import EmployeeLayout from "./pages/employee/EmployeeLayout";
 import ShipperDashboard from "./pages/employee/ShipperDashboard";
+import AdminAccountAssignment from "./pages/admin/AdminAccountAssignment";
 import WarehouseDashboard from "./pages/employee/WarehouseDashboard";
 
 function App() {
@@ -140,11 +146,20 @@ function App() {
               />
 
               <Route path="/admin" element={<AdminLayout />}>
-                <Route index element={<AdminDashboard />} />{" "}
+                <Route index element={<AdminDashboard />} />
                 <Route path="dashboard" element={<AdminDashboard />} />
                 <Route path="users" element={<AdminUsers />} />
                 <Route path="shops" element={<AdminShops />} />
                 <Route path="products" element={<AdminProducts />} />
+                <Route path="employees" element={<AdminEmployees />} />
+                <Route path="departments" element={<AdminDepartments />} />
+                <Route path="positions" element={<AdminPositions />} />
+                <Route path="categories" element={<AdminCategories />} />
+                <Route path="warehouses" element={<AdminWarehouses />} />
+                <Route
+                  path="account-assignment"
+                  element={<AdminAccountAssignment />}
+                />
               </Route>
 
               {/* 🔴 EMPLOYEE PORTAL ROUTES */}

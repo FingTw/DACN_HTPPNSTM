@@ -57,7 +57,7 @@ const OrderList: React.FC = () => {
     { key: "Chờ xác nhận", icon: "⏳" },
     { key: "Chờ lấy hàng", icon: "📥" },
     { key: "Chờ giao hàng", icon: "🚚" },
-    { key: "Đã giao hàng", icon: "📬" },
+    { key: "Đã giao", icon: "📬" },
     { key: "Lịch sử", icon: "📋" }, // 🆕 ĐỔI "Trả hàng" THÀNH "Lịch sử"
     { key: "Đã hủy", icon: "❌" },
   ];
@@ -187,7 +187,7 @@ const OrderList: React.FC = () => {
   const handleConfirmReceived = async (orderId: string) => {
     if (
       window.confirm(
-        "Bạn đã nhận được hàng? Xác nhận này sẽ hoàn tất đơn hàng."
+        "Bạn đã nhận được hàng? Xác nhận này sẽ hoàn thành đơn hàng."
       )
     ) {
       try {
@@ -197,7 +197,7 @@ const OrderList: React.FC = () => {
         const response = await axios.put(
           `http://localhost:3000/api/order/update-status/${orderId}`,
           {
-            TrangThai: "Hoàn tất",
+            TrangThai: "Hoàn thành",
           },
           {
             headers: {
@@ -209,8 +209,8 @@ const OrderList: React.FC = () => {
         if (response.data.success) {
           alert("✅ Đã xác nhận nhận hàng! Cảm ơn bạn đã mua sắm.");
           // Refresh danh sách
-          if (activeTab === "Đã giao hàng") {
-            await fetchOrdersByStatus("Đã giao hàng");
+          if (activeTab === "Đã giao") {
+            await fetchOrdersByStatus("Đã giao");
           } else {
             fetchAllOrders();
           }
@@ -340,7 +340,7 @@ const OrderList: React.FC = () => {
               "Chờ xác nhận",
               "Chờ lấy hàng",
               "Chờ giao hàng",
-              "Đã giao hàng",
+              "Đã giao",
               "Lịch sử",
             ].includes(tab.key) && (
               <span className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center">
@@ -367,7 +367,7 @@ const OrderList: React.FC = () => {
             <div className="text-6xl mb-4">📦</div>
             <p className="text-lg mb-2">Không có đơn hàng nào</p>
             <p className="text-sm text-gray-500">
-              {activeTab === "Đã giao hàng"
+              {activeTab === "Đã giao"
                 ? "Chưa có đơn hàng nào đã được giao"
                 : activeTab === "Lịch sử"
                 ? "Chưa có đơn hàng nào trong lịch sử" // 🆕 THÔNG BÁO CHO LỊCH SỬ
@@ -407,7 +407,7 @@ const OrderList: React.FC = () => {
                         ? "bg-blue-100 text-blue-800"
                         : order.TrangThai === "Chờ giao hàng"
                         ? "bg-cyan-100 text-cyan-800"
-                        : order.TrangThai === "Đã giao hàng"
+                        : order.TrangThai === "Đã giao"
                         ? "bg-purple-100 text-purple-800"
                         : order.TrangThai === "Hoàn thành"
                         ? "bg-green-100 text-green-800"
@@ -419,7 +419,7 @@ const OrderList: React.FC = () => {
                     {order.TrangThai === "Chờ xác nhận" && "⏳"}
                     {order.TrangThai === "Chờ lấy hàng" && "📥"}
                     {order.TrangThai === "Chờ giao hàng" && "🚚"}
-                    {order.TrangThai === "Đã giao hàng" && "📬"}
+                    {order.TrangThai === "Đã giao" && "📬"}
                     {order.TrangThai === "Hoàn thành" && "✅"}
                     {order.TrangThai === "Trả hàng" && "🔄"}
                     {order.TrangThai === "Đã hủy" && "❌"}
@@ -476,7 +476,7 @@ const OrderList: React.FC = () => {
                     Xem chi tiết
                   </button>
 
-                  {order.TrangThai === "Đã giao hàng" && (
+                  {order.TrangThai === "Đã giao" && (
                     <button
                       className="px-4 py-2 border border-green-500 rounded bg-white text-green-500 cursor-pointer transition-all text-sm hover:bg-green-500 hover:text-white flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
                       onClick={() => handleConfirmReceived(order.MaDH)}

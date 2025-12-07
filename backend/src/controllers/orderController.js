@@ -529,19 +529,19 @@ export const updateOrderStatus = async (req, res) => {
     //   });
     // }
 
-    // 🎯 VALIDATE TRẠNG THÁI - CHO PHÉP CHUYỂN "Đã giao hàng" → "Hoàn tất"
+    // 🎯 VALIDATE TRẠNG THÁI - CHO PHÉP CHUYỂN "Đã giao" → "Hoàn thành"
     const validTransitions = {
       "Chờ xác nhận": ["Hủy đơn hàng"],
       "Đang xử lý": ["Hủy đơn hàng"],
-      "Đã giao hàng": ["Hoàn tất"], // 🆕 CHO PHÉP KHÁCH HÀNG XÁC NHẬN ĐÃ NHẬN HÀNG
+      "Đã giao": ["Hoàn thành"], // 🆕 CHO PHÉP KHÁCH HÀNG XÁC NHẬN ĐÃ NHẬN HÀNG
     };
 
     const currentStatus = order.TrangThai;
     const allowedNextStatuses = validTransitions[currentStatus] || [];
 
-    // 🆕 CHO PHÉP CHUYỂN TỪ "ĐÃ GIAO HÀNG" SANG "HOÀN TẤT"
+    // 🆕 CHO PHÉP CHUYỂN TỪ "ĐÃ GIAO" SANG "HOÀN THÀNH"
     const isAllowedTransition =
-      (currentStatus === "Đã giao hàng" && TrangThai === "Hoàn tất") ||
+      (currentStatus === "Đã giao" && TrangThai === "Hoàn thành") ||
       allowedNextStatuses.includes(TrangThai);
 
     if (!isAllowedTransition) {
@@ -651,7 +651,7 @@ export const updateOrderStatus = async (req, res) => {
     if (lichsu_trangthai) {
       let ghiChu = "";
 
-      if (TrangThai === "Hoàn tất") {
+      if (TrangThai === "Hoàn thành") {
         ghiChu = "Khách hàng xác nhận đã nhận hàng";
       } else if (TrangThai === "Hủy đơn hàng") {
         ghiChu = "Khách hàng đã hủy đơn hàng";
@@ -695,8 +695,8 @@ export const updateOrderStatus = async (req, res) => {
       console.log(`⚠️ Trạng thái không đổi cho đơn ${MaDH} → Không update`);
     }
 
-    // 🆕 [THÊM MỚI] LOGIC CỘNG TIỀN KHI HOÀN TẤT ĐƠN HÀNG
-    if (TrangThai === "Hoàn tất") {
+    // 🆕 [THÊM MỚI] LOGIC CỘNG TIỀN KHI HOÀN THÀNH ĐƠN HÀNG
+    if (TrangThai === "Hoàn thành") {
       console.log("💰 Bắt đầu tính toán doanh thu cho cửa hàng...");
 
       // 1. Lấy chi tiết đơn hàng kèm thông tin sản phẩm và cửa hàng
@@ -771,7 +771,7 @@ export const updateOrderStatus = async (req, res) => {
     // 🎯 THÔNG BÁO THÀNH CÔNG
     let successMessage = "";
 
-    if (TrangThai === "Hoàn tất") {
+    if (TrangThai === "Hoàn thành") {
       successMessage = "Đã xác nhận nhận hàng! Cảm ơn bạn đã mua sắm.";
     } else if (TrangThai === "Hủy đơn hàng") {
       successMessage =
@@ -890,7 +890,7 @@ export const getAllOrder = async (req, res) => {
       "Chờ xác nhận": 0,
       "Chờ lấy hàng": 0,
       "Chờ giao hàng": 0,
-      "Đã giao hàng": 0,
+      "Đã giao": 0,
       "Hoàn thành": 0,
       "Trả hàng": 0,
       "Đã hủy": 0,
@@ -1564,13 +1564,13 @@ export const updateOrderStatusByStore = async (req, res) => {
       });
     }
 
-    // 🎯 VALIDATE TRẠNG THÁI THEO NGHIỆP VỤ
+    // 🎯 VALIDATE TRẠNG THÁI THEO NGHIỆP VỤ (Chuẩn hoá tên trạng thái)
     const validTransitions = {
       "Chờ xác nhận": ["Đang chuẩn bị hàng", "Đã hủy"],
       "Đang chuẩn bị hàng": ["Chờ lấy hàng", "Đã hủy"],
-      "Chờ lấy hàng": ["Đang giao hàng", "Đã hủy"],
-      "Đã giao hàng": ["Hoàn tất"],
-      "Đang giao hàng": ["Hoàn thành", "Đã hủy"],
+      "Chờ lấy hàng": ["Đang giao", "Đã hủy"],
+      "Đã giao": ["Hoàn thành"],
+      "Đang giao": ["Hoàn thành", "Đã hủy"],
       "Hoàn thành": [], // Không thể chuyển từ hoàn thành
       "Đã hủy": [], // Không thể chuyển từ đã hủy
     };
@@ -1616,7 +1616,7 @@ export const updateOrderStatusByStore = async (req, res) => {
       }
     );
 
-    if (currentStatus === "Đã giao hàng" && TrangThai === "Hoàn tất") {
+    if (currentStatus === "Đã giao" && TrangThai === "Hoàn thành") {
       // Cho phép chuyển trạng thái
     } else if (!allowedNextStatuses.includes(TrangThai)) {
       return res.status(400).json({
