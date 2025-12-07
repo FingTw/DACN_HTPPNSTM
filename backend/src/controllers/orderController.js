@@ -21,7 +21,9 @@ const {
   khuyenmai_taikhoan,
   thanhtoan,
   hdbanhang,
-  cuahang
+  cuahang,
+  giaodich_vi,
+  hinhanh,
 } = models;
 
 export const checkout = async (req, res) => {
@@ -121,13 +123,13 @@ export const processCheckout = async (req, res) => {
     const MaTK = decoded.MaTK;
 
     // === 2. Lấy thông tin từ body ===
-    const { 
-      DCNhanHang, 
-      MaPTVC, 
-      MaPTTT, 
-      items, 
+    const {
+      DCNhanHang,
+      MaPTVC,
+      MaPTTT,
+      items,
       appliedVouchers,
-      PhiVanChuyen // 🆕 NHẬN PHÍ VẬN CHUYỂN TỪ FRONTEND
+      PhiVanChuyen, // 🆕 NHẬN PHÍ VẬN CHUYỂN TỪ FRONTEND
     } = req.body;
 
     console.log("📦 Request body:", {
@@ -136,7 +138,7 @@ export const processCheckout = async (req, res) => {
       MaPTTT,
       itemsCount: items?.length,
       appliedVouchers,
-      PhiVanChuyen // 🆕 LOG PHÍ VẬN CHUYỂN
+      PhiVanChuyen, // 🆕 LOG PHÍ VẬN CHUYỂN
     });
 
     if (!items || !items.length) {
@@ -154,7 +156,11 @@ export const processCheckout = async (req, res) => {
     }
 
     // 🆕 VALIDATE PHÍ VẬN CHUYỂN
-    if (PhiVanChuyen === undefined || PhiVanChuyen === null || PhiVanChuyen < 0) {
+    if (
+      PhiVanChuyen === undefined ||
+      PhiVanChuyen === null ||
+      PhiVanChuyen < 0
+    ) {
       console.log("❌ Phí vận chuyển không hợp lệ:", PhiVanChuyen);
       return res.status(400).json({ message: "Phí vận chuyển không hợp lệ" });
     }
@@ -487,19 +493,19 @@ export const orderSuccess = async (req, res) => {
 export const updateOrderStatus = async (req, res) => {
   const { MaDH } = req.params;
   const { TrangThai } = req.body;
-  
+
   console.log("📦 Body nhận được:", req.body);
   console.log("📌 TrangThai:", TrangThai);
-  
+
   let transaction;
-  
+
   try {
     // 🛡️ 1. Xác thực token và lấy MaTK từ JWT
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return res.status(401).json({ message: "Không có token" });
     }
-    
+
     const token = authHeader.split(" ")[1];
     let decoded;
     try {
@@ -507,7 +513,7 @@ export const updateOrderStatus = async (req, res) => {
     } catch (err) {
       return res.status(401).json({ message: "Token không hợp lệ" });
     }
-    
+
     const userMaTK = decoded.MaTK;
 
     // 🔎 2. Lấy đơn hàng
@@ -518,30 +524,30 @@ export const updateOrderStatus = async (req, res) => {
 
     // ✅ Kiểm tra quyền người dùng (chỉ người đặt đơn mới được cập nhật)
     // if (order.MaTK !== userMaTK) {
-    //   return res.status(403).json({ 
-    //     message: "Bạn không có quyền thay đổi đơn hàng này" 
+    //   return res.status(403).json({
+    //     message: "Bạn không có quyền thay đổi đơn hàng này"
     //   });
     // }
 
     // 🎯 VALIDATE TRẠNG THÁI - CHO PHÉP CHUYỂN "Đã giao hàng" → "Hoàn tất"
     const validTransitions = {
-      'Chờ xác nhận': ['Hủy đơn hàng'],
-      'Đang xử lý': ['Hủy đơn hàng'],
-      'Đã giao hàng': ['Hoàn tất'], // 🆕 CHO PHÉP KHÁCH HÀNG XÁC NHẬN ĐÃ NHẬN HÀNG
+      "Chờ xác nhận": ["Hủy đơn hàng"],
+      "Đang xử lý": ["Hủy đơn hàng"],
+      "Đã giao hàng": ["Hoàn tất"], // 🆕 CHO PHÉP KHÁCH HÀNG XÁC NHẬN ĐÃ NHẬN HÀNG
     };
 
     const currentStatus = order.TrangThai;
     const allowedNextStatuses = validTransitions[currentStatus] || [];
 
     // 🆕 CHO PHÉP CHUYỂN TỪ "ĐÃ GIAO HÀNG" SANG "HOÀN TẤT"
-    const isAllowedTransition = 
-      (currentStatus === 'Đã giao hàng' && TrangThai === 'Hoàn tất') ||
+    const isAllowedTransition =
+      (currentStatus === "Đã giao hàng" && TrangThai === "Hoàn tất") ||
       allowedNextStatuses.includes(TrangThai);
 
     if (!isAllowedTransition) {
       return res.status(400).json({
         success: false,
-        message: `Không thể chuyển từ "${currentStatus}" sang "${TrangThai}"`
+        message: `Không thể chuyển từ "${currentStatus}" sang "${TrangThai}"`,
       });
     }
 
@@ -552,16 +558,16 @@ export const updateOrderStatus = async (req, res) => {
     // 👉 XỬ LÝ ĐẶC BIỆT THEO TRẠNG THÁI
     if (TrangThai === "Hủy đơn hàng") {
       console.log("🔄 Xử lý hủy đơn hàng...");
-      
-      const chiTietList = await chitiet_donhang.findAll({ 
+
+      const chiTietList = await chitiet_donhang.findAll({
         where: { MaDH },
-        transaction 
+        transaction,
       });
 
       if (!chiTietList || chiTietList.length === 0) {
         await transaction.rollback();
-        return res.status(400).json({ 
-          message: "Đơn hàng không có sản phẩm để hoàn" 
+        return res.status(400).json({
+          message: "Đơn hàng không có sản phẩm để hoàn",
         });
       }
 
@@ -581,15 +587,15 @@ export const updateOrderStatus = async (req, res) => {
         console.log("🎫 Hoàn lại số lần sử dụng mã khuyến mãi...");
         const userKM = await khuyenmai_taikhoan.findOne({
           where: { MaKM: order.MaKM, MaTK: order.MaTK },
-          transaction
+          transaction,
         });
-        
+
         if (userKM && userKM.SoLanSuDung > 0) {
           await khuyenmai_taikhoan.update(
             { SoLanSuDung: userKM.SoLanSuDung - 1 },
-            { 
+            {
               where: { MaKM: order.MaKM, MaTK: order.MaTK },
-              transaction 
+              transaction,
             }
           );
           console.log(`✅ Đã hoàn lại 1 lần sử dụng mã KM: ${order.MaKM}`);
@@ -598,37 +604,44 @@ export const updateOrderStatus = async (req, res) => {
 
       // 🔄 Trả lại giỏ hàng
       console.log("🛒 Trả sản phẩm vào giỏ hàng...");
-      let cart = await giohang.findOne({ 
+      let cart = await giohang.findOne({
         where: { MaTK: order.MaTK },
-        transaction 
+        transaction,
       });
-      
+
       if (!cart) {
-        cart = await giohang.create({
-          MaGH: "GH" + Math.random().toString(36).substring(2, 10).toUpperCase(),
-          MaTK: order.MaTK,
-        }, { transaction });
+        cart = await giohang.create(
+          {
+            MaGH:
+              "GH" + Math.random().toString(36).substring(2, 10).toUpperCase(),
+            MaTK: order.MaTK,
+          },
+          { transaction }
+        );
         console.log("✅ Đã tạo giỏ hàng mới");
       }
 
       for (const ct of chiTietList) {
         let item = await ctgh.findOne({
           where: { MaGH: cart.MaGH, MaSP: ct.MaSP },
-          transaction
+          transaction,
         });
-        
+
         if (item) {
           item.SL += ct.SoLuong;
           item.TongTien = item.SL * ct.GiaBan;
           await item.save({ transaction });
           console.log(`✅ Đã cập nhật sản phẩm ${ct.MaSP} trong giỏ`);
         } else {
-          await ctgh.create({
-            MaGH: cart.MaGH,
-            MaSP: ct.MaSP,
-            SL: ct.SoLuong,
-            TongTien: ct.GiaBan * ct.SoLuong,
-          }, { transaction });
+          await ctgh.create(
+            {
+              MaGH: cart.MaGH,
+              MaSP: ct.MaSP,
+              SL: ct.SoLuong,
+              TongTien: ct.GiaBan * ct.SoLuong,
+            },
+            { transaction }
+          );
           console.log(`✅ Đã thêm sản phẩm ${ct.MaSP} vào giỏ`);
         }
       }
@@ -636,45 +649,119 @@ export const updateOrderStatus = async (req, res) => {
 
     // 📝 GHI LỊCH SỬ TRẠNG THÁI
     if (lichsu_trangthai) {
-      let ghiChu = '';
-      
-      if (TrangThai === 'Hoàn tất') {
-        ghiChu = 'Khách hàng xác nhận đã nhận hàng';
-      } else if (TrangThai === 'Hủy đơn hàng') {
-        ghiChu = 'Khách hàng đã hủy đơn hàng';
+      let ghiChu = "";
+
+      if (TrangThai === "Hoàn tất") {
+        ghiChu = "Khách hàng xác nhận đã nhận hàng";
+      } else if (TrangThai === "Hủy đơn hàng") {
+        ghiChu = "Khách hàng đã hủy đơn hàng";
       } else {
         ghiChu = `Cập nhật trạng thái: ${currentStatus} → ${TrangThai}`;
       }
 
-      await lichsu_trangthai.create({
-        MaLS: "LS" + uuidv4().replace(/-/g, "").substring(0, 8).toUpperCase(),
-        MaDH: order.MaDH,
-        TrangThaiCu: currentStatus,
-        TrangThaiMoi: TrangThai,
-        NgayCapNhat: new Date(),
-        NguoiCapNhat: userMaTK,
-        GhiChu: ghiChu
-      }, { transaction });
-      
+      await lichsu_trangthai.create(
+        {
+          MaLS: "LS" + uuidv4().replace(/-/g, "").substring(0, 8).toUpperCase(),
+          MaDH: order.MaDH,
+          TrangThaiCu: currentStatus,
+          TrangThaiMoi: TrangThai,
+          NgayCapNhat: new Date(),
+          NguoiCapNhat: userMaTK,
+          GhiChu: ghiChu,
+        },
+        { transaction }
+      );
+
       console.log("📝 Đã ghi lịch sử trạng thái");
     }
 
     // ✅ CẬP NHẬT TRẠNG THÁI ĐƠN HÀNG
     if (order.TrangThai !== TrangThai) {
       await donhang.update(
-        { 
+        {
           TrangThai,
-          NgayCapNhat: new Date()
+          NgayCapNhat: new Date(),
         },
-        { 
+        {
           where: { MaDH },
-          transaction 
+          transaction,
         }
       );
-      
-      console.log(`✅ Đã cập nhật đơn hàng ${MaDH}: ${currentStatus} → ${TrangThai}`);
+
+      console.log(
+        `✅ Đã cập nhật đơn hàng ${MaDH}: ${currentStatus} → ${TrangThai}`
+      );
     } else {
       console.log(`⚠️ Trạng thái không đổi cho đơn ${MaDH} → Không update`);
+    }
+
+    // 🆕 [THÊM MỚI] LOGIC CỘNG TIỀN KHI HOÀN TẤT ĐƠN HÀNG
+    if (TrangThai === "Hoàn tất") {
+      console.log("💰 Bắt đầu tính toán doanh thu cho cửa hàng...");
+
+      // 1. Lấy chi tiết đơn hàng kèm thông tin sản phẩm và cửa hàng
+      const orderDetails = await chitiet_donhang.findAll({
+        where: { MaDH },
+        include: [
+          {
+            model: sanpham,
+            as: "MaSP_sanpham",
+            attributes: ["MaCH", "GiaBan"], // Cần MaCH để biết cộng cho ai
+          },
+        ],
+        transaction,
+      });
+
+      // 2. Gom nhóm doanh thu theo cửa hàng
+      // (Vì 1 đơn hàng có thể chứa sản phẩm của nhiều cửa hàng khác nhau)
+      const revenueByShop = {};
+
+      for (const item of orderDetails) {
+        const maCH = item.MaSP_sanpham.MaCH;
+        // Tính tiền: Số lượng * Giá bán (Cộng đúng số tiền bán sp)
+        const amount = parseFloat(item.GiaBan) * item.SoLuong;
+
+        if (!revenueByShop[maCH]) {
+          revenueByShop[maCH] = 0;
+        }
+        revenueByShop[maCH] += amount;
+      }
+
+      // 3. Thực hiện cộng tiền và ghi log giao dịch
+      for (const [maCH, totalAmount] of Object.entries(revenueByShop)) {
+        // Lấy thông tin cửa hàng hiện tại để biết số dư cũ (để an toàn)
+        const store = await cuahang.findByPk(maCH, { transaction });
+
+        if (store) {
+          // Cộng tiền vào số dư
+          const newBalance = parseFloat(store.SoDu) + totalAmount;
+
+          await cuahang.update(
+            { SoDu: newBalance },
+            { where: { MaCH: maCH }, transaction }
+          );
+
+          // Tạo mã giao dịch
+          const MaGD =
+            "GD" + uuidv4().replace(/-/g, "").substring(0, 8).toUpperCase();
+
+          // Ghi lịch sử giao dịch ví
+          await giaodich_vi.create(
+            {
+              MaGD: MaGD,
+              MaCH: maCH,
+              LoaiGD: "NHAN_TIEN_DON_HANG", // Loại giao dịch: Nhận tiền
+              SoTien: totalAmount,
+              NoiDung: `Doanh thu từ đơn hàng ${MaDH}`,
+              TrangThai: "ThanhCong",
+              NgayTao: new Date(),
+            },
+            { transaction }
+          );
+
+          console.log(`✅ Đã cộng ${totalAmount} vào ví cửa hàng ${maCH}`);
+        }
+      }
     }
 
     // ✅ COMMIT TRANSACTION
@@ -682,12 +769,13 @@ export const updateOrderStatus = async (req, res) => {
     console.log("✅ Transaction committed successfully");
 
     // 🎯 THÔNG BÁO THÀNH CÔNG
-    let successMessage = '';
-    
-    if (TrangThai === 'Hoàn tất') {
-      successMessage = 'Đã xác nhận nhận hàng! Cảm ơn bạn đã mua sắm.';
-    } else if (TrangThai === 'Hủy đơn hàng') {
-      successMessage = 'Đã hủy đơn hàng thành công. Sản phẩm đã được trả lại giỏ hàng.';
+    let successMessage = "";
+
+    if (TrangThai === "Hoàn tất") {
+      successMessage = "Đã xác nhận nhận hàng! Cảm ơn bạn đã mua sắm.";
+    } else if (TrangThai === "Hủy đơn hàng") {
+      successMessage =
+        "Đã hủy đơn hàng thành công. Sản phẩm đã được trả lại giỏ hàng.";
     } else {
       successMessage = `Đã cập nhật trạng thái đơn hàng: ${TrangThai}`;
     }
@@ -699,10 +787,9 @@ export const updateOrderStatus = async (req, res) => {
         MaDH,
         TrangThaiCu: currentStatus,
         TrangThaiMoi: TrangThai,
-        NgayCapNhat: new Date()
-      }
+        NgayCapNhat: new Date(),
+      },
     });
-
   } catch (err) {
     // ❌ ROLLBACK NẾU CÓ LỖI
     if (transaction) {
@@ -711,11 +798,11 @@ export const updateOrderStatus = async (req, res) => {
     }
 
     console.error("❌ Lỗi cập nhật trạng thái đơn hàng:", err);
-    
+
     return res.status(500).json({
       success: false,
       message: "Lỗi server khi cập nhật trạng thái đơn hàng",
-      error: process.env.NODE_ENV === "development" ? err.message : undefined
+      error: process.env.NODE_ENV === "development" ? err.message : undefined,
     });
   }
 };
@@ -741,16 +828,12 @@ export const getPaymentMethods = async (req, res) => {
   }
 };
 
-// Thêm vào orderController.js
 export const getAllOrder = async (req, res) => {
   try {
     console.log("=== BẮT ĐẦU GET ALL ORDERS ===");
 
     const authHeader = req.headers.authorization;
-    console.log("Auth Header:", authHeader);
-
     if (!authHeader?.startsWith("Bearer ")) {
-      console.log("❌ Không có token");
       return res.status(401).json({ message: "Không có token" });
     }
 
@@ -758,29 +841,34 @@ export const getAllOrder = async (req, res) => {
     let decoded;
     try {
       decoded = jwt.verify(token, process.env.JWT_SECRET);
-      console.log("✅ Token decoded:", decoded);
     } catch (err) {
-      console.log("❌ Token không hợp lệ:", err.message);
       return res
         .status(401)
         .json({ message: "Token không hợp lệ hoặc hết hạn" });
     }
 
     const MaTK = decoded.MaTK;
-    console.log("📋 MaTK từ token:", MaTK);
 
     // Lấy tất cả đơn hàng của user
     const orders = await donhang.findAll({
       where: { MaTK },
       include: [
         {
-          model: chitiet_donhang,
-          as: "chitiet_donhangs",
+          model: chitiet_donhang, // Model chi tiết
+          as: "chitiet_donhangs", // Alias (kiểm tra lại trong init-models nếu lỗi)
           include: [
             {
               model: sanpham,
               as: "MaSP_sanpham",
+              // 👇 SỬA 1: XÓA "HinhAnh" Ở ĐÂY ĐỂ TRÁNH LỖI DB
               attributes: ["TenSP"],
+              include: [
+                {
+                  model: hinhanh,
+                  as: "hinhanhs",
+                  attributes: ["URL"],
+                },
+              ],
             },
           ],
         },
@@ -798,24 +886,45 @@ export const getAllOrder = async (req, res) => {
       order: [["NgayTao", "DESC"]],
     });
 
-    console.log(`📦 Tìm thấy ${orders.length} đơn hàng cho user ${MaTK}`);
-
-    // 🆕 CẬP NHẬT STATUS COUNTS VỚI TRẠNG THÁI MỚI "Hoàn thành"
     const statusCounts = {
       "Chờ xác nhận": 0,
       "Chờ lấy hàng": 0,
       "Chờ giao hàng": 0,
       "Đã giao hàng": 0,
-      "Hoàn thành": 0,     // 🆕 THÊM TRẠNG THÁI MỚI
+      "Hoàn thành": 0,
       "Trả hàng": 0,
       "Đã hủy": 0,
     };
 
     orders.forEach((order) => {
-      console.log(`Đơn hàng ${order.MaDH} - Trạng thái: ${order.TrangThai}`);
       if (statusCounts.hasOwnProperty(order.TrangThai)) {
         statusCounts[order.TrangThai]++;
       }
+    });
+
+    // 👇 SỬA 2: LOGIC LẤY ẢNH TỪ MẢNG RA LÀM ẢNH ĐẠI DIỆN
+    const formattedOrders = orders.map((order) => {
+      const orderData = order.get({ plain: true });
+
+      return {
+        ...orderData,
+        chitiet_donhangs: orderData.chitiet_donhangs.map((item) => {
+          const product = item.MaSP_sanpham;
+
+          // Lấy ảnh đầu tiên trong mảng làm ảnh đại diện
+          const mainImage =
+            product.hinhanhs && product.hinhanhs.length > 0
+              ? product.hinhanhs[0].URL
+              : null;
+
+          return {
+            ...item,
+            TenSP: product.TenSP,
+            HinhAnh: mainImage, // ✅ Gán ảnh lấy được vào đây
+            hinhanhs: product.hinhanhs || [],
+          };
+        }),
+      };
     });
 
     console.log("📊 Thống kê trạng thái:", statusCounts);
@@ -823,7 +932,7 @@ export const getAllOrder = async (req, res) => {
     return res.json({
       success: true,
       data: {
-        orders,
+        orders: formattedOrders,
         statusCounts: {
           "Tất cả": orders.length,
           ...statusCounts,
@@ -836,11 +945,10 @@ export const getAllOrder = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Lỗi server khi lấy danh sách đơn hàng",
-      error: err.message,
+      error: err.message, // Trả về chi tiết lỗi để dễ debug
     });
   }
 };
-
 // Hàm lấy đơn hàng theo trạng thái
 export const getOrdersByStatus = async (req, res) => {
   try {
@@ -1263,10 +1371,10 @@ const calculateDistanceFallback = async (origin, destination) => {
 export const getStoreOrders = async (req, res) => {
   try {
     console.log("=== LẤY ĐƠN HÀNG THEO CỬA HÀNG ===");
-    
+
     const { MaCH } = req.params;
     const { TrangThai, page = 1, limit = 10 } = req.query;
-    
+
     console.log("📋 Tham số:", { MaCH, TrangThai, page, limit });
 
     // 🛡️ Xác thực token
@@ -1290,12 +1398,14 @@ export const getStoreOrders = async (req, res) => {
     }
 
     if (store.MaTK !== decoded.MaTK) {
-      return res.status(403).json({ message: "Không có quyền truy cập cửa hàng này" });
+      return res
+        .status(403)
+        .json({ message: "Không có quyền truy cập cửa hàng này" });
     }
 
     // 📊 Xây dựng điều kiện query - SỬA PHẦN NÀY
     const whereCondition = {};
-    
+
     // Lọc đơn hàng theo sản phẩm của cửa hàng - SỬ DỤNG Op.in
     whereCondition.MaDH = {
       [Op.in]: sequelize.literal(`(
@@ -1304,17 +1414,17 @@ export const getStoreOrders = async (req, res) => {
         JOIN chitiet_donhang ctdh ON dh.MaDH = ctdh.MaDH
         JOIN sanpham sp ON ctdh.MaSP = sp.MaSP
         WHERE sp.MaCH = '${MaCH}'
-      )`)
+      )`),
     };
 
     // Lọc theo trạng thái nếu có - SỬ DỤNG Op.eq
-    if (TrangThai && TrangThai !== 'all') {
+    if (TrangThai && TrangThai !== "all") {
       whereCondition.TrangThai = TrangThai;
     }
 
     // 📦 Lấy danh sách đơn hàng
     const offset = (page - 1) * limit;
-    
+
     const orders = await donhang.findAndCountAll({
       where: whereCondition,
       include: [
@@ -1326,30 +1436,30 @@ export const getStoreOrders = async (req, res) => {
               model: sanpham,
               as: "MaSP_sanpham",
               where: { MaCH }, // Chỉ lấy sản phẩm của cửa hàng này
-              attributes: ["TenSP", "MaSP", "DVT", "SLTon"]
-            }
-          ]
+              attributes: ["TenSP", "MaSP", "DVT", "SLTon"],
+            },
+          ],
         },
         {
           model: taikhoan,
           as: "MaTK_taikhoan",
-          attributes: ["TenDangNhap", "Email"]
+          attributes: ["TenDangNhap", "Email"],
         },
         {
           model: pttt,
           as: "MaPTTT_pttt",
-          attributes: ["TenPTTT"]
+          attributes: ["TenPTTT"],
         },
         {
           model: ptvc,
-          as: "MaPTVC_ptvc", 
-          attributes: ["TenPTVC"]
-        }
+          as: "MaPTVC_ptvc",
+          attributes: ["TenPTVC"],
+        },
       ],
       order: [["NgayTao", "DESC"]],
       limit: parseInt(limit),
       offset: offset,
-      distinct: true // Quan trọng cho count chính xác
+      distinct: true, // Quan trọng cho count chính xác
     });
 
     console.log(`✅ Tìm thấy ${orders.count} đơn hàng cho cửa hàng ${MaCH}`);
@@ -1362,17 +1472,16 @@ export const getStoreOrders = async (req, res) => {
           page: parseInt(page),
           limit: parseInt(limit),
           totalItems: orders.count,
-          totalPages: Math.ceil(orders.count / limit)
-        }
-      }
+          totalPages: Math.ceil(orders.count / limit),
+        },
+      },
     });
-
   } catch (err) {
     console.error("❌ Lỗi khi lấy đơn hàng cửa hàng:", err);
     return res.status(500).json({
       success: false,
       message: "Lỗi server khi lấy danh sách đơn hàng",
-      error: process.env.NODE_ENV === "development" ? err.message : undefined
+      error: process.env.NODE_ENV === "development" ? err.message : undefined,
     });
   }
 };
@@ -1381,7 +1490,7 @@ export const getStoreOrders = async (req, res) => {
 export const updateOrderStatusByStore = async (req, res) => {
   const { MaDH } = req.params;
   const { TrangThai, GhiChu } = req.body;
-  
+
   console.log("🔄 Cập nhật trạng thái đơn hàng:", { MaDH, TrangThai, GhiChu });
 
   let transaction;
@@ -1403,7 +1512,7 @@ export const updateOrderStatusByStore = async (req, res) => {
     const userMaTK = decoded.MaTK;
 
     // 🔍 Lấy đơn hàng và kiểm tra quyền
-    const order = await donhang.findOne({ 
+    const order = await donhang.findOne({
       where: { MaDH },
       include: [
         {
@@ -1413,11 +1522,11 @@ export const updateOrderStatusByStore = async (req, res) => {
             {
               model: sanpham,
               as: "MaSP_sanpham",
-              attributes: ["MaCH", "TenSP"]
-            }
-          ]
-        }
-      ]
+              attributes: ["MaCH", "TenSP"],
+            },
+          ],
+        },
+      ],
     });
 
     //  if (order.MaTK !== userMaTK) {
@@ -1431,35 +1540,39 @@ export const updateOrderStatusByStore = async (req, res) => {
     }
 
     // 🔒 Kiểm tra đơn hàng có thuộc cửa hàng của user không
-    const orderStoreIds = [...new Set(
-      order.chitiet_donhangs.map(ct => ct.MaSP_sanpham?.MaCH).filter(Boolean)
-    )];
+    const orderStoreIds = [
+      ...new Set(
+        order.chitiet_donhangs
+          .map((ct) => ct.MaSP_sanpham?.MaCH)
+          .filter(Boolean)
+      ),
+    ];
 
-    const userStores = await cuahang.findAll({ 
+    const userStores = await cuahang.findAll({
       where: { MaTK: userMaTK },
-      attributes: ["MaCH"]
+      attributes: ["MaCH"],
     });
-    const userStoreIds = userStores.map(store => store.MaCH);
+    const userStoreIds = userStores.map((store) => store.MaCH);
 
-    const hasPermission = orderStoreIds.some(storeId => 
+    const hasPermission = orderStoreIds.some((storeId) =>
       userStoreIds.includes(storeId)
     );
 
     if (!hasPermission) {
-      return res.status(403).json({ 
-        message: "Bạn không có quyền cập nhật đơn hàng này" 
+      return res.status(403).json({
+        message: "Bạn không có quyền cập nhật đơn hàng này",
       });
     }
 
     // 🎯 VALIDATE TRẠNG THÁI THEO NGHIỆP VỤ
     const validTransitions = {
-      'Chờ xác nhận': ['Đang chuẩn bị hàng', 'Đã hủy'],
-      'Đang chuẩn bị hàng': ['Chờ lấy hàng', 'Đã hủy'],
-      'Chờ lấy hàng': ['Đang giao hàng', 'Đã hủy'],
-      'Đã giao hàng': ['Hoàn tất'],
-      'Đang giao hàng': ['Hoàn thành', 'Đã hủy'],
-      'Hoàn thành': [], // Không thể chuyển từ hoàn thành
-      'Đã hủy': [] // Không thể chuyển từ đã hủy
+      "Chờ xác nhận": ["Đang chuẩn bị hàng", "Đã hủy"],
+      "Đang chuẩn bị hàng": ["Chờ lấy hàng", "Đã hủy"],
+      "Chờ lấy hàng": ["Đang giao hàng", "Đã hủy"],
+      "Đã giao hàng": ["Hoàn tất"],
+      "Đang giao hàng": ["Hoàn thành", "Đã hủy"],
+      "Hoàn thành": [], // Không thể chuyển từ hoàn thành
+      "Đã hủy": [], // Không thể chuyển từ đã hủy
     };
 
     const currentStatus = order.TrangThai;
@@ -1467,7 +1580,7 @@ export const updateOrderStatusByStore = async (req, res) => {
 
     if (!allowedNextStatuses.includes(TrangThai)) {
       return res.status(400).json({
-        message: `Không thể chuyển từ "${currentStatus}" sang "${TrangThai}"`
+        message: `Không thể chuyển từ "${currentStatus}" sang "${TrangThai}"`,
       });
     }
 
@@ -1476,39 +1589,43 @@ export const updateOrderStatusByStore = async (req, res) => {
 
     // 📝 Ghi lịch sử trạng thái
     if (lichsu_trangthai) {
-      await lichsu_trangthai.create({
-        MaLS: "LS" + uuidv4().replace(/-/g, "").substring(0, 8).toUpperCase(),
-        MaDH: order.MaDH,
-        TrangThaiCu: currentStatus,
-        TrangThaiMoi: TrangThai,
-        NgayCapNhat: new Date(),
-        NguoiCapNhat: userMaTK,
-        GhiChu: GhiChu || `Cửa hàng cập nhật: ${currentStatus} → ${TrangThai}`
-      }, { transaction });
+      await lichsu_trangthai.create(
+        {
+          MaLS: "LS" + uuidv4().replace(/-/g, "").substring(0, 8).toUpperCase(),
+          MaDH: order.MaDH,
+          TrangThaiCu: currentStatus,
+          TrangThaiMoi: TrangThai,
+          NgayCapNhat: new Date(),
+          NguoiCapNhat: userMaTK,
+          GhiChu:
+            GhiChu || `Cửa hàng cập nhật: ${currentStatus} → ${TrangThai}`,
+        },
+        { transaction }
+      );
     }
 
     // 🔄 Cập nhật trạng thái đơn hàng
     await donhang.update(
-      { 
+      {
         TrangThai,
-        NgayCapNhat: new Date()
+        NgayCapNhat: new Date(),
       },
-      { 
+      {
         where: { MaDH },
-        transaction 
+        transaction,
       }
     );
 
-    if (currentStatus === 'Đã giao hàng' && TrangThai === 'Hoàn tất') {
+    if (currentStatus === "Đã giao hàng" && TrangThai === "Hoàn tất") {
       // Cho phép chuyển trạng thái
     } else if (!allowedNextStatuses.includes(TrangThai)) {
       return res.status(400).json({
-        message: `Không thể chuyển từ "${currentStatus}" sang "${TrangThai}"`
+        message: `Không thể chuyển từ "${currentStatus}" sang "${TrangThai}"`,
       });
     }
 
     // 📦 XỬ Lý ĐẶC BIỆT THEO TRẠNG THÁI
-    if (TrangThai === 'Đã hủy') {
+    if (TrangThai === "Đã hủy") {
       // Hoàn lại tồn kho khi hủy đơn
       for (const ct of order.chitiet_donhangs) {
         const sp = await sanpham.findByPk(ct.MaSP, { transaction });
@@ -1523,14 +1640,14 @@ export const updateOrderStatusByStore = async (req, res) => {
       if (order.MaKM) {
         const userKM = await khuyenmai_taikhoan.findOne({
           where: { MaKM: order.MaKM, MaTK: order.MaTK },
-          transaction
+          transaction,
         });
         if (userKM && userKM.SoLanSuDung > 0) {
           await khuyenmai_taikhoan.update(
             { SoLanSuDung: userKM.SoLanSuDung - 1 },
-            { 
+            {
               where: { MaKM: order.MaKM, MaTK: order.MaTK },
-              transaction 
+              transaction,
             }
           );
         }
@@ -1539,7 +1656,9 @@ export const updateOrderStatusByStore = async (req, res) => {
 
     // ✅ Commit transaction
     await transaction.commit();
-    console.log(`✅ Đã cập nhật đơn hàng ${MaDH}: ${currentStatus} → ${TrangThai}`);
+    console.log(
+      `✅ Đã cập nhật đơn hàng ${MaDH}: ${currentStatus} → ${TrangThai}`
+    );
 
     return res.json({
       success: true,
@@ -1548,10 +1667,9 @@ export const updateOrderStatusByStore = async (req, res) => {
         MaDH,
         TrangThaiCu: currentStatus,
         TrangThaiMoi: TrangThai,
-        NgayCapNhat: new Date()
-      }
+        NgayCapNhat: new Date(),
+      },
     });
-
   } catch (err) {
     // ❌ Rollback nếu có lỗi
     if (transaction) {
@@ -1563,7 +1681,7 @@ export const updateOrderStatusByStore = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Lỗi server khi cập nhật trạng thái",
-      error: process.env.NODE_ENV === "development" ? err.message : undefined
+      error: process.env.NODE_ENV === "development" ? err.message : undefined,
     });
   }
 };
@@ -1602,18 +1720,18 @@ export const getOrderStatistics = async (req, res) => {
       dateCondition.NgayTao = { [Op.gte]: new Date(startDate) };
     }
     if (endDate) {
-      dateCondition.NgayTao = { 
+      dateCondition.NgayTao = {
         ...dateCondition.NgayTao,
-        [Op.lte]: new Date(endDate + ' 23:59:59')
+        [Op.lte]: new Date(endDate + " 23:59:59"),
       };
     }
 
     // 🎯 THỐNG KÊ THEO TRẠNG THÁI
     const statusStats = await donhang.findAll({
       attributes: [
-        'TrangThai',
-        [sequelize.fn('COUNT', sequelize.col('MaDH')), 'count'],
-        [sequelize.fn('SUM', sequelize.col('TongTien')), 'totalRevenue']
+        "TrangThai",
+        [sequelize.fn("COUNT", sequelize.col("MaDH")), "count"],
+        [sequelize.fn("SUM", sequelize.col("TongTien")), "totalRevenue"],
       ],
       where: {
         ...dateCondition,
@@ -1624,19 +1742,19 @@ export const getOrderStatistics = async (req, res) => {
             JOIN chitiet_donhang ctdh ON dh.MaDH = ctdh.MaDH
             JOIN sanpham sp ON ctdh.MaSP = sp.MaSP
             WHERE sp.MaCH = '${MaCH}'
-          )`)
-        }
+          )`),
+        },
       },
-      group: ['TrangThai'],
-      raw: true
+      group: ["TrangThai"],
+      raw: true,
     });
 
     // 📈 TỔNG QUAN
     const totalStats = await donhang.findOne({
       attributes: [
-        [sequelize.fn('COUNT', sequelize.col('MaDH')), 'totalOrders'],
-        [sequelize.fn('SUM', sequelize.col('TongTien')), 'totalRevenue'],
-        [sequelize.fn('AVG', sequelize.col('TongTien')), 'avgOrderValue']
+        [sequelize.fn("COUNT", sequelize.col("MaDH")), "totalOrders"],
+        [sequelize.fn("SUM", sequelize.col("TongTien")), "totalRevenue"],
+        [sequelize.fn("AVG", sequelize.col("TongTien")), "avgOrderValue"],
       ],
       where: {
         ...dateCondition,
@@ -1647,10 +1765,10 @@ export const getOrderStatistics = async (req, res) => {
             JOIN chitiet_donhang ctdh ON dh.MaDH = ctdh.MaDH
             JOIN sanpham sp ON ctdh.MaSP = sp.MaSP
             WHERE sp.MaCH = '${MaCH}'
-          )`)
-        }
+          )`),
+        },
       },
-      raw: true
+      raw: true,
     });
 
     // 🗓️ THỐNG KÊ THEO NGÀY (7 ngày gần nhất)
@@ -1659,9 +1777,9 @@ export const getOrderStatistics = async (req, res) => {
 
     const dailyStats = await donhang.findAll({
       attributes: [
-        [sequelize.fn('DATE', sequelize.col('NgayTao')), 'date'],
-        [sequelize.fn('COUNT', sequelize.col('MaDH')), 'orderCount'],
-        [sequelize.fn('SUM', sequelize.col('TongTien')), 'dailyRevenue']
+        [sequelize.fn("DATE", sequelize.col("NgayTao")), "date"],
+        [sequelize.fn("COUNT", sequelize.col("MaDH")), "orderCount"],
+        [sequelize.fn("SUM", sequelize.col("TongTien")), "dailyRevenue"],
       ],
       where: {
         NgayTao: { [Op.gte]: sevenDaysAgo },
@@ -1672,12 +1790,12 @@ export const getOrderStatistics = async (req, res) => {
             JOIN chitiet_donhang ctdh ON dh.MaDH = ctdh.MaDH
             JOIN sanpham sp ON ctdh.MaSP = sp.MaSP
             WHERE sp.MaCH = '${MaCH}'
-          )`)
-        }
+          )`),
+        },
       },
-      group: [sequelize.fn('DATE', sequelize.col('NgayTao'))],
-      order: [[sequelize.fn('DATE', sequelize.col('NgayTao')), 'ASC']],
-      raw: true
+      group: [sequelize.fn("DATE", sequelize.col("NgayTao"))],
+      order: [[sequelize.fn("DATE", sequelize.col("NgayTao")), "ASC"]],
+      raw: true,
     });
 
     // 🎯 Định dạng kết quả
@@ -1685,35 +1803,34 @@ export const getOrderStatistics = async (req, res) => {
       total: {
         orders: parseInt(totalStats.totalOrders) || 0,
         revenue: parseFloat(totalStats.totalRevenue) || 0,
-        avgOrderValue: parseFloat(totalStats.avgOrderValue) || 0
+        avgOrderValue: parseFloat(totalStats.avgOrderValue) || 0,
       },
       byStatus: statusStats.reduce((acc, stat) => {
         acc[stat.TrangThai] = {
           count: parseInt(stat.count),
-          revenue: parseFloat(stat.totalRevenue) || 0
+          revenue: parseFloat(stat.totalRevenue) || 0,
         };
         return acc;
       }, {}),
-      daily: dailyStats.map(stat => ({
+      daily: dailyStats.map((stat) => ({
         date: stat.date,
         orderCount: parseInt(stat.orderCount),
-        revenue: parseFloat(stat.dailyRevenue) || 0
-      }))
+        revenue: parseFloat(stat.dailyRevenue) || 0,
+      })),
     };
 
     console.log(`✅ Thống kê cho cửa hàng ${MaCH}:`, statistics.total);
 
     return res.json({
       success: true,
-      data: statistics
+      data: statistics,
     });
-
   } catch (err) {
     console.error("❌ Lỗi thống kê đơn hàng:", err);
     return res.status(500).json({
       success: false,
       message: "Lỗi server khi thống kê đơn hàng",
-      error: process.env.NODE_ENV === "development" ? err.message : undefined
+      error: process.env.NODE_ENV === "development" ? err.message : undefined,
     });
   }
 };
@@ -1735,32 +1852,38 @@ export const getOrderDetail = async (req, res) => {
             {
               model: sanpham,
               as: "MaSP_sanpham",
-              attributes: ["TenSP", "MaSP", "DVT", "SLTon", "GiaBan", "MaCH"]
-            }
-          ]
+              attributes: ["TenSP", "MaSP", "DVT", "SLTon", "GiaBan", "MaCH"],
+            },
+          ],
         },
         {
           model: taikhoan,
           as: "MaTK_taikhoan",
-          attributes: ["TenDangNhap", "Email", "SoDienThoai"]
+          attributes: ["TenDangNhap", "Email", "SoDienThoai"],
         },
         {
           model: pttt,
           as: "MaPTTT_pttt",
-          attributes: ["TenPTTT"]
+          attributes: ["TenPTTT"],
         },
         {
           model: ptvc,
           as: "MaPTVC_ptvc",
-          attributes: ["TenPTVC", "MoTa"]
+          attributes: ["TenPTVC", "MoTa"],
         },
         {
           model: lichsu_trangthai,
           as: "lichsu_trangthais",
           order: [["NgayCapNhat", "DESC"]],
-          attributes: ["TrangThaiCu", "TrangThaiMoi", "NgayCapNhat", "GhiChu", "NguoiCapNhat"]
-        }
-      ]
+          attributes: [
+            "TrangThaiCu",
+            "TrangThaiMoi",
+            "NgayCapNhat",
+            "GhiChu",
+            "NguoiCapNhat",
+          ],
+        },
+      ],
     });
 
     if (!order) {
@@ -1771,15 +1894,14 @@ export const getOrderDetail = async (req, res) => {
 
     return res.json({
       success: true,
-      data: order
+      data: order,
     });
-
   } catch (err) {
     console.error("❌ Lỗi lấy chi tiết đơn hàng:", err);
     return res.status(500).json({
       success: false,
       message: "Lỗi server khi lấy chi tiết đơn hàng",
-      error: process.env.NODE_ENV === "development" ? err.message : undefined
+      error: process.env.NODE_ENV === "development" ? err.message : undefined,
     });
   }
 };

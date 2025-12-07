@@ -18,7 +18,7 @@ const {
   thanhtoan,
   pttt,
   taikhoan_vaitro,
-  vaitro
+  vaitro,
 } = models;
 
 /* ============================
@@ -34,7 +34,7 @@ const storage = multer.diskStorage({
   filename: (req, file, cb) => {
     const uniqueName = Date.now() + path.extname(file.originalname);
     cb(null, uniqueName);
-  }
+  },
 });
 
 const fileFilter = (req, file, cb) => {
@@ -49,7 +49,7 @@ const fileFilter = (req, file, cb) => {
 const upload = multer({
   storage,
   fileFilter,
-  limits: { fileSize: 5 * 1024 * 1024 } // 5MB
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
 }).single("image");
 
 /* ============================
@@ -72,7 +72,9 @@ export const assignDelivery = async (req, res) => {
 
     const { MaDH, MaTK, GhiChu } = req.body;
     if (!MaDH || !MaTK) {
-      return res.status(400).json({ message: "Thiếu MaDH hoặc MaTK (Shipper)" });
+      return res
+        .status(400)
+        .json({ message: "Thiếu MaDH hoặc MaTK (Shipper)" });
     }
 
     const order = await donhang.findByPk(MaDH);
@@ -82,7 +84,9 @@ export const assignDelivery = async (req, res) => {
 
     const shipperAcc = await taikhoan.findByPk(MaTK);
     if (!shipperAcc) {
-      return res.status(404).json({ message: "Tài khoản Shipper không tồn tại" });
+      return res
+        .status(404)
+        .json({ message: "Tài khoản Shipper không tồn tại" });
     }
 
     // Kiểm tra vai trò Shipper
@@ -92,16 +96,17 @@ export const assignDelivery = async (req, res) => {
         {
           model: vaitro,
           as: "vaitro",
-          where: { TenVT: "Shipper" }
-        }
-      ]
+          where: { TenVT: "Shipper" },
+        },
+      ],
     });
 
     if (!shipperRole) {
       return res.status(400).json({ message: "Tài khoản không phải Shipper" });
     }
 
-    const MaGH = "GH" + uuidv4().replace(/-/g, "").substring(0, 8).toUpperCase();
+    const MaGH =
+      "GH" + uuidv4().replace(/-/g, "").substring(0, 8).toUpperCase();
 
     const record = await giaohang.create({
       MaGH,
@@ -109,18 +114,52 @@ export const assignDelivery = async (req, res) => {
       MaDH,
       TrangThai: "ASSIGNED",
       GhiChu,
-      NgayTao: new Date()
+      NgayTao: new Date(),
     });
 
     return res.json({
       success: true,
       message: "Gán Shipper thành công",
-      data: record
+      data: record,
     });
-
   } catch (err) {
     console.error("🔥 assignDelivery:", err);
     return res.status(500).json({ message: "Lỗi server", error: err.message });
+  }
+};
+
+export const shipperPickupOrder = async (req, res) => {
+  try {
+    const { MaDH } = req.body;
+    const MaShipper = req.user.MaTK; // Lấy từ middleware auth
+
+    const order = await donhang.findByPk(MaDH);
+    if (!order)
+      return res.status(404).json({ message: "Đơn hàng không tồn tại" });
+
+    // Kiểm tra xem đơn có đang ở trạng thái chờ lấy không
+    if (order.TrangThai !== "Chờ lấy hàng") {
+      return res
+        .status(400)
+        .json({ message: "Trạng thái đơn hàng không hợp lệ để lấy" });
+    }
+
+    // Cập nhật trạng thái
+    order.TrangThai = "Đã lấy hàng"; // Hoặc "Đang luân chuyển"
+    await order.save();
+
+    // Cập nhật bảng giaohang (Tracking)
+    const shippingRecord = await giaohang.findOne({ where: { MaDH } });
+    if (shippingRecord) {
+      shippingRecord.TrangThai = "PICKED_UP";
+      shippingRecord.ThoiGianLayHang = new Date();
+      await shippingRecord.save();
+    }
+
+    res.json({ success: true, message: "Xác nhận lấy hàng thành công" });
+  } catch (error) {
+    console.error("Lỗi pickup:", error);
+    res.status(500).json({ message: "Lỗi server" });
   }
 };
 
@@ -131,27 +170,39 @@ export const assignDelivery = async (req, res) => {
 export const shipperUploadProof = (req, res) => {
   upload(req, res, async (err) => {
     if (err) {
-      return res.status(400).json({ message: "Lỗi upload", error: err.message });
+      return res
+        .status(400)
+        .json({ message: "Lỗi upload", error: err.message });
     }
 
     try {
       // Xác thực JWT và vai trò Shipper
       const authHeader = req.headers.authorization;
-      if (!authHeader?.startsWith("Bearer ")) return res.status(401).json({ message: "Không có token" });
+      if (!authHeader?.startsWith("Bearer "))
+        return res.status(401).json({ message: "Không có token" });
 
       const token = authHeader.split(" ")[1];
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      if (decoded.role !== "Shipper") return res.status(403).json({ message: "Chỉ Shipper mới upload proof" });
+      if (decoded.role !== "Shipper")
+        return res
+          .status(403)
+          .json({ message: "Chỉ Shipper mới upload proof" });
 
       const { MaGH } = req.params;
       const record = await giaohang.findByPk(MaGH);
-      if (!record) return res.status(404).json({ message: "Không tìm thấy bản ghi giao hàng" });
+      if (!record)
+        return res
+          .status(404)
+          .json({ message: "Không tìm thấy bản ghi giao hàng" });
 
       if (record.MaShipper !== decoded.MaTK) {
-        return res.status(403).json({ message: "Bạn không được phân công giao đơn này" });
+        return res
+          .status(403)
+          .json({ message: "Bạn không được phân công giao đơn này" });
       }
 
-      if (!req.file) return res.status(400).json({ message: "Thiếu file proof" });
+      if (!req.file)
+        return res.status(400).json({ message: "Thiếu file proof" });
 
       const filePath = `/uploads/delivery/${req.file.filename}`;
       record.ProofImage = filePath;
@@ -159,10 +210,16 @@ export const shipperUploadProof = (req, res) => {
       await record.save();
       // ngày giờ: in giờ sai
       // Cập nhật trạng thái đơn hàng
-      await donhang.update({ TrangThai: "Đã giao" }, { where: { MaDH: record.MaDH } });
+      await donhang.update(
+        { TrangThai: "Đã giao" },
+        { where: { MaDH: record.MaDH } }
+      );
 
-      res.json({ success: true, message: "Upload proof thành công", data: record });
-
+      res.json({
+        success: true,
+        message: "Upload proof thành công",
+        data: record,
+      });
     } catch (error) {
       console.error("🔥 shipperUploadProof:", error);
       res.status(500).json({ message: "Lỗi server", error: error.message });
@@ -190,13 +247,19 @@ export const customerConfirmDelivery = async (req, res) => {
     // 📌 2. Lấy thông tin giao hàng + đơn hàng
     const { MaGH } = req.params;
     const record = await giaohang.findByPk(MaGH, {
-      include: [{ model: donhang, as: "MaDH_donhang" }]
+      include: [{ model: donhang, as: "MaDH_donhang" }],
     });
 
-    if (!record) return res.status(404).json({ message: "Không tìm thấy bản ghi giao hàng" });
+    if (!record)
+      return res
+        .status(404)
+        .json({ message: "Không tìm thấy bản ghi giao hàng" });
 
     const order = record.MaDH_donhang;
-    if (!order) return res.status(404).json({ message: "Đơn hàng liên quan không tồn tại" });
+    if (!order)
+      return res
+        .status(404)
+        .json({ message: "Đơn hàng liên quan không tồn tại" });
 
     if (order.MaTK !== MaTK) {
       return res.status(403).json({ message: "Bạn không phải chủ đơn này" });
@@ -205,21 +268,26 @@ export const customerConfirmDelivery = async (req, res) => {
     // 📌 3. Kiểm tra phương thức thanh toán
     const ptttRecord = await pttt.findByPk(order.MaPTTT);
     if (!ptttRecord) {
-      return res.status(400).json({ message: "Không tìm thấy phương thức thanh toán" });
+      return res
+        .status(400)
+        .json({ message: "Không tìm thấy phương thức thanh toán" });
     }
 
     const tenPTTT = ptttRecord.TenPTTT?.toLowerCase() || "";
-    const isBankTransfer =  tenPTTT.includes("chuyển khoản ngân hàng"); //tenPTTT.includes("bank") ||
+    const isBankTransfer = tenPTTT.includes("chuyển khoản ngân hàng"); //tenPTTT.includes("bank") ||
 
     if (!isBankTransfer) {
-      return res.status(400).json({ 
-        message: "Xác nhận chỉ áp dụng cho đơn thanh toán bằng chuyển khoản ngân hàng" 
+      return res.status(400).json({
+        message:
+          "Xác nhận chỉ áp dụng cho đơn thanh toán bằng chuyển khoản ngân hàng",
       });
     }
 
     // 📌 4. Kiểm tra tình trạng giao hàng
     if (!record.ProofImage || record.TrangThai !== "DELIVERED_BY_SHIPPER") {
-      return res.status(400).json({ message: "Chưa có bằng chứng giao hàng từ shipper" });
+      return res
+        .status(400)
+        .json({ message: "Chưa có bằng chứng giao hàng từ shipper" });
     }
 
     // 📌 5. Cập nhật trạng thái giao hàng & đơn hàng
@@ -236,17 +304,16 @@ export const customerConfirmDelivery = async (req, res) => {
       tt.NgayTao = new Date();
       tt.Thoigian = new Date().toLocaleTimeString("vi-VN", {
         hour12: false,
-        timeZone: "Asia/Ho_Chi_Minh"
+        timeZone: "Asia/Ho_Chi_Minh",
       });
       await tt.save();
     }
 
-    res.json({ 
-      success: true, 
-      message: "Khách hàng đã xác nhận, đơn hoàn thành (chuyển khoản)", 
-      data: record 
+    res.json({
+      success: true,
+      message: "Khách hàng đã xác nhận, đơn hoàn thành (chuyển khoản)",
+      data: record,
     });
-
   } catch (err) {
     console.error("🔥 customerConfirmDelivery:", err);
     res.status(500).json({ message: "Lỗi server", error: err.message });

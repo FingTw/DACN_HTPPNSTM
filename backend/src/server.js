@@ -41,6 +41,11 @@ import danhGiaCuaHangRoutes from "./routes/danhGiaCuaHangRoutes.js";
 import hinhanhRoutes from "./routes/hinhanhRoutes.js";
 import khuyenMaiRoutes from "./routes/khuyenmaiRoutes.js";
 
+import paymentRoutes from "./routes/paymentRoutes.js";
+import walletRoutes from "./routes/walletRoutes.js";
+
+import adminRoutes from "./routes/adminRoutes.js";
+
 // ==============================
 // 🟢 BLOCKCHAIN ROUTES
 // ==============================
@@ -49,9 +54,6 @@ import { getCategoriesForRFQ } from "./controllers/rfqController.js";
 
 import aiRoutes from "./routes/aiRoutes.js";
 
-// ==============================
-// 🟢 LOAD ENV
-// ==============================
 dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
@@ -243,13 +245,6 @@ export const upload = multer({
   },
 });
 
-// Ensure uploads directory exists
-// const uploadsRoot = path.join(process.cwd(), "uploads");
-// if (!fs.existsSync(uploadsRoot)) {
-//   fs.mkdirSync(uploadsRoot, { recursive: true });
-// }
-
-// Request logging middleware
 app.use((req, res, next) => {
   console.log(
     `📍 ${new Date().toISOString()} - ${req.method} ${req.originalUrl}`
@@ -279,7 +274,11 @@ registerRoute("/api/sanpham", sanphamRoutes);
 registerRoute("/api/danh-gia-san-pham", danhGiaSanPhamRoutes);
 registerRoute("/api/danh-gia-cua-hang", danhGiaCuaHangRoutes);
 registerRoute("/api/rfq", rfqRoutes);
-registerRoute("/api/khuyen-mai", khuyenMaiRoutes); // ✅ THÊM DÒNG NÀY
+registerRoute("/api/khuyen-mai", khuyenMaiRoutes);
+registerRoute("/api/danh-muc", danhmucRoutes);
+registerRoute("/api/admin", adminRoutes);
+registerRoute("/api/payment", paymentRoutes);
+registerRoute("/api/wallet", walletRoutes);
 
 // 🟢 BLOCKCHAIN ROUTES
 if (blockchainRoutes) {
@@ -788,7 +787,7 @@ app.use("*", (req, res) => {
       "/api/auth",
       "/api/cart",
       "/api/order",
-      "/api/khuyen-mai", // ✅ THÊM VÀO DANH SÁCH
+      "/api/khuyen-mai",
       "/api/danh-gia-san-pham",
       "/api/danh-gia-cua-hang",
       "/api/blockchain",

@@ -1632,7 +1632,7 @@ const ProductManager: React.FC<ProductManagerProps> = ({
       </div>
 
       {/* Debug Info */}
-      {import.meta.env?.DEV && (
+      {/* {import.meta.env?.DEV && (
         <div className="bg-gradient-to-r from-yellow-50 to-amber-50 border border-yellow-300 p-6 rounded-2xl shadow-sm">
           <p className="text-yellow-800 font-bold text-lg mb-2">Debug Info:</p>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
@@ -1653,7 +1653,7 @@ const ProductManager: React.FC<ProductManagerProps> = ({
             </div>
           </div>
         </div>
-      )}
+      )} */}
 
       {/* Product Form Modal */}
       {showForm && (

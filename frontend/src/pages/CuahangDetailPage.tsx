@@ -9,6 +9,7 @@ import OrderManager from "../components/cuahang/OrderManager";
 import type { Store, Product, UserData } from "../components/cuahang/store";
 import { Header } from "../components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
+import WalletManager from "../components/cuahang/WalletManager";
 
 // Interface cho auth response
 interface AuthResponse {
@@ -821,7 +822,32 @@ export default function CuahangDetailPage() {
             </div>
           </div>
         );
+      case "wallet":
+        if (!isOwner) return renderAuthStatus(); // Hoặc redirect
 
+        return (
+          <div className="space-y-8">
+            {renderAuthStatus()}
+
+            {/* Header Ví tiền */}
+            <div className="bg-gradient-to-r from-emerald-600 to-teal-700 text-white rounded-3xl p-8 shadow-2xl">
+              <div className="text-center">
+                <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                  <span className="text-2xl">💰</span>
+                </div>
+                <h2 className="text-2xl lg:text-3xl font-bold mb-2">
+                  Quản lý tài chính
+                </h2>
+                <p className="text-emerald-100 opacity-90">
+                  Theo dõi số dư, doanh thu và yêu cầu rút tiền
+                </p>
+              </div>
+            </div>
+
+            {/* Component WalletManager */}
+            {store && <WalletManager storeId={store.MaCH} />}
+          </div>
+        );
       default:
         return (
           <div className="space-y-8">
@@ -1007,6 +1033,23 @@ export default function CuahangDetailPage() {
                 }`}
               >
                 ⭐ Đánh giá
+              </button>
+
+              <button
+                onClick={() => {
+                  if (!currentUser) {
+                    handleRequireLogin();
+                    return;
+                  }
+                  setActiveTab("wallet");
+                }}
+                className={`px-4 py-4 text-sm font-semibold border-b-2 transition-all duration-200 whitespace-nowrap ${
+                  activeTab === "wallet"
+                    ? "border-emerald-500 text-emerald-600"
+                    : "border-transparent text-gray-600 hover:text-gray-800"
+                }`}
+              >
+                💰 Ví & Doanh thu
               </button>
             </div>
           </div>

@@ -6,7 +6,7 @@ interface CartProduct {
   TenSP: string;
   GiaBan: number;
   SLTon: number;
-  // Cập nhật interface cho đúng cấu trúc mảng hình ảnh
+  HinhAnh?: string;
   hinhanhs?: Array<{
     MaHA?: string;
     URL: string;
@@ -51,10 +51,9 @@ export const CartItem = React.memo<CartItemProps>(
 
     const { MaSP, SL, TongTien, MaSP_sanpham } = item;
 
-    // Lấy ảnh đầu tiên từ mảng hinhanhs
-    const images = MaSP_sanpham.hinhanhs || [];
-    const mainImage =
-      images.length > 0 ? getImageUrl(images[0].URL) : "/productdefaut.jpg";
+    const rawImage = MaSP_sanpham.hinhanhs?.[0]?.URL || MaSP_sanpham.HinhAnh;
+
+    const mainImage = getImageUrl(rawImage);
 
     const handleQuantityChange = (newQuantity: number) => {
       if (newQuantity >= 1 && newQuantity <= MaSP_sanpham.SLTon) {
@@ -80,7 +79,7 @@ export const CartItem = React.memo<CartItemProps>(
               alt={MaSP_sanpham.TenSP}
               className="w-24 h-24 object-cover rounded-lg border border-gray-200"
               onError={(e) => {
-                e.currentTarget.src = "/productdefaut.jpg";
+                e.currentTarget.src = "/product-fruits.jpg";
               }}
             />
           </div>

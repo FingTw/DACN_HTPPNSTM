@@ -42,6 +42,14 @@ import PrivateRoute from "./components/PrivateRoute";
 import RFQMarketplace from "./pages/rfq/RFQMarketplace";
 
 import ChatWidget from "./components/ai/ChatWidget";
+import AdminLayout from "./pages/admin/AdminLayout";
+import AdminDashboard from "./pages/admin/AdminDashboard";
+import AdminUsers from "./pages/admin/AdminUsers";
+import AdminShops from "./pages/admin/AdminShops";
+import AdminProducts from "./pages/admin/AdminProducts";
+import EmployeeLayout from "./pages/employee/EmployeeLayout";
+import ShipperDashboard from "./pages/employee/ShipperDashboard";
+import WarehouseDashboard from "./pages/employee/WarehouseDashboard";
 
 function App() {
   return (
@@ -78,12 +86,9 @@ function App() {
 
               <Route path="/marketplace" element={<RFQHub />} />
 
-              {/* RFQ Layout Route: Tất cả đường dẫn bắt đầu bằng /rfq sẽ đi qua RFQHub */}
               <Route path="/rfq" element={<RFQHub />}>
-                {/* --- BUYER ROUTES (Lưu ý: không cần thêm /rfq ở đầu path nữa) --- */}
                 <Route index element={<RFQMarketplace />} />
 
-                {/* Dashboard chính & Modal tạo yêu cầu (chung 1 component để giữ layout) */}
                 <Route path="buyer" element={<BuyerDashboard />} />
                 <Route path="buyer/create" element={<BuyerDashboard />} />
 
@@ -133,6 +138,52 @@ function App() {
                   </PrivateRoute>
                 }
               />
+
+              <Route path="/admin" element={<AdminLayout />}>
+                <Route index element={<AdminDashboard />} />{" "}
+                <Route path="dashboard" element={<AdminDashboard />} />
+                <Route path="users" element={<AdminUsers />} />
+                <Route path="shops" element={<AdminShops />} />
+                <Route path="products" element={<AdminProducts />} />
+              </Route>
+
+              {/* 🔴 EMPLOYEE PORTAL ROUTES */}
+              <Route path="/employee" element={<EmployeeLayout />}>
+                {/* Route cho Shipper */}
+                <Route path="shipper/tasks" element={<ShipperDashboard />} />
+                <Route
+                  path="shipper/map"
+                  element={<div>Bản đồ giao hàng (Đang phát triển)</div>}
+                />
+                <Route
+                  path="shipper/history"
+                  element={<div>Lịch sử giao hàng</div>}
+                />
+
+                {/* Route cho Kho */}
+                <Route
+                  path="warehouse/import"
+                  element={<WarehouseDashboard />}
+                />
+                <Route
+                  path="warehouse/export"
+                  element={<WarehouseDashboard />}
+                />
+                <Route
+                  path="warehouse/inventory"
+                  element={<WarehouseDashboard />}
+                />
+
+                {/* Redirect mặc định */}
+                <Route
+                  index
+                  element={
+                    <div className="p-8 text-center">
+                      Vui lòng chọn chức năng trên menu
+                    </div>
+                  }
+                />
+              </Route>
             </Routes>
 
             <ChatWidget />

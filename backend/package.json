@@ -14,6 +14,7 @@
   "license": "ISC",
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
+    "@paypal/checkout-server-sdk": "^1.0.3",
     "axios": "^1.13.2",
     "bcryptjs": "^3.0.2",
     "cors": "^2.8.5",
@@ -32,6 +33,7 @@
     "socket.io": "^4.8.1",
     "sub-vn": "^0.0.2",
     "uuid": "^13.0.0",
+    "uuidv4": "^6.2.13",
     "vietnam-provinces": "^0.0.4"
   },
   "devDependencies": {

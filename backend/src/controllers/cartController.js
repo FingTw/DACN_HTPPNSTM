@@ -41,26 +41,26 @@ export const addToCart = async (req, res) => {
     }
 
     // 3️⃣ Lấy thông tin sản phẩm KÈM THÔNG TIN CỬA HÀNG
-    const sp = await sanpham.findOne({ 
+    const sp = await sanpham.findOne({
       where: { MaSP },
       include: [
         {
           model: cuahang,
           as: "cuahang",
-          attributes: ["MaCH", "MaTK"]
-        }
-      ]
+          attributes: ["MaCH", "MaTK"],
+        },
+      ],
     });
-    
+
     if (!sp) {
       return res.status(404).json({ message: "Không tìm thấy sản phẩm" });
     }
 
     // 🔥 VALIDATION: KIỂM TRA CÓ PHẢI SẢN PHẨM CỦA CHÍNH MÌNH KHÔNG
     if (sp.cuahang && sp.cuahang.MaTK === MaTK) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        message: "Bạn không thể thêm sản phẩm của chính mình vào giỏ hàng" 
+        message: "Bạn không thể thêm sản phẩm của chính mình vào giỏ hàng",
       });
     }
 
@@ -314,9 +314,7 @@ export const getCart = async (req, res) => {
           TenSP: product.TenSP,
           GiaBan: product.GiaBan,
           SLTon: product.SLTon,
-
-          // 🟢 QUAN TRỌNG: Trả về nguyên mảng hinhanhs để Frontend tự xử lý
-          // (Vì CartItem.tsx đang dùng hinhanhs[0].URL)
+          HinhAnh: product.HinhAnh,
           hinhanhs: product.hinhanhs || [],
 
           MoTa: product.MoTa,
