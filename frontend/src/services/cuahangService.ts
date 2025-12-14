@@ -11,6 +11,7 @@ export interface Cuahang {
   TenCH: string;
   SLTheoDoi: number;
   DiemDG: number;
+  SoDu?: number | string;
   MaHA_CuaHang?: string | null;
   MaTK: number;
   MaHD?: string;

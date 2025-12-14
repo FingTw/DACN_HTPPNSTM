@@ -8,8 +8,12 @@ const AdminShops = () => {
 
   useEffect(() => {
     const fetchShops = async () => {
-      const data = await adminService.getShops();
-      setShops(data.shops || []);
+      try {
+        const data = await adminService.getShops();
+        setShops(data.shops || []);
+      } catch (error) {
+        console.error("Lỗi lấy danh sách shop:", error);
+      }
     };
     fetchShops();
   }, []);

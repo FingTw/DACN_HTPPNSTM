@@ -56,6 +56,7 @@ import EmployeeLayout from "./pages/employee/EmployeeLayout";
 import ShipperDashboard from "./pages/employee/ShipperDashboard";
 import AdminAccountAssignment from "./pages/admin/AdminAccountAssignment";
 import WarehouseDashboard from "./pages/employee/WarehouseDashboard";
+import WithdrawalManager from "./pages/admin/WithdrawalManager";
 
 function App() {
   return (
@@ -156,6 +157,7 @@ function App() {
                 <Route path="positions" element={<AdminPositions />} />
                 <Route path="categories" element={<AdminCategories />} />
                 <Route path="warehouses" element={<AdminWarehouses />} />
+                <Route path="withdrawals" element={<WithdrawalManager />} />
                 <Route
                   path="account-assignment"
                   element={<AdminAccountAssignment />}

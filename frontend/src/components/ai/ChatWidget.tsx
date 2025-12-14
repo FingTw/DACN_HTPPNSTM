@@ -1,10 +1,12 @@
 import React, { useState, useRef, useEffect } from "react";
 import { MessageSquare, X, Send, Loader2, Bot } from "lucide-react";
+import ChatProductCard, { type ChatProduct } from "./ChatProductCard";
 
 interface Message {
   id: string;
   role: "user" | "ai";
   text: string;
+  suggestedProduct?: ChatProduct;
 }
 
 export default function ChatWidget() {
@@ -49,22 +51,31 @@ export default function ChatWidget() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          message: userMsg.text,
+          prompt: userMsg.text,
           history: history, // Gửi kèm lịch sử
         }),
       });
 
       const data = await response.json();
 
-      if (data.success) {
-        const aiMsg: Message = {
-          id: (Date.now() + 1).toString(),
-          role: "ai",
-          text: data.reply,
-        };
+      if (data) {
+        let aiMsg: Message;
+        if (data.type === "product_suggestion" && data.product) {
+          aiMsg = {
+            id: (Date.now() + 1).toString(),
+            role: "ai",
+            text: data.message || "Tôi có một gợi ý cho bạn:",
+            suggestedProduct: data.product,
+          };
+        } else {
+          aiMsg = {
+            id: (Date.now() + 1).toString(),
+            role: "ai",
+            text: data.content || "Xin lỗi, tôi không hiểu ý bạn.",
+          };
+        }
+
         setMessages((prev) => [...prev, aiMsg]);
-      } else {
-        throw new Error("Lỗi phản hồi");
       }
     } catch (error) {
       setMessages((prev) => [
@@ -124,6 +135,11 @@ export default function ChatWidget() {
                   }`}
                 >
                   {msg.text}
+                  {msg.role === "ai" && msg.suggestedProduct && (
+                    <div className="mt-2 ml-1">
+                      <ChatProductCard product={msg.suggestedProduct} />
+                    </div>
+                  )}
                 </div>
               </div>
             ))}

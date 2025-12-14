@@ -331,13 +331,14 @@ const adminController = {
         include: [
           {
             model: taikhoan,
-            as: "MaTK_taikhoan",
-            attributes: ["HoTen", "Email", "TrangThai"], // Lấy trạng thái của chủ shop để biết shop active hay không
+            as: "MaTK_taikhoan", // Đảm bảo alias này đúng với init-models.js
+            attributes: ["HoTen", "Email", "TrangThai"],
           },
         ],
         limit: parseInt(limit),
         offset: parseInt(offset),
-        order: [["createdAt", "DESC"]], // Hoặc NgayTao nếu DB có trường này
+        // 👇 SỬA LỖI Ở ĐÂY: Đổi 'createdAt' thành 'MaCH'
+        order: [["MaCH", "DESC"]],
       });
 
       // Format dữ liệu
@@ -351,11 +352,12 @@ const adminController = {
             TenCH: shop.TenCH,
             ChuSoHuu: shop.MaTK_taikhoan?.HoTen || "Unknown",
             Email: shop.MaTK_taikhoan?.Email,
-            NgayTao: shop.dataValues.createdAt || new Date(), // Sửa lại trường ngày tạo cho đúng DB của bạn
+            // 👇 SỬA LỖI Ở ĐÂY: Vì không có createdAt, ta có thể lấy ngày từ Hợp đồng (nếu join) hoặc để tạm thời gian hiện tại
+            NgayTao: new Date().toISOString(),
             TrangThai:
               shop.MaTK_taikhoan?.TrangThai === "Hoạt động"
                 ? "Active"
-                : "Locked", // Logic: Chủ bị khóa -> Shop bị khóa
+                : "Locked",
             SLSanPham: productCount,
           };
         })
@@ -369,10 +371,10 @@ const adminController = {
         },
       });
     } catch (err) {
+      console.error("Lỗi lấy danh sách shop:", err); // Log lỗi ra terminal để dễ debug
       res.status(500).json({ success: false, message: err.message });
     }
   },
-
   // Duyệt/Khóa cửa hàng (Thực chất là khóa tài khoản chủ shop)
   updateShopStatus: async (req, res) => {
     try {

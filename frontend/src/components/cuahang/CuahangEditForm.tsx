@@ -1,21 +1,39 @@
 // components/cuahang/CuahangEditForm.tsx
 import React, { useState, useEffect } from "react";
-import { Camera } from "lucide-react"; // 🟢 THÊM IMPORT ICON CAMERA
+import {
+  Camera,
+  Store as StoreIcon,
+  MapPin,
+  Briefcase,
+  CreditCard,
+  Save,
+  X,
+} from "lucide-react";
 
 interface Store {
   MaCH: string;
   TenCH: string;
-  MoTa?: string;
   SLTheoDoi: number;
   DiemDG: number;
   DCLayHang?: string;
   NgayTao?: string;
   MaTK: string;
   MaHA_CuaHang?: string;
+
+  // Backend trả về MaHA_CuaHang_hinhanh
   MaHA_CuaHang_hinhanh?: {
     URL: string;
     MoTa?: string;
   };
+
+  // ⚠️ QUAN TRỌNG: Backend trả về tên này (MaHD_hdbanhang)
+  MaHD_hdbanhang?: {
+    LoaiHinhKD: string;
+    MaSoThue?: string;
+    DCLayHang?: string;
+  };
+
+  // Giữ lại cái này đề phòng trường hợp bạn sửa backend
   hdbanhang?: {
     LoaiHinhKD: string;
     MaSoThue?: string;
@@ -25,7 +43,6 @@ interface Store {
 
 interface CuahangEditFormProps {
   store: Store;
-  // 🟢 SỬA TYPE: onUpdate nhận FormData thay vì any object
   onUpdate: (data: FormData) => Promise<{ success: boolean; message: string }>;
   onCancel: () => void;
 }
@@ -36,18 +53,14 @@ const CuahangEditForm: React.FC<CuahangEditFormProps> = ({
   onCancel,
 }) => {
   const [formData, setFormData] = useState({
-    TenCH: store.TenCH || "",
-    MoTa: store.MoTa || "",
-    DCLayHang: store.DCLayHang || "",
-    // MaHA_CuaHang không cần nhập tay nữa
-    LoaiHinhKD: store.hdbanhang?.LoaiHinhKD || "",
-    MaSoThue: store.hdbanhang?.MaSoThue || "",
+    TenCH: "",
+    DCLayHang: "",
+    LoaiHinhKD: "",
+    MaSoThue: "",
   });
 
-  // 🟢 THÊM STATE QUẢN LÝ ẢNH
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{
     type: "success" | "error";
@@ -64,24 +77,37 @@ const CuahangEditForm: React.FC<CuahangEditFormProps> = ({
     "Khác",
   ];
 
-  // 🟢 USE EFFECT: LOAD ẢNH CŨ NẾU CÓ
+  // Load dữ liệu từ store vào form
   useEffect(() => {
-    if (store.MaHA_CuaHang_hinhanh?.URL) {
-      const url = store.MaHA_CuaHang_hinhanh.URL;
-      // Nếu url chưa có http thì nối thêm localhost (tuỳ vào dữ liệu của bạn)
-      const fullUrl = url.startsWith("http")
-        ? url
-        : `http://localhost:3000${url}`;
-      setPreviewUrl(fullUrl);
+    if (store) {
+      console.log("📦 Dữ liệu store nhận được:", store); // Log để kiểm tra
+
+      // ✅ FIX: Lấy dữ liệu từ MaHD_hdbanhang HOẶC hdbanhang
+      const contractData = store.MaHD_hdbanhang || store.hdbanhang;
+
+      setFormData({
+        TenCH: store.TenCH || "",
+        // Lấy thông tin từ hợp đồng (ưu tiên lấy từ object contractData vừa tìm được)
+        DCLayHang: contractData?.DCLayHang || store.DCLayHang || "",
+        LoaiHinhKD: contractData?.LoaiHinhKD || "",
+        MaSoThue: contractData?.MaSoThue || "",
+      });
+
+      // Xử lý ảnh preview
+      if (store.MaHA_CuaHang_hinhanh?.URL) {
+        const url = store.MaHA_CuaHang_hinhanh.URL;
+        const fullUrl = url.startsWith("http")
+          ? url
+          : `http://localhost:3000${url}`;
+        setPreviewUrl(fullUrl);
+      }
     }
   }, [store]);
 
-  // 🟢 HÀM XỬ LÝ CHỌN FILE
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       setSelectedFile(file);
-      // Tạo link preview tạm thời
       setPreviewUrl(URL.createObjectURL(file));
     }
   };
@@ -104,29 +130,21 @@ const CuahangEditForm: React.FC<CuahangEditFormProps> = ({
     setMessage(null);
 
     try {
-      // 🟢 SỬA LOGIC GỬI: DÙNG FORMDATA
       const data = new FormData();
       data.append("TenCH", formData.TenCH);
-      data.append("MoTa", formData.MoTa);
+      // Gửi các trường này lên, Controller đã được sửa ở bước trước để hứng và update vào bảng hợp đồng
       data.append("DCLayHang", formData.DCLayHang);
       data.append("LoaiHinhKD", formData.LoaiHinhKD);
       data.append("MaSoThue", formData.MaSoThue);
 
-      // Nếu người dùng có chọn file mới thì gửi kèm
       if (selectedFile) {
-        // 'image' là tên field mà Multer bên backend đang chờ
         data.append("image", selectedFile);
       }
-
-      console.log("📤 Đang gửi FormData...");
 
       const result = await onUpdate(data);
 
       if (result.success) {
         setMessage({ type: "success", text: result.message });
-        setTimeout(() => {
-          setMessage(null);
-        }, 3000);
       } else {
         setMessage({ type: "error", text: result.message });
       }
@@ -142,243 +160,199 @@ const CuahangEditForm: React.FC<CuahangEditFormProps> = ({
   };
 
   return (
-    <div className="bg-white rounded-3xl shadow-2xl border border-gray-100 overflow-hidden">
+    <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden max-w-4xl mx-auto">
       {/* Header */}
-      <div className="bg-gradient-to-r from-blue-50 to-indigo-100 px-8 py-6 border-b border-gray-200">
-        <h2 className="text-2xl font-bold text-gray-800">
-          Chỉnh sửa thông tin cửa hàng
-        </h2>
-        <p className="text-gray-600 mt-1">
-          Cập nhật thông tin cửa hàng của bạn
-        </p>
+      <div className="bg-gradient-to-r from-blue-600 to-indigo-700 px-8 py-6 text-white">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-bold">Chỉnh sửa cửa hàng</h2>
+            <p className="text-blue-100 text-sm mt-1 opacity-90">
+              Cập nhật thông tin hiển thị và thông tin kinh doanh
+            </p>
+          </div>
+          <div className="bg-white/20 p-2 rounded-lg backdrop-blur-sm">
+            <StoreIcon className="w-8 h-8 text-white" />
+          </div>
+        </div>
       </div>
 
-      {/* Message */}
+      {/* Thông báo */}
       {message && (
         <div
-          className={`mx-8 mt-6 p-4 rounded-xl ${
+          className={`mx-8 mt-6 p-4 rounded-xl flex items-center gap-3 shadow-sm animate-fade-in-down ${
             message.type === "success"
               ? "bg-green-50 border border-green-200 text-green-700"
               : "bg-red-50 border border-red-200 text-red-700"
           }`}
         >
-          <div className="flex items-center">
-            <span className="mr-2 text-lg">
-              {message.type === "success" ? "✅" : "❌"}
-            </span>
-            {message.text}
-          </div>
+          <span className="text-xl">
+            {message.type === "success" ? "✅" : "❌"}
+          </span>
+          <span className="font-medium">{message.text}</span>
         </div>
       )}
 
-      {/* Form */}
-      <form onSubmit={handleSubmit} className="p-8 space-y-8">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Cột trái - Thông tin cửa hàng */}
-          <div className="space-y-6">
-            <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-2xl p-6">
-              <h3 className="text-lg font-semibold text-blue-800 mb-4 flex items-center">
-                <span className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm mr-2">
-                  🏪
-                </span>
-                Thông tin cửa hàng
-              </h3>
+      <form onSubmit={handleSubmit} className="p-8">
+        <div className="flex flex-col md:flex-row gap-10">
+          {/* Cột Trái: Ảnh đại diện */}
+          <div className="md:w-1/3 flex flex-col items-center">
+            <label className="block text-sm font-semibold text-gray-700 mb-4 self-start md:self-center">
+              Logo Cửa Hàng
+            </label>
 
-              {/* 🟢 UI CHỌN ẢNH (Thay thế ô nhập mã hình ảnh cũ) */}
-              <div className="mb-6 flex flex-col items-center">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Logo / Ảnh đại diện
-                </label>
-                <div className="relative group cursor-pointer w-32 h-32">
-                  {/* Ảnh Preview */}
-                  <img
-                    src={previewUrl || "https://placehold.co/150?text=Logo"}
-                    alt="Store Logo"
-                    className="w-full h-full rounded-full object-cover border-4 border-white shadow-lg"
-                  />
-                  {/* Overlay khi hover */}
-                  <label
-                    htmlFor="upload-photo"
-                    className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer"
-                  >
-                    <Camera className="w-8 h-8 text-white" />
-                  </label>
-                  {/* Input ẩn */}
-                  <input
-                    type="file"
-                    id="upload-photo"
-                    accept="image/*"
-                    onChange={handleFileChange}
-                    className="hidden"
-                  />
+            <div className="relative group cursor-pointer">
+              <div className="w-48 h-48 rounded-full overflow-hidden border-4 border-gray-100 shadow-lg relative bg-gray-50">
+                <img
+                  src={previewUrl || "https://placehold.co/200?text=Logo"}
+                  alt="Store Logo"
+                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                />
+                <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+                  <Camera className="w-10 h-10 text-white drop-shadow-md" />
                 </div>
-                <p className="text-xs text-gray-500 mt-2">
-                  Nhấn vào ảnh để thay đổi
-                </p>
               </div>
 
-              {/* Tên cửa hàng */}
-              <div className="mb-6">
-                <label
-                  htmlFor="TenCH"
-                  className="block text-sm font-medium text-gray-700 mb-2"
-                >
-                  Tên cửa hàng *
-                </label>
-                <input
-                  type="text"
-                  id="TenCH"
-                  name="TenCH"
-                  value={formData.TenCH}
-                  onChange={handleChange}
-                  required
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white"
-                />
+              <div className="absolute bottom-2 right-2 bg-blue-600 text-white p-2 rounded-full shadow-md group-hover:bg-blue-700 transition-colors">
+                <Camera className="w-5 h-5" />
               </div>
 
-              {/* Mô tả */}
-              <div className="mb-6">
-                <label
-                  htmlFor="MoTa"
-                  className="block text-sm font-medium text-gray-700 mb-2"
-                >
-                  Mô tả cửa hàng
-                </label>
-                <textarea
-                  id="MoTa"
-                  name="MoTa"
-                  value={formData.MoTa}
-                  onChange={handleChange}
-                  rows={4}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white resize-none"
-                />
-              </div>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleFileChange}
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+              />
             </div>
+
+            <p className="text-xs text-gray-500 mt-4 text-center max-w-[200px]">
+              Nhấn vào ảnh để tải lên logo mới.
+            </p>
           </div>
 
-          {/* Cột phải - Thông tin kinh doanh (Giữ nguyên) */}
-          <div className="space-y-6">
-            <div className="bg-gradient-to-br from-green-50 to-emerald-100 rounded-2xl p-6">
-              <h3 className="text-lg font-semibold text-green-800 mb-4 flex items-center">
-                <span className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center text-white text-sm mr-2">
-                  💼
-                </span>
-                Thông tin kinh doanh
-              </h3>
+          {/* Cột Phải: Form nhập liệu */}
+          <div className="md:w-2/3 space-y-6">
+            {/* Tên cửa hàng */}
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                <StoreIcon className="w-4 h-4 text-blue-500" />
+                Tên cửa hàng <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                name="TenCH"
+                value={formData.TenCH}
+                onChange={handleChange}
+                required
+                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 outline-none"
+                placeholder="Tên cửa hàng..."
+              />
+            </div>
 
-              {/* Loại hình kinh doanh */}
-              <div className="mb-6">
-                <label
-                  htmlFor="LoaiHinhKD"
-                  className="block text-sm font-medium text-gray-700 mb-2"
-                >
-                  Loại hình kinh doanh *
+            {/* Loại hình và MST */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                  <Briefcase className="w-4 h-4 text-blue-500" />
+                  Loại hình kinh doanh
                 </label>
-                <select
-                  id="LoaiHinhKD"
-                  name="LoaiHinhKD"
-                  value={formData.LoaiHinhKD}
-                  onChange={handleChange}
-                  required
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 bg-white"
-                >
-                  <option value="">Chọn loại hình kinh doanh</option>
-                  {loaiHinhKDOptions.map((option) => (
-                    <option key={option} value={option}>
-                      {option}
-                    </option>
-                  ))}
-                </select>
+                <div className="relative">
+                  <select
+                    name="LoaiHinhKD"
+                    value={formData.LoaiHinhKD}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 outline-none appearance-none"
+                  >
+                    <option value="">-- Chọn --</option>
+                    {loaiHinhKDOptions.map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="absolute inset-y-0 right-4 flex items-center pointer-events-none text-gray-400">
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M19 9l-7 7-7-7"
+                      ></path>
+                    </svg>
+                  </div>
+                </div>
               </div>
 
-              {/* Mã số thuế */}
-              <div className="mb-6">
-                <label
-                  htmlFor="MaSoThue"
-                  className="block text-sm font-medium text-gray-700 mb-2"
-                >
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                  <CreditCard className="w-4 h-4 text-blue-500" />
                   Mã số thuế
                 </label>
                 <input
                   type="text"
-                  id="MaSoThue"
                   name="MaSoThue"
                   value={formData.MaSoThue}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 bg-white"
-                  placeholder="Nhập mã số thuế (10-13 số)"
-                  pattern="[0-9]{10,13}"
+                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 outline-none"
+                  placeholder="Nhập mã số thuế..."
                 />
               </div>
+            </div>
 
-              {/* Địa chỉ lấy hàng */}
-              <div>
-                <label
-                  htmlFor="DCLayHang"
-                  className="block text-sm font-medium text-gray-700 mb-2"
-                >
-                  Địa chỉ lấy hàng *
-                </label>
-                <input
-                  type="text"
-                  id="DCLayHang"
-                  name="DCLayHang"
-                  value={formData.DCLayHang}
-                  onChange={handleChange}
-                  required
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 bg-white"
-                />
-              </div>
+            {/* Địa chỉ */}
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                <MapPin className="w-4 h-4 text-blue-500" />
+                Địa chỉ lấy hàng <span className="text-red-500">*</span>
+              </label>
+              <textarea
+                name="DCLayHang"
+                value={formData.DCLayHang}
+                onChange={handleChange}
+                required
+                rows={2}
+                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 outline-none resize-none"
+                placeholder="Số nhà, Tên đường, Phường/Xã..."
+              />
             </div>
           </div>
         </div>
 
-        {/* Thông tin hiện tại (Giữ nguyên) */}
-        <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl p-6">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-            <span className="w-6 h-6 bg-gray-500 rounded-full flex items-center justify-center text-white text-sm mr-2">
-              📋
-            </span>
-            Thông tin hiện tại
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-            <div>
-              <span className="font-medium text-gray-600">Mã cửa hàng:</span>
-              <span className="ml-2 text-gray-800 font-mono">{store.MaCH}</span>
-            </div>
-            <div>
-              <span className="font-medium text-gray-600">Ngày tạo:</span>
-              <span className="ml-2 text-gray-800">
-                {store.NgayTao
-                  ? new Date(store.NgayTao).toLocaleDateString("vi-VN")
-                  : "Chưa có thông tin"}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Action Buttons */}
-        <div className="flex flex-col sm:flex-row gap-4 justify-end pt-6 border-t border-gray-200">
+        {/* Footer Actions */}
+        <div className="flex items-center justify-end gap-4 mt-10 pt-6 border-t border-gray-100">
           <button
             type="button"
             onClick={onCancel}
             disabled={loading}
-            className="px-8 py-3 border-2 border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-all duration-200"
+            className="flex items-center gap-2 px-6 py-2.5 text-gray-600 font-medium hover:bg-gray-100 rounded-xl transition-colors duration-200"
           >
+            <X className="w-4 h-4" />
             Hủy bỏ
           </button>
+
           <button
             type="submit"
             disabled={loading}
-            className="px-8 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl font-semibold hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 flex items-center justify-center min-w-[120px]"
+            className={`flex items-center gap-2 px-8 py-2.5 rounded-xl font-bold text-white shadow-lg shadow-blue-500/30 transform active:scale-95 transition-all duration-200 ${
+              loading
+                ? "bg-gray-400 cursor-not-allowed shadow-none"
+                : "bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+            }`}
           >
             {loading ? (
               <>
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                Đang lưu...
+                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                <span>Đang lưu...</span>
               </>
             ) : (
-              "Lưu thay đổi"
+              <>
+                <Save className="w-4 h-4" />
+                <span>Lưu thay đổi</span>
+              </>
             )}
           </button>
         </div>

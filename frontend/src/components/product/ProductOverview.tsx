@@ -296,10 +296,10 @@ const ProductOverview: React.FC<ProductOverviewProps> = ({ productId }) => {
         {/* 🟢 LAYOUT CHÍNH */}
         <div className="flex flex-col lg:flex-row  gap-6">
           {/* CỘT TRÁI - HÌNH ẢNH */}
-          <div className="flex-1 flex flex-col gap-6">
-            <div className="h-full flex flex-col md:flex-row gap-6">
+          <div className="flex-1 flex flex-col gap-4">
+            <div className="h-full flex flex-col md:flex-row gap-2">
               <div className="w-full lg:w-1/3 flex-shrink-0">
-                <div className="bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden h-full p-4">
+                <div className="bg-gray-50 rounded-3xl shadow-xl overflow-hidden h-full p-4">
                   <div className="relative bg-gray-50 rounded-xl h-full w-full overflow-hidden">
                     <div className="p-4">
                       {/* HÌNH ẢNH CHÍNH */}
@@ -375,7 +375,7 @@ const ProductOverview: React.FC<ProductOverviewProps> = ({ productId }) => {
               {/* CỘT GIỮA & PHẢI - THÔNG TIN SẢN PHẨM */}
               <div className="flex-1">
                 <div className="lg:col-span-2">
-                  <div className="bg-white rounded-3xl shadow-xl border border-gray-100 p-6">
+                  <div className="bg-gray-50 rounded-3xl shadow-xl p-6">
                     {/* HEADER SẢN PHẨM */}
                     <div className="mb-6">
                       <h1 className="text-2xl font-bold text-gray-900 mb-3">

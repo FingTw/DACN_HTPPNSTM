@@ -46,6 +46,7 @@ import walletRoutes from "./routes/walletRoutes.js";
 
 import adminRoutes from "./routes/adminRoutes.js";
 import employeeRoutes from "./routes/employeeRoutes.js";
+import deliveryRoutes from "./routes/deliveryRoutes.js";
 
 // ==============================
 // 🟢 BLOCKCHAIN ROUTES
@@ -281,6 +282,7 @@ registerRoute("/api/admin", adminRoutes);
 registerRoute("/api/employee", employeeRoutes);
 registerRoute("/api/payment", paymentRoutes);
 registerRoute("/api/wallet", walletRoutes);
+registerRoute("/api/delivery", deliveryRoutes);
 
 // 🟢 BLOCKCHAIN ROUTES
 if (blockchainRoutes) {

@@ -194,7 +194,11 @@ export const getAllSanpham = async (req, res) => {
       MaCH,
     } = req.query;
 
-    const offset = (page - 1) * limit;
+    const pageNum = parseInt(page) > 0 ? parseInt(page) : 1;
+    const limitNum = parseInt(limit) > 0 ? parseInt(limit) : 12;
+
+    const offset = (pageNum - 1) * limitNum;
+
     let whereCondition = {};
     let includeOptions = [];
     let order = [];
@@ -362,8 +366,8 @@ export const getAllSanpham = async (req, res) => {
       where: whereCondition,
       include: includeOptions,
       order,
-      limit: parseInt(limit),
-      offset: parseInt(offset),
+      limit: limitNum,
+      offset: offset,
       distinct: true,
     });
 

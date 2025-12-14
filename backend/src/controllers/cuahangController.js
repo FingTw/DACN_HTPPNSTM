@@ -62,31 +62,30 @@ const ensureUploadDir = (type = "stores") => {
   if (!fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir, { recursive: true });
   }
-  return `/uploads/${type}/${fileName}`;
+  return uploadDir;
 };
 
-// 🟢 XỬ LÝ UPLOAD FILE
 const handleFileUpload = (file, type = "stores") => {
-  ensureUploadDir(type);
-  const uploadDir = path.join(process.cwd(), "public", "uploads", type);
+  const uploadDir = ensureUploadDir(type);
 
   const fileExt = path.extname(file.originalname);
   const fileName = `${type}_${Date.now()}_${Math.random()
     .toString(36)
     .substring(7)}${fileExt}`;
+
   const filePath = path.join(uploadDir, fileName);
 
   if (!file.buffer) {
     const sourcePath = file.path;
     if (sourcePath && fs.existsSync(sourcePath)) {
       fs.copyFileSync(sourcePath, filePath);
+      fs.unlinkSync(sourcePath);
     } else {
       throw new Error("File data không hợp lệ");
     }
   } else {
     fs.writeFileSync(filePath, file.buffer);
   }
-
   return `/uploads/${type}/${fileName}`;
 };
 
@@ -542,15 +541,17 @@ export const updateCuahang = async (req, res) => {
     const updateData = {};
     if (TenCH !== undefined) updateData.TenCH = TenCH.trim();
     if (MoTa !== undefined) updateData.MoTa = MoTa?.trim() || null;
-    if (DCLayHang !== undefined) updateData.DCLayHang = DCLayHang;
+
     if (newImage) updateData.MaHA_CuaHang = newImage.MaHA;
 
     if (Object.keys(updateData).length > 0) {
       await store.update(updateData, { transaction });
     }
-
-    // 🟢 CẬP NHẬT THÔNG TIN HỢP ĐỒNG
-    if (LoaiHinhKD !== undefined || MaSoThue !== undefined) {
+    if (
+      LoaiHinhKD !== undefined ||
+      MaSoThue !== undefined ||
+      DCLayHang !== undefined
+    ) {
       const contract = await hdbanhang.findOne({
         where: { MaHD: store.MaHD },
         transaction,
@@ -560,6 +561,9 @@ export const updateCuahang = async (req, res) => {
         const contractUpdate = {};
         if (LoaiHinhKD !== undefined) contractUpdate.LoaiHinhKD = LoaiHinhKD;
         if (MaSoThue !== undefined) contractUpdate.MaSoThue = MaSoThue;
+
+        // ✅ [THÊM]: Cập nhật địa chỉ vào bảng hợp đồng
+        if (DCLayHang !== undefined) contractUpdate.DCLayHang = DCLayHang;
 
         if (Object.keys(contractUpdate).length > 0) {
           await contract.update(contractUpdate, { transaction });

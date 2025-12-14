@@ -223,7 +223,7 @@ export default function CuahangDetailPage() {
 
       // Fetch thông tin cửa hàng
       const storeResponse = await fetch(
-        `http://localhost:3000/api/cuahang/${MaCH}?include=hinhanh`
+        `http://localhost:3000/api/cuahang/${MaCH}?include=hinhanh,hdbanhang`
       );
       if (!storeResponse.ok) {
         throw new Error(`Lỗi HTTP! status: ${storeResponse.status}`);

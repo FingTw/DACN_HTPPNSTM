@@ -8,6 +8,18 @@ export interface SystemStats {
   totalProducts: number;
   revenue: number;
 }
+export interface AdminProduct {
+  MaSP: string;
+  TenSP: string;
+  GiaBan: number;
+  SLTon: number;
+  MaCH: string;
+  cuahang?: {
+    TenCH: string;
+  };
+  hinhanhs?: { URL: string }[];
+  TrangThai: string;
+}
 
 export interface User {
   MaTK: string;
@@ -70,6 +82,24 @@ export interface Employee {
   MaCV_chucvu?: { TenCV: string };
 }
 
+export interface WithdrawalRequest {
+  MaGD: string;
+  MaCH: string;
+  SoTien: string | number;
+  TenNganHang: string;
+  SoTaiKhoan: string;
+  TrangThai: "DangXuLy" | "ThanhCong" | "TuChoi";
+  NgayTao: string;
+  NoiDung?: string;
+  cuahang?: {
+    TenCH: string;
+    MaTK_taikhoan?: {
+      HoTen: string;
+      SDT: string;
+    };
+  };
+}
+
 export const adminService = {
   // 1. Lấy thống kê tổng quan
   getStats: async (): Promise<SystemStats> => {
@@ -111,6 +141,33 @@ export const adminService = {
     return response.data.data;
   },
 
+  getProducts: async (
+    page = 1,
+    limit = 10,
+    search = ""
+  ): Promise<{
+    products: AdminProduct[];
+    total: number;
+    totalPages: number;
+  }> => {
+    // Gọi route public /api/sanpham vì controller getAllSanpham nằm ở đó
+    // Hoặc nếu bạn gắn vào adminRoutes thì đổi đường dẫn
+    const response = await api.get("/sanpham", {
+      params: {
+        page,
+        limit,
+        search,
+        include: "cuahang,hinhanh", // 👈 Quan trọng: Lấy thêm tên shop và ảnh
+        sortBy: "newest",
+      },
+    });
+    return response.data.data;
+  },
+
+  // Xóa sản phẩm (nếu cần)
+  deleteProduct: async (MaSP: string) => {
+    return api.delete(`/sanpham/${MaSP}`); // Cần đảm bảo backend có route này và check quyền Admin
+  },
   // 4. Duyệt/Khóa cửa hàng
   updateShopStatus: async (
     MaCH: string,
@@ -276,5 +333,21 @@ export const adminService = {
 
   updateEmployee: async (MaNV: string, data: any) => {
     return api.put(`/admin/employees/${MaNV}`, data);
+  },
+
+  // 🆕 Lấy danh sách rút tiền
+  getWithdrawals: async (status?: string): Promise<WithdrawalRequest[]> => {
+    const params = status ? { status } : {};
+    const response = await api.get("/admin/withdrawals", { params });
+    return response.data.data;
+  },
+
+  // 🆕 Xử lý rút tiền
+  handleWithdrawal: async (data: {
+    MaGD: string;
+    Action: "APPROVE" | "REJECT";
+    GhiChuAdmin?: string;
+  }) => {
+    return api.put("/admin/withdrawals/handle", data);
   },
 };

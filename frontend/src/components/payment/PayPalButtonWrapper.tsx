@@ -1,16 +1,13 @@
-// src/components/payment/PayPalButtonWrapper.tsx
-import React from "react";
+import React, { useRef } from "react"; // Thêm useRef
 import { PayPalScriptProvider, PayPalButtons } from "@paypal/react-paypal-js";
 import { paymentService } from "@/services/paymentService";
 import { toast } from "sonner";
 
-// Client ID Sandbox của bạn
 const PAYPAL_CLIENT_ID =
   "AZ8qA4E9fk9EOVRYrXUVu81HF5k6vobR5ql-nuegzYqRbCsZJG1ovxlWSvnlUK6VY4j9tbW3TWcJLVDS";
 
 interface PayPalWrapperProps {
   amount: number;
-
   createOrderInDB: () => Promise<string | null>;
   onSuccess: (MaDH: string) => void;
 }
@@ -20,6 +17,9 @@ const PayPalButtonWrapper: React.FC<PayPalWrapperProps> = ({
   createOrderInDB,
   onSuccess,
 }) => {
+  // 👇 Dùng ref để lưu MaDH tạm thời
+  const tempMaDH = useRef<string | null>(null);
+
   return (
     <div className="w-full z-0 mt-4">
       <PayPalScriptProvider
@@ -27,49 +27,43 @@ const PayPalButtonWrapper: React.FC<PayPalWrapperProps> = ({
       >
         <PayPalButtons
           style={{ layout: "vertical", shape: "rect", height: 48 }}
-          // 1. Khi bấm nút PayPal
           createOrder={async (data, actions) => {
             try {
-              // A. Tạo đơn hàng trong Database của mình trước
+              // 1. Tạo đơn hàng và lấy MaDH
               const MaDH = await createOrderInDB();
               if (!MaDH) throw new Error("Không thể tạo đơn hàng");
 
-              // B. Gọi Backend để lấy PayPal Order ID
+              // 👇 Lưu MaDH vào ref để dùng sau này
+              tempMaDH.current = MaDH;
+
+              // 2. Gọi API tạo PayPal Order
               const orderId = await paymentService.createPayPalOrder(MaDH);
               return orderId;
             } catch (error) {
               console.error(error);
-              // Trả về lỗi để PayPal không mở popup
               throw error;
             }
           }}
-          // 2. Khi khách thanh toán xong
           onApprove={async (data, actions) => {
             try {
-              // data.orderID là ID giao dịch PayPal
-              // Chúng ta không biết MaDH ở đây, nên cần Backend xử lý map qua session hoặc
-              // paymentService.createPayPalOrder cần trả về mapping.
-              // TUY NHIÊN, cách đơn giản nhất:
-              // Backend 'createPayPalOrder' đã lưu PayPal OrderID vào DB (cột GhiChu hoặc bảng log)
-              // Nên ta chỉ cần gửi PayPal OrderID về lại Backend để nó tự tìm MaDH tương ứng và update.
+              // 👇 Lấy MaDH từ ref ra
+              const currentMaDH = tempMaDH.current;
 
-              // Nhưng để đơn giản ở frontend, ta cần MaDH để redirect.
-              // Trong ví dụ này, ta giả định backend capture xong sẽ trả về MaDH.
+              if (!currentMaDH) {
+                toast.error("Không tìm thấy mã đơn hàng để xác nhận");
+                return;
+              }
 
-              // Gọi Capture
-              // Lưu ý: data.orderID là token của PayPal
-              // Bạn cần truyền thêm MaDH vào đây nếu logic backend yêu cầu,
-              // nhưng vì createOrder ở trên là async scope, ta khó truyền MaDH xuống onApprove trực tiếp.
-
-              // GIẢI PHÁP: Backend endpoint capture nên tìm đơn hàng dựa trên PayPal OrderID (token)
-              await paymentService.capturePayPalOrder(data.orderID, "");
+              // 👇 Gửi kèm MaDH xuống backend để update trạng thái
+              await paymentService.capturePayPalOrder(
+                data.orderID,
+                currentMaDH
+              );
 
               toast.success("Thanh toán PayPal thành công!");
-
-              // Vì onApprove không có MaDH, ta có thể redirect về trang danh sách đơn
-              // Hoặc tối ưu hơn: createOrderInDB lưu MaDH vào useRef/State ở component cha
               onSuccess(data.orderID);
             } catch (error) {
+              console.error(error);
               toast.error("Lỗi khi xác nhận thanh toán");
             }
           }}

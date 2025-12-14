@@ -8,7 +8,7 @@ export default function (sequelize, DataTypes) {
         primaryKey: true,
       },
       MaCH: {
-        type: DataTypes.STRING(20),
+        type: DataTypes.STRING(10),
         references: { model: "cuahang", key: "MaCH" },
       },
       LoaiGD: {

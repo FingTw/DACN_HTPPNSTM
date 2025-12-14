@@ -230,6 +230,21 @@ export const Header: React.FC = () => {
     }
   };
 
+  const getImageUrl = (avatarData: any): string => {
+    if (!avatarData) return "https://github.com/shadcn.png";
+    let url = "";
+    if (typeof avatarData === "object" && avatarData !== null) {
+      url = avatarData.URL || "";
+    } else {
+      url = avatarData;
+    }
+    if (typeof url !== "string" || url.trim() === "") {
+      return "https://github.com/shadcn.png";
+    }
+    if (url.startsWith("http")) return url;
+    const cleanUrl = url.startsWith("/") ? url : `/${url}`;
+    return `http://localhost:3000${cleanUrl}`;
+  };
   return (
     <header className="w-full">
       {/* Top Banner */}
@@ -414,14 +429,28 @@ export const Header: React.FC = () => {
                 <button className="flex items-center gap-2 h-10 px-3 bg-white rounded-full transition-all duration-200">
                   {user ? (
                     <>
-                      <div className="w-10 h-10 bg-gradient-to-br from-green-400 to-green-600 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-md ring-2 ring-white">
-                        {user?.TenDangNhap?.charAt(0)?.toUpperCase() || "U"}
-                      </div>
+                      {/* 👇 LOGIC MỚI: Kiểm tra Avatar */}
+                      {user.Avatar ? (
+                        <img
+                          src={
+                            getImageUrl(user.Avatar) || "/default-avatar.png"
+                          }
+                          alt={user.TenDangNhap}
+                          className="w-10 h-10 rounded-full object-cover shadow-md ring-2 ring-white"
+                        />
+                      ) : (
+                        // 👇 LOGIC CŨ: Hiển thị chữ cái đầu nếu không có ảnh
+                        <div className="w-10 h-10 bg-gradient-to-br from-green-400 to-green-600 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-md ring-2 ring-white">
+                          {user?.TenDangNhap?.charAt(0)?.toUpperCase() || "U"}
+                        </div>
+                      )}
+
                       <span className="hidden md:block text-green-600 font-medium pr-2">
                         {user?.TenDangNhap || "User"}
                       </span>
                     </>
                   ) : (
+                    // Phần hiển thị khi chưa đăng nhập (giữ nguyên)
                     <div className="w-10 h-10 bg-gradient-to-br from-green-400 to-green-600 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-md ring-2 ring-white">
                       <svg
                         className="w-9 h-9 text-white"

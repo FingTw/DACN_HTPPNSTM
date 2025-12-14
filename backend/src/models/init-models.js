@@ -34,6 +34,7 @@ import _khuyenmai_taikhoan from "./khuyenmai_taikhoan.js";
 import _donhang_khuyenmai from "./donhang_khuyenmai.js";
 import _danhgiasanpham from "./danhgiasanpham.js"; // 🆕 THÊM MODEL ĐÁNH GIÁ SẢN PHẨM
 import _danhgiacuahang from "./danhgiacuahang.js"; // 🆕 THÊM MODEL ĐÁNH GIÁ CỬA HÀNG
+import _giaodich_vi from "./giaodich_vi.js";
 
 function initModels(sequelize) {
   // 🟢 KHAI BÁO CÁC MODEL
@@ -71,6 +72,7 @@ function initModels(sequelize) {
   var lichsu_trangthai = _lichsu_trangthai(sequelize, DataTypes);
   var danhgiasanpham = _danhgiasanpham(sequelize, DataTypes); // 🆕 MODEL ĐÁNH GIÁ SẢN PHẨM
   var danhgiacuahang = _danhgiacuahang(sequelize, DataTypes); // 🆕 MODEL ĐÁNH GIÁ CỬA HÀNG
+  var giaodich_vi = _giaodich_vi(sequelize, DataTypes);
 
   // 🟢 THIẾT LẬP QUAN HỆ GIỮA CÁC BẢNG
 
@@ -133,6 +135,10 @@ function initModels(sequelize) {
     otherKey: "MaSP",
   });
 
+  xuatnhapton.belongsTo(donhang, { as: "MaDH_donhang", foreignKey: "MaDH" });
+
+  donhang.hasMany(xuatnhapton, { as: "xuatnhaptons", foreignKey: "MaDH" });
+
   taikhoan.hasMany(taikhoan_vaitro, {
     as: "taikhoan_vaitros",
     foreignKey: "MaTK",
@@ -174,6 +180,10 @@ function initModels(sequelize) {
     as: "cuahangs",
     foreignKey: "MaHA_CuaHang",
   });
+
+  // 💵 GIAO DỊCH VÍ
+  giaodich_vi.belongsTo(cuahang, { as: "MaCH_cuahang", foreignKey: "MaCH" });
+  cuahang.hasMany(giaodich_vi, { as: "giaodich_vis", foreignKey: "MaCH" });
 
   // 📦 QUAN HỆ SẢN PHẨM
   sanpham_danhmuc.belongsTo(sanpham, {
@@ -612,6 +622,7 @@ function initModels(sequelize) {
     donhang_khuyenmai,
     danhgiasanpham, // 🆕 THÊM VÀO RETURN
     danhgiacuahang, // 🆕 THÊM VÀO RETURN
+    giaodich_vi,
   };
 }
 

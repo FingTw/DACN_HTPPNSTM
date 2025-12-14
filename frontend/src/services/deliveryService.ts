@@ -25,115 +25,42 @@ export interface DeliveryTask {
 }
 
 export const deliveryService = {
-  // 1. Lấy danh sách nhiệm vụ của Shipper (Lấy hàng / Giao hàng / Lịch sử)
-  // Backend cần API: GET /api/delivery/my-tasks?type=pickup|delivery|history
-  getMyTasks: async (
-    type: "pickup" | "delivery" | "history"
-  ): Promise<DeliveryTask[]> => {
+  getMyTasks: async (type: "pickup" | "delivery" | "history") => {
     try {
-      // backend employee routes: /api/employee/deliveries
-      if (type === "pickup") {
-        const resp = await api.get("/employee/deliveries", {
-          params: { available: true },
-        });
-        return resp.data.data as DeliveryTask[];
-      }
-      if (type === "delivery") {
-        const resp = await api.get("/employee/deliveries");
-        return resp.data.data as DeliveryTask[];
-      }
-      const resp = await api.get("/employee/deliveries");
-      return resp.data.data as DeliveryTask[];
+      // Gọi vào employee controller để lấy danh sách đã filter
+      const resp = await api.get("/employee/deliveries", {
+        params: { type },
+      });
+      return resp.data.data;
     } catch (error: any) {
       console.error("Lỗi lấy danh sách nhiệm vụ:", error);
       return [];
     }
   },
 
-  // 2. Xác nhận đã lấy hàng từ Shop
-  // Backend cần API: POST /api/delivery/pickup
-  confirmPickup: async (MaDH: string): Promise<boolean> => {
-    try {
-      await api.post("/employee/deliveries/take", { MaDH });
-      return true;
-    } catch (error: any) {
-      console.error("Lỗi xác nhận lấy hàng:", error);
-      throw new Error(
-        error.response?.data?.message || "Không thể xác nhận lấy hàng"
-      );
-    }
+  // 2. Nhận đơn (Assign Shipper)
+  takeOrder: async (MaDH: string) => {
+    // Route này gọi deliveryController.shipperTakeOrder
+    const res = await api.post("/delivery/take", { MaDH });
+    return res.data;
   },
 
-  // 3. Giao hàng thành công & Upload Proof
-  // API đã có: POST /api/delivery/:MaGH/proof
-  uploadProof: async (MaGH: string, file: File): Promise<boolean> => {
-    try {
-      const formData = new FormData();
-      formData.append("proof", file);
-
-      await api.put(`/employee/deliveries/${MaGH}`, formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
-      return true;
-    } catch (error: any) {
-      console.error("Lỗi upload proof:", error);
-      throw new Error(
-        error.response?.data?.message || "Lỗi upload ảnh bằng chứng"
-      );
-    }
+  // 3. Xác nhận đã lấy hàng (Pickup Confirm)
+  confirmPickup: async (MaDH: string) => {
+    // 👇 SỬA LẠI URL CHO ĐÚNG: /api/delivery/pickup
+    const res = await api.post("/delivery/pickup", { MaDH });
+    return res.data;
   },
 
-  // 4. Báo cáo giao hàng thất bại
-  reportFailure: async (MaGH: string, reason: string): Promise<boolean> => {
-    try {
-      await api.post(`/delivery/${MaGH}/fail`, { reason });
-      return true;
-    } catch (error: any) {
-      console.error("Lỗi báo cáo thất bại:", error);
-      return false;
-    }
+  // 4. Giao hàng thành công & Upload Proof
+  uploadProof: async (MaGH: string, file: File) => {
+    const formData = new FormData();
+    formData.append("image", file);
+    // Route này gọi deliveryController.shipperUploadProof
+    const res = await api.post(`/delivery/${MaGH}/proof`, formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return res.data;
   },
 };
-
-// --- MOCK DATA (Để test giao diện khi chưa có Backend) ---
-const getMockTasks = (type: string): DeliveryTask[] => {
-  if (type === "pickup") {
-    return [
-      {
-        MaGH: "GH001",
-        MaDH: "DH1023",
-        StoreName: "Nông Sản Sạch Ba Vì",
-        StoreAddress: "123 Đường Láng, HN",
-        DeliveryAddress: "456 Cầu Giấy, HN",
-        CustomerName: "Nguyen Van A",
-        CustomerPhone: "0987654321",
-        CodAmount: 0,
-        ProductCount: 5,
-        Weight: 2.5,
-        TrangThai: "ASSIGNED",
-        NgayTao: new Date().toISOString(),
-      },
-    ];
-  }
-  if (type === "delivery") {
-    return [
-      {
-        MaGH: "GH002",
-        MaDH: "DH9999",
-        StoreName: "Rau Củ Đà Lạt",
-        StoreAddress: "Đà Lạt",
-        DeliveryAddress: "789 Nguyễn Trãi, Q1, HCM",
-        CustomerName: "Tran Thi B",
-        CustomerPhone: "0123456789",
-        CodAmount: 550000,
-        ProductCount: 2,
-        Weight: 1.0,
-        TrangThai: "PICKED_UP",
-        NgayTao: new Date().toISOString(),
-      },
-    ];
-  }
-  return [];
-};
-
 export default deliveryService;

@@ -14,6 +14,7 @@ interface User {
   roles?: string[];
   HoTen: string;
   MaCH?: string | null;
+  Avatar?: string;
 }
 
 interface AuthContextType {

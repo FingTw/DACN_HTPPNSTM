@@ -6,6 +6,7 @@ export interface Store {
   MoTa?: string;
   SLTheoDoi: number;
   DiemDG: number;
+  SoDu?: number | string;
   DCLayHang?: string;
   NgayTao?: string;
   MaTK: string;

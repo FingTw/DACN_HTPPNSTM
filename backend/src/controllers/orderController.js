@@ -24,6 +24,8 @@ const {
   cuahang,
   giaodich_vi,
   hinhanh,
+  giaohang,
+  xuatnhapton,
 } = models;
 
 export const checkout = async (req, res) => {
@@ -96,102 +98,76 @@ export const checkoutItem = async (req, res) => {
   }
 };
 
-// controllers/orderController.js - THÊM LOGGING CHI TIẾT
 export const processCheckout = async (req, res) => {
   let transaction;
   try {
-    console.log("=== BẮT ĐẦU PROCESS CHECKOUT ===");
+    console.log("=== BẮT ĐẦU PROCESS CHECKOUT (MULTI-STORE) ===");
 
     // === 1. Xác thực JWT ===
     const authHeader = req.headers.authorization;
     if (!authHeader?.startsWith("Bearer ")) {
-      console.log("❌ Không có token");
       return res.status(401).json({ message: "Không có token" });
     }
-
     const token = authHeader.split(" ")[1];
     let decoded;
     try {
       decoded = jwt.verify(token, process.env.JWT_SECRET);
-      console.log("✅ Token decoded:", decoded.MaTK);
     } catch (err) {
-      console.log("❌ Token không hợp lệ:", err.message);
-      return res
-        .status(401)
-        .json({ message: "Token không hợp lệ hoặc hết hạn" });
+      return res.status(401).json({ message: "Token không hợp lệ" });
     }
     const MaTK = decoded.MaTK;
 
-    // === 2. Lấy thông tin từ body ===
+    // === 2. Lấy data từ body ===
     const {
       DCNhanHang,
       MaPTVC,
       MaPTTT,
       items,
-      appliedVouchers,
-      PhiVanChuyen, // 🆕 NHẬN PHÍ VẬN CHUYỂN TỪ FRONTEND
+      appliedVouchers, // Hiện tại xử lý voucher cho nhiều đơn khá phức tạp, ở đây sẽ áp dụng voucher chia đều hoặc chỉ đơn đầu (tuỳ logic)
+      PhiVanChuyen, // Lưu ý: Phí vận chuyển tổng cần được chia ra hoặc tính lại theo từng shop
     } = req.body;
 
-    console.log("📦 Request body:", {
-      DCNhanHang,
-      MaPTVC,
-      MaPTTT,
-      itemsCount: items?.length,
-      appliedVouchers,
-      PhiVanChuyen, // 🆕 LOG PHÍ VẬN CHUYỂN
-    });
-
     if (!items || !items.length) {
-      console.log("❌ Không có items");
-      return res
-        .status(400)
-        .json({ message: "Chưa chọn sản phẩm để thanh toán" });
+      return res.status(400).json({ message: "Chưa chọn sản phẩm" });
     }
 
-    if (!DCNhanHang?.trim()) {
-      console.log("❌ Thiếu địa chỉ nhận hàng");
-      return res
-        .status(400)
-        .json({ message: "Địa chỉ nhận hàng không được để trống" });
-    }
-
-    // 🆕 VALIDATE PHÍ VẬN CHUYỂN
-    if (
-      PhiVanChuyen === undefined ||
-      PhiVanChuyen === null ||
-      PhiVanChuyen < 0
-    ) {
-      console.log("❌ Phí vận chuyển không hợp lệ:", PhiVanChuyen);
-      return res.status(400).json({ message: "Phí vận chuyển không hợp lệ" });
-    }
-
-    // === 3. Lấy giỏ hàng của user ===
-    console.log("🔍 Lấy giỏ hàng cho user:", MaTK);
+    // === 3. Lấy giỏ hàng & Sản phẩm đầy đủ thông tin (Kèm MaCH) ===
     const cart = await giohang.findOne({
       where: { MaTK },
       include: [
         {
           model: ctgh,
           as: "ctghs",
-          include: [{ model: sanpham, as: "MaSP_sanpham" }],
+          include: [
+            {
+              model: sanpham,
+              as: "MaSP_sanpham",
+              attributes: [
+                "MaSP",
+                "TenSP",
+                "GiaBan",
+                "SLTon",
+                "MaCH",
+                // "HinhAnh",
+              ], // QUAN TRỌNG: Phải lấy MaCH
+              include: [
+                {
+                  model: hinhanh,
+                  as: "hinhanhs",
+                  attributes: ["URL"],
+                },
+              ],
+            },
+          ],
         },
       ],
     });
 
-    if (!cart || !cart.ctghs || cart.ctghs.length === 0) {
-      console.log("❌ Giỏ hàng trống");
+    if (!cart || !cart.ctghs.length) {
       return res.status(400).json({ message: "Giỏ hàng trống" });
     }
 
-    console.log(
-      "✅ Tìm thấy giỏ hàng:",
-      cart.MaGH,
-      "với",
-      cart.ctghs.length,
-      "sản phẩm"
-    );
-
-    // === 4. Lọc & cập nhật số lượng theo lựa chọn của user ===
+    // Lọc ra các item user đã chọn mua
     const selectedItems = cart.ctghs
       .filter((ct) => items.some((i) => i.MaSP === ct.MaSP))
       .map((ct) => {
@@ -199,277 +175,177 @@ export const processCheckout = async (req, res) => {
         return {
           ...ct.dataValues,
           SL: selected.SL,
+          // Đảm bảo lấy được thông tin sản phẩm
+          ProductData: ct.MaSP_sanpham,
         };
       });
 
-    console.log("🛒 Selected items:", selectedItems.length);
+    if (selectedItems.length === 0) {
+      return res.status(400).json({ message: "Sản phẩm chọn không hợp lệ" });
+    }
 
-    // === 5. Kiểm tra tồn kho ===
-    console.log("🔍 Kiểm tra tồn kho...");
-    for (let ct of selectedItems) {
-      const sp = await sanpham.findByPk(ct.MaSP);
-      if (!sp) {
-        console.log("❌ Sản phẩm không tồn tại:", ct.MaSP);
+    // === 4. GOM NHÓM SẢN PHẨM THEO CỬA HÀNG (MaCH) ===
+    const ordersByShop = {};
+
+    for (const item of selectedItems) {
+      const sp = item.ProductData;
+      if (!sp)
         return res
           .status(400)
-          .json({ message: `Sản phẩm ${ct.MaSP} không tồn tại` });
+          .json({ message: `Lỗi dữ liệu sản phẩm ${item.MaSP}` });
+
+      const maCH = sp.MaCH; // Mã cửa hàng
+
+      if (!ordersByShop[maCH]) {
+        ordersByShop[maCH] = {
+          MaCH: maCH,
+          items: [],
+          subTotal: 0,
+        };
       }
-      if (sp.SLTon < ct.SL) {
-        console.log(
-          "❌ Không đủ tồn kho:",
-          ct.MaSP,
-          "cần",
-          ct.SL,
-          "có",
-          sp.SLTon
-        );
+
+      // Kiểm tra tồn kho trước khi push
+      if (sp.SLTon < item.SL) {
         return res
           .status(400)
           .json({ message: `Sản phẩm ${sp.TenSP} không đủ tồn kho` });
       }
+
+      ordersByShop[maCH].items.push(item);
+      ordersByShop[maCH].subTotal += item.SL * parseFloat(sp.GiaBan);
     }
 
-    // Bắt đầu transaction
+    // Bắt đầu Transaction
     transaction = await sequelize.transaction();
-    console.log("✅ Transaction started");
 
-    // === 6. Trừ tồn kho ===
-    console.log("📉 Trừ tồn kho...");
-    for (let ct of selectedItems) {
-      const sp = await sanpham.findByPk(ct.MaSP);
-      sp.SLTon -= ct.SL;
-      await sp.save({ transaction });
-      console.log(
-        `✅ Đã trừ ${ct.SL} sản phẩm ${ct.MaSP}, tồn kho còn: ${sp.SLTon}`
-      );
-    }
+    const createdOrderIds = []; // Mảng chứa các Mã Đơn Hàng đã tạo
+    let totalAllOrders = 0; // Tổng tiền tất cả các đơn
 
-    // === 7. Tạo đơn hàng ===
-    const MaDH = "DH" + uuidv4().replace(/-/g, "").substring(0, 8);
+    // === 5. VÒNG LẶP TẠO ĐƠN HÀNG CHO TỪNG SHOP ===
+    const shopIds = Object.keys(ordersByShop);
 
-    // Tính tổng tiền sản phẩm
-    const tongTienSanPham = selectedItems.reduce(
-      (sum, ct) => sum + ct.SL * parseFloat(ct.MaSP_sanpham.GiaBan),
-      0
-    );
+    // Xử lý logic chia phí vận chuyển (Tạm thời chia đều cho số lượng shop)
+    // Thực tế nên tính lại phí ship cho từng shop từ frontend
+    const shippingFeePerOrder = PhiVanChuyen
+      ? Math.round(PhiVanChuyen / shopIds.length)
+      : 0;
 
-    // 🆕 SỬ DỤNG PHÍ VẬN CHUYỂN TỪ FRONTEND - XÓA PHẦN TẠM TÍNH
-    const tongTienTruocKM = tongTienSanPham + PhiVanChuyen;
+    for (const shopId of shopIds) {
+      const shopData = ordersByShop[shopId];
+      const MaDH =
+        "DH" + uuidv4().replace(/-/g, "").substring(0, 8).toUpperCase();
 
-    console.log("💰 Tính toán tiền:", {
-      tongTienSanPham,
-      PhiVanChuyen, // 🆕 SỬ DỤNG PHÍ TỪ FRONTEND
-      tongTienTruocKM,
-    });
-
-    // === 7.1. Áp dụng mã khuyến mãi nếu có ===
-    let tongTienSauKM = tongTienTruocKM;
-    let giamGia = 0;
-    let maKMApDung = null;
-
-    if (appliedVouchers && appliedVouchers.length > 0) {
-      console.log("🎫 Áp dụng voucher:", appliedVouchers);
-      for (const maKM of appliedVouchers) {
-        const userKM = await khuyenmai_taikhoan.findOne({
-          where: { MaKM: maKM, MaTK },
-          transaction,
-        });
-
-        if (!userKM) {
-          await transaction.rollback();
-          console.log("❌ User không có voucher:", maKM);
-          return res.status(400).json({
-            message: `Mã khuyến mãi ${maKM} không hợp lệ`,
-          });
-        }
-
-        const km = await khuyenmai.findOne({
-          where: { MaKM: maKM },
-          transaction,
-        });
-
-        if (!km) {
-          await transaction.rollback();
-          console.log("❌ Không tìm thấy voucher:", maKM);
-          return res
-            .status(404)
-            .json({ message: `Không tìm thấy mã khuyến mãi ${maKM}` });
-        }
-
-        // Kiểm tra thời hạn
-        const now = new Date();
-        if (now < km.NgayBatDau || now > km.NgayKetThuc) {
-          await transaction.rollback();
-          console.log("❌ Voucher hết hạn:", maKM);
-          return res
-            .status(400)
-            .json({ message: `Mã khuyến mãi ${maKM} đã hết hạn` });
-        }
-
-        // Tính giảm giá
-        let discountAmount = 0;
-        if (km.HinhThucGiam === "FIXED") {
-          discountAmount = Math.min(km.GiaTriGiam, tongTienSauKM);
-        } else if (km.HinhThucGiam === "PERCENT") {
-          discountAmount = tongTienSauKM * (km.GiaTriGiam / 100);
-          if (km.SoTienGiamToiDa && discountAmount > km.SoTienGiamToiDa) {
-            discountAmount = km.SoTienGiamToiDa;
-          }
-        }
-
-        giamGia += discountAmount;
-        tongTienSauKM -= discountAmount;
-        maKMApDung = maKM;
-
-        // Cập nhật số lần đã sử dụng
-        await khuyenmai_taikhoan.update(
-          { SoLanSuDung: userKM.SoLanSuDung + 1 },
-          {
-            where: { MaKM: maKM, MaTK },
-            transaction,
-          }
-        );
-
-        console.log(`✅ Áp dụng voucher ${maKM}, giảm: ${discountAmount}`);
+      // Trừ tồn kho
+      for (let ct of shopData.items) {
+        const sp = await sanpham.findByPk(ct.MaSP, { transaction });
+        sp.SLTon -= ct.SL;
+        await sp.save({ transaction });
       }
-    }
 
-    // Đảm bảo tổng tiền không âm
-    tongTienSauKM = Math.max(0, tongTienSauKM);
+      // Tính toán tiền nong cho đơn hàng của shop này
+      let finalTotal = shopData.subTotal + shippingFeePerOrder;
+      let discountAmount = 0;
+      let appliedVoucherCode = null;
 
-    console.log("🎯 Tổng tiền cuối cùng:", {
-      tongTienSauKM,
-      giamGia,
-      maKMApDung,
-    });
+      // TODO: Logic Voucher phức tạp khi tách đơn.
+      // Ở đây tạm thời: Nếu có voucher, chỉ áp dụng cho đơn hàng đầu tiên hoặc chia tỷ lệ.
+      // Để đơn giản và an toàn, tạm thời chưa trừ voucher trong code mẫu này để tránh lỗi logic tiền âm.
+      // Nếu bạn muốn chia voucher, cần tính tỷ lệ % giá trị đơn của shop so với tổng đơn.
 
-    // Tạo đơn hàng - 🆕 SỬ DỤNG PhiVanChuyen TỪ FRONTEND
-    const newDonHang = await donhang.create(
-      {
-        MaDH,
-        MaTK,
-        DCNhanHang: DCNhanHang.trim(),
-        MaPTVC: MaPTVC || "VC_STANDARD",
-        MaPTTT: MaPTTT || "TT01",
-        TongTien: tongTienSauKM,
-        GiamGia: giamGia,
-        PhiVanChuyen: PhiVanChuyen, // 🆕 SỬ DỤNG TỪ FRONTEND
-        MaKM: maKMApDung,
-        TrangThai: "Chờ xác nhận",
-        NgayTao: new Date(),
-      },
-      { transaction }
-    );
-
-    console.log("✅ Đã tạo đơn hàng:", MaDH);
-
-    // === 7.2. Tạo bản ghi thanh toán ===
-    const ptttRecord = await pttt.findByPk(MaPTTT, { transaction });
-    if (!ptttRecord) {
-      await transaction.rollback();
-      console.log("❌ Phương thức thanh toán không hợp lệ:", MaPTTT);
-      return res
-        .status(400)
-        .json({ message: "Phương thức thanh toán không hợp lệ" });
-    }
-
-    const isCOD = ptttRecord.TenPTTT.toLowerCase().includes("cod");
-    const paymentStatus = isCOD ? "Chờ khách thanh toán" : "Đã thanh toán";
-
-    const MaTT =
-      "TT" + uuidv4().replace(/-/g, "").substring(0, 8).toUpperCase();
-
-    const dataThanhToan = {
-      MaTT,
-      MaDH: newDonHang.MaDH,
-      Sotien: tongTienSauKM,
-      TrangThai: paymentStatus,
-      MaPTTT,
-    };
-
-    if (paymentStatus === "Đã thanh toán") {
-      dataThanhToan.NgayTao = new Date();
-      dataThanhToan.Thoigian = new Date().toLocaleTimeString("vi-VN", {
-        hour12: false,
-        timeZone: "Asia/Ho_Chi_Minh",
-      });
-    }
-
-    await thanhtoan.create(dataThanhToan, { transaction });
-    console.log("✅ Đã tạo bản ghi thanh toán:", MaTT);
-
-    // === 8. Tạo chi tiết đơn hàng ===
-    console.log("📝 Tạo chi tiết đơn hàng...");
-    for (let ct of selectedItems) {
-      await chitiet_donhang.create(
+      // Tạo Record Đơn Hàng
+      const newDonHang = await donhang.create(
         {
-          MaDH: newDonHang.MaDH,
-          MaSP: ct.MaSP,
-          TenSP: ct.MaSP_sanpham.TenSP,
-          SoLuong: ct.SL,
-          GiaBan: ct.MaSP_sanpham.GiaBan,
+          MaDH,
+          MaTK,
+          DCNhanHang: DCNhanHang.trim(),
+          MaPTVC: MaPTVC || "VC_STANDARD",
+          MaPTTT: MaPTTT || "TT01",
+          TongTien: finalTotal, // Tiền của riêng đơn shop này
+          GiamGia: discountAmount,
+          PhiVanChuyen: shippingFeePerOrder,
+          MaKM: appliedVoucherCode,
+          TrangThai: "Chờ xác nhận", // Trạng thái khởi tạo
+          NgayTao: new Date(),
         },
         { transaction }
       );
-      console.log(`✅ Đã thêm sản phẩm ${ct.MaSP} vào đơn hàng`);
+
+      createdOrderIds.push(MaDH);
+      totalAllOrders += finalTotal;
+
+      // Tạo Chi Tiết Đơn Hàng (Chỉ chứa sản phẩm của Shop này)
+      for (let ct of shopData.items) {
+        await chitiet_donhang.create(
+          {
+            MaDH: MaDH,
+            MaSP: ct.MaSP,
+            TenSP: ct.ProductData.TenSP,
+            SoLuong: ct.SL,
+            GiaBan: ct.ProductData.GiaBan,
+          },
+          { transaction }
+        );
+      }
+
+      // Tạo Thanh Toán (Mỗi đơn hàng cần 1 record thanh toán riêng hoặc 1 record tổng)
+      // Hệ thống DB của bạn có vẻ liên kết 1-1 giữa ThanhToan và DonHang
+      const MaTT =
+        "TT" + uuidv4().replace(/-/g, "").substring(0, 8).toUpperCase();
+      const ptttRecord = await pttt.findByPk(MaPTTT);
+      const isCOD = ptttRecord?.TenPTTT.toLowerCase().includes("cod");
+
+      await thanhtoan.create(
+        {
+          MaTT,
+          MaDH: MaDH,
+          Sotien: finalTotal,
+          TrangThai: isCOD ? "Chờ khách thanh toán" : "Đã thanh toán",
+          MaPTTT,
+          NgayTao: new Date(),
+        },
+        { transaction }
+      );
     }
 
-    // === 9. Xóa các sản phẩm đã checkout khỏi giỏ ===
+    // === 6. DỌN DẸP GIỎ HÀNG ===
     const MaSPs = selectedItems.map((ct) => ct.MaSP);
     await ctgh.destroy({
       where: { MaGH: cart.MaGH, MaSP: MaSPs },
       transaction,
     });
-    console.log("✅ Đã xóa sản phẩm khỏi giỏ hàng");
 
-    // === 10. Nếu giỏ hàng trống => xóa giỏ ===
+    // Kiểm tra nếu giỏ hết sạch thì xoá luôn giỏ (tuỳ logic)
     const remaining = await ctgh.count({
       where: { MaGH: cart.MaGH },
       transaction,
     });
-
     if (remaining === 0) {
-      await giohang.destroy({
-        where: { MaGH: cart.MaGH },
-        transaction,
-      });
-      console.log("✅ Đã xóa giỏ hàng trống");
+      await giohang.destroy({ where: { MaGH: cart.MaGH }, transaction });
     }
 
-    // Commit transaction
     await transaction.commit();
-    console.log("✅ Transaction committed");
+    console.log("✅ Đã tạo thành công các đơn hàng:", createdOrderIds);
 
-    // === 11. Kết quả ===
-    console.log("🎉 Đơn hàng tạo thành công:", MaDH);
-
+    // Trả về mảng các MaDH hoặc MaDH đầu tiên để frontend redirect
     return res.json({
       success: true,
-      MaDH,
-      data: {
-        MaDH,
-        TongTien: tongTienSauKM,
-        PhiVanChuyen: PhiVanChuyen, // 🆕 TRẢ VỀ PHÍ VẬN CHUYỂN
-        GiamGia: giamGia,
-        SoSanPham: selectedItems.length,
-      },
+      // Nếu frontend chỉ nhận 1 MaDH để redirect, ta gửi cái đầu tiên hoặc sửa frontend nhận mảng
+      MaDH: createdOrderIds[0],
+      listMaDH: createdOrderIds,
+      message: `Đã tạo ${createdOrderIds.length} đơn hàng thành công`,
+      totalAmount: totalAllOrders,
     });
   } catch (err) {
-    // Rollback transaction nếu có lỗi
-    if (transaction) {
-      await transaction.rollback();
-      console.log("❌ Transaction rolled back");
-    }
-
+    if (transaction) await transaction.rollback();
     console.error("❌ Lỗi process checkout:", err);
-    console.error("❌ Stack trace:", err.stack);
-
     return res.status(500).json({
       message: "Lỗi server khi xử lý đơn hàng",
-      error: process.env.NODE_ENV === "development" ? err.message : undefined,
+      error: err.message,
     });
   }
 };
+
+// Tìm đến hàm orderSuccess và thay thế bằng nội dung này:
 
 export const orderSuccess = async (req, res) => {
   try {
@@ -477,16 +353,47 @@ export const orderSuccess = async (req, res) => {
 
     const order = await donhang.findOne({
       where: { MaDH },
-      include: [{ model: chitiet_donhang, as: "chitiet_donhangs" }], // dùng alias đúng
+      include: [
+        {
+          model: chitiet_donhang,
+          as: "chitiet_donhangs",
+          include: [
+            {
+              model: sanpham,
+              as: "MaSP_sanpham",
+              attributes: ["TenSP", "HinhAnh", "GiaBan"], // Lấy thêm tên và ảnh
+            },
+          ],
+        },
+        {
+          model: pttt,
+          as: "MaPTTT_pttt",
+          attributes: ["TenPTTT"],
+        },
+        {
+          model: ptvc,
+          as: "MaPTVC_ptvc",
+          attributes: ["TenPTVC"],
+        },
+      ],
     });
 
-    if (!order)
-      return res.status(404).json({ message: "Đơn hàng không tồn tại" });
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Đơn hàng không tồn tại",
+      });
+    }
 
-    return res.json(order);
+    // Trả về cấu trúc chuẩn { success: true, data: ... }
+    return res.json({
+      success: true,
+      message: "Lấy thông tin đơn hàng thành công",
+      data: order,
+    });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Lỗi server" });
+    console.error("Lỗi orderSuccess:", err);
+    res.status(500).json({ success: false, message: "Lỗi server" });
   }
 };
 
@@ -533,7 +440,7 @@ export const updateOrderStatus = async (req, res) => {
     const validTransitions = {
       "Chờ xác nhận": ["Hủy đơn hàng"],
       "Đang xử lý": ["Hủy đơn hàng"],
-      "Đã giao": ["Hoàn thành"], // 🆕 CHO PHÉP KHÁCH HÀNG XÁC NHẬN ĐÃ NHẬN HÀNG
+      "Đã giao": ["Hoàn thành"],
     };
 
     const currentStatus = order.TrangThai;
@@ -695,100 +602,77 @@ export const updateOrderStatus = async (req, res) => {
       console.log(`⚠️ Trạng thái không đổi cho đơn ${MaDH} → Không update`);
     }
 
-    // 🆕 [THÊM MỚI] LOGIC CỘNG TIỀN KHI HOÀN THÀNH ĐƠN HÀNG
     if (TrangThai === "Hoàn thành") {
-      console.log("💰 Bắt đầu tính toán doanh thu cho cửa hàng...");
+      console.log("💰 Đang tính toán doanh thu cho cửa hàng...");
 
-      // 1. Lấy chi tiết đơn hàng kèm thông tin sản phẩm và cửa hàng
+      // Lấy chi tiết đơn kèm thông tin Cửa hàng (MaCH)
       const orderDetails = await chitiet_donhang.findAll({
         where: { MaDH },
         include: [
           {
             model: sanpham,
             as: "MaSP_sanpham",
-            attributes: ["MaCH", "GiaBan"], // Cần MaCH để biết cộng cho ai
+            attributes: ["MaCH"], // Chỉ cần lấy MaCH để biết cộng cho ai
           },
         ],
         transaction,
       });
 
-      // 2. Gom nhóm doanh thu theo cửa hàng
-      // (Vì 1 đơn hàng có thể chứa sản phẩm của nhiều cửa hàng khác nhau)
+      // Gom tiền theo từng Shop (Revenue Split)
       const revenueByShop = {};
 
       for (const item of orderDetails) {
+        if (!item.MaSP_sanpham) continue;
         const maCH = item.MaSP_sanpham.MaCH;
-        // Tính tiền: Số lượng * Giá bán (Cộng đúng số tiền bán sp)
+
+        // Tiền = Giá lúc mua (trong đơn hàng) * Số lượng
         const amount = parseFloat(item.GiaBan) * item.SoLuong;
 
-        if (!revenueByShop[maCH]) {
-          revenueByShop[maCH] = 0;
-        }
+        if (!revenueByShop[maCH]) revenueByShop[maCH] = 0;
         revenueByShop[maCH] += amount;
       }
 
-      // 3. Thực hiện cộng tiền và ghi log giao dịch
+      // Update số dư cho từng shop
       for (const [maCH, totalAmount] of Object.entries(revenueByShop)) {
-        // Lấy thông tin cửa hàng hiện tại để biết số dư cũ (để an toàn)
         const store = await cuahang.findByPk(maCH, { transaction });
-
         if (store) {
-          // Cộng tiền vào số dư
-          const newBalance = parseFloat(store.SoDu) + totalAmount;
-
+          const newBalance = parseFloat(store.SoDu || 0) + totalAmount;
           await cuahang.update(
             { SoDu: newBalance },
             { where: { MaCH: maCH }, transaction }
           );
 
-          // Tạo mã giao dịch
           const MaGD =
-            "GD" + uuidv4().replace(/-/g, "").substring(0, 8).toUpperCase();
+            "IN" + uuidv4().replace(/-/g, "").substring(0, 8).toUpperCase();
 
-          // Ghi lịch sử giao dịch ví
           await giaodich_vi.create(
             {
               MaGD: MaGD,
               MaCH: maCH,
-              LoaiGD: "NHAN_TIEN_DON_HANG", // Loại giao dịch: Nhận tiền
+              LoaiGD: "NHAN_TIEN_DON_HANG",
               SoTien: totalAmount,
-              NoiDung: `Doanh thu từ đơn hàng ${MaDH}`,
+              NoiDung: `Doanh thu từ đơn hàng #${MaDH}`,
               TrangThai: "ThanhCong",
               NgayTao: new Date(),
             },
             { transaction }
           );
 
-          console.log(`✅ Đã cộng ${totalAmount} vào ví cửa hàng ${maCH}`);
+          console.log(`✅ Shop ${maCH}: +${totalAmount} VNĐ (Đã ghi log GD)`);
         }
       }
     }
 
-    // ✅ COMMIT TRANSACTION
+    // 🏁 COMMIT MỌI THAY ĐỔI
     await transaction.commit();
-    console.log("✅ Transaction committed successfully");
-
-    // 🎯 THÔNG BÁO THÀNH CÔNG
-    let successMessage = "";
-
-    if (TrangThai === "Hoàn thành") {
-      successMessage = "Đã xác nhận nhận hàng! Cảm ơn bạn đã mua sắm.";
-    } else if (TrangThai === "Hủy đơn hàng") {
-      successMessage =
-        "Đã hủy đơn hàng thành công. Sản phẩm đã được trả lại giỏ hàng.";
-    } else {
-      successMessage = `Đã cập nhật trạng thái đơn hàng: ${TrangThai}`;
-    }
 
     return res.json({
       success: true,
-      message: successMessage,
-      data: {
-        MaDH,
-        TrangThaiCu: currentStatus,
-        TrangThaiMoi: TrangThai,
-        NgayCapNhat: new Date(),
-      },
+      message:
+        TrangThai === "Hoàn thành"
+          ? "Đã xác nhận nhận hàng thành công!"
+          : "Cập nhật thành công",
+      data: { MaDH, TrangThaiMoi: TrangThai },
     });
   } catch (err) {
     // ❌ ROLLBACK NẾU CÓ LỖI
@@ -860,7 +744,6 @@ export const getAllOrder = async (req, res) => {
             {
               model: sanpham,
               as: "MaSP_sanpham",
-              // 👇 SỬA 1: XÓA "HinhAnh" Ở ĐÂY ĐỂ TRÁNH LỖI DB
               attributes: ["TenSP"],
               include: [
                 {
@@ -869,9 +752,22 @@ export const getAllOrder = async (req, res) => {
                   attributes: ["URL"],
                 },
               ],
+              // order: [["NgayTao", "DESC"]],
             },
           ],
         },
+        // {
+        //   model: xuatnhapton,
+        //   as: "xuatnhaptons",
+        //   include: [
+        //     {
+        //       model: kho,
+        //       as: "MaKho_kho",
+        //       attributes: ["TenKho", "DC"],
+        //     },
+        //   ],
+        //   required: false,
+        // },
         {
           model: pttt,
           as: "MaPTTT_pttt",
@@ -881,6 +777,11 @@ export const getAllOrder = async (req, res) => {
           model: ptvc,
           as: "MaPTVC_ptvc",
           attributes: ["TenPTVC"],
+        },
+        {
+          model: giaohang,
+          as: "giaohangs",
+          attributes: ["MaGH", "ProofImage", "NgayTao", "TrangThai", "GhiChu"],
         },
       ],
       order: [["NgayTao", "DESC"]],
@@ -949,7 +850,7 @@ export const getAllOrder = async (req, res) => {
     });
   }
 };
-// Hàm lấy đơn hàng theo trạng thái
+
 export const getOrdersByStatus = async (req, res) => {
   try {
     const { status } = req.params;
@@ -979,7 +880,15 @@ export const getOrdersByStatus = async (req, res) => {
             {
               model: sanpham,
               as: "MaSP_sanpham",
+              // 👇 SỬA Ở ĐÂY: Chỉ lấy TenSP, bỏ HinhAnh đi vì cột này không có trong bảng sanpham
               attributes: ["TenSP"],
+              include: [
+                {
+                  model: hinhanh,
+                  as: "hinhanhs",
+                  attributes: ["URL"],
+                },
+              ],
             },
           ],
         },
@@ -993,18 +902,43 @@ export const getOrdersByStatus = async (req, res) => {
           as: "MaPTVC_ptvc",
           attributes: ["TenPTVC"],
         },
-        // {
-        //   model: thanhtoan,
-        //   as: "thanhtoan", // ← SỬA ALIAS Ở ĐÂY NỮA
-        //   attributes: ['TrangThai', 'Sotien', 'NgayTao']
-        // }
+        {
+          model: giaohang,
+          as: "giaohangs",
+          attributes: ["MaGH", "ProofImage", "NgayTao", "TrangThai"],
+        },
       ],
       order: [["NgayTao", "DESC"]],
     });
 
+    // 🟢 XỬ LÝ DỮ LIỆU ĐỂ LẤY ẢNH ĐẠI DIỆN TỪ BẢNG HINHANH
+    const formattedOrders = orders.map((order) => {
+      const orderData = order.get({ plain: true });
+
+      return {
+        ...orderData,
+        chitiet_donhangs: orderData.chitiet_donhangs.map((item) => {
+          const product = item.MaSP_sanpham;
+
+          // Logic lấy ảnh: Lấy từ mảng hinhanhs (bảng phụ)
+          const mainImage =
+            product.hinhanhs && product.hinhanhs.length > 0
+              ? product.hinhanhs[0].URL
+              : null;
+
+          return {
+            ...item,
+            TenSP: product.TenSP,
+            HinhAnh: mainImage, // Gán URL tìm được vào đây để Frontend dùng
+            hinhanhs: product.hinhanhs || [],
+          };
+        }),
+      };
+    });
+
     return res.json({
       success: true,
-      data: orders,
+      data: formattedOrders,
     });
   } catch (err) {
     console.error("Lỗi khi lấy đơn hàng theo trạng thái:", err);

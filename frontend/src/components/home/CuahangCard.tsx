@@ -127,7 +127,7 @@ const CuahangCard: React.FC<CuahangCardProps> = ({ store }) => {
 
       {/* --- PHẦN 3: NÚT ACTION (Hiện khi hover) --- */}
       <div className="absolute inset-x-0 bottom-0 p-4 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-in-out">
-        <div className="bg-emerald-500 text-white text-sm font-semibold py-2.5 rounded-xl shadow-lg flex items-center justify-center gap-2">
+        <div className="bg-white/20 backdrop-blur-sm text-green-500 p-4 rounded-xl shadow-lg hover:shadow-xl hover:scale-110 transition-all duration-300 group">
           Ghé thăm cửa hàng <ArrowRight className="w-4 h-4" />
         </div>
       </div>

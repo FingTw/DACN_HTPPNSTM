@@ -2,6 +2,7 @@
 import express from "express";
 import adminController from "../controllers/adminController.js";
 import { authenticateToken } from "../controllers/cuahangController.js"; // Tận dụng middleware có sẵn
+import { walletController } from "../controllers/walletController.js";
 
 const router = express.Router();
 
@@ -103,5 +104,10 @@ router.delete("/warehouses/:MaKho", adminController.deleteWarehouse);
 router.get("/employees", adminController.getAllEmployees);
 router.get("/employees/:MaNV", adminController.getEmployeeDetail);
 router.put("/employees/:MaNV", adminController.updateEmployeeInfo);
+
+// 9. QUẢN LÝ TÀI CHÍNH (RÚT TIỀN)
+// ==========================================
+router.get("/withdrawals", walletController.getAllWithdrawals); // Lấy danh sách
+router.put("/withdrawals/handle", walletController.adminHandleWithdraw);
 
 export default router;

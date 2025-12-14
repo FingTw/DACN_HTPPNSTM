@@ -1,5 +1,5 @@
 // src/pages/admin/AdminLayout.tsx
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import {
@@ -16,150 +16,254 @@ import {
   Tag,
   Warehouse,
   UserCog,
+  ChevronDown,
+  Search,
+  Wallet,
+  Menu,
+  X,
 } from "lucide-react";
 
 const AdminLayout: React.FC = () => {
   const { user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
-  // 🔒 Bảo vệ Route: Chỉ Admin mới được vào
+  // Bảo vệ route (Giữ nguyên logic của bạn)
   useEffect(() => {
-    // Kiểm tra role (Giả sử user có trường role hoặc LoaiTK)
     const isAdmin =
       (user as any)?.role === "Admin" || (user as any)?.LoaiTK === "Admin";
-    if (!user || !isAdmin) {
-      // alert("Bạn không có quyền truy cập trang này!");
-      // navigate("/");
-      // Tạm thời comment để bạn test giao diện nếu chưa set role Admin trong DB
-    }
+    // if (!user || !isAdmin) { navigate("/"); }
   }, [user, navigate]);
 
-  const menuItems = [
+  // Cấu trúc menu phân nhóm
+  const menuGroups = [
     {
-      path: "/admin/dashboard",
-      label: "Tổng quan",
-      icon: <LayoutDashboard size={20} />,
-    },
-    { path: "/admin/users", label: "Người dùng", icon: <Users size={20} /> },
-    {
-      path: "/admin/employees",
-      label: "Nhân viên",
-      icon: <Briefcase size={20} />,
-    },
-    {
-      path: "/admin/departments",
-      label: "Phòng ban",
-      icon: <Building2 size={20} />,
+      title: "Tổng quan",
+      items: [
+        {
+          path: "/admin/dashboard",
+          label: "Dashboard",
+          icon: <LayoutDashboard size={20} />,
+        },
+      ],
     },
     {
-      path: "/admin/positions",
-      label: "Chức vụ",
-      icon: <Users size={20} />,
-    },
-    { path: "/admin/shops", label: "Cửa hàng", icon: <Store size={20} /> },
-    { path: "/admin/products", label: "Sản phẩm", icon: <Box size={20} /> },
-    {
-      path: "/admin/categories",
-      label: "Danh mục",
-      icon: <Tag size={20} />,
-    },
-    {
-      path: "/admin/warehouses",
-      label: "Kho bãi",
-      icon: <Warehouse size={20} />,
-    },
-    {
-      path: "/admin/account-assignment",
-      label: "Gán Tài Khoản",
-      icon: <UserCog size={20} />,
-    },
-    {
-      path: "/admin/blockchain",
-      label: "Blockchain",
-      icon: <LinkIcon size={20} />,
+      title: "Quản lý hệ thống",
+      items: [
+        {
+          path: "/admin/users",
+          label: "Người dùng",
+          icon: <Users size={20} />,
+        },
+        {
+          path: "/admin/employees",
+          label: "Nhân viên",
+          icon: <Briefcase size={20} />,
+        },
+        { path: "/admin/shops", label: "Cửa hàng", icon: <Store size={20} /> },
+        {
+          path: "/admin/account-assignment",
+          label: "Phân quyền",
+          icon: <UserCog size={20} />,
+        },
+      ],
     },
     {
-      path: "/admin/settings",
-      label: "Cấu hình",
-      icon: <Settings size={20} />,
+      title: "Tài chính & Kho vận",
+      items: [
+        { path: "/admin/products", label: "Sản phẩm", icon: <Box size={20} /> },
+        {
+          path: "/admin/withdrawals",
+          label: "Rút tiền",
+          icon: <Wallet size={20} />,
+        }, // 🆕 MENU MỚI
+        {
+          path: "/admin/warehouses",
+          label: "Kho bãi",
+          icon: <Warehouse size={20} />,
+        },
+      ],
+    },
+    {
+      title: "Cấu hình",
+      items: [
+        {
+          path: "/admin/departments",
+          label: "Phòng ban",
+          icon: <Building2 size={20} />,
+        },
+        {
+          path: "/admin/positions",
+          label: "Chức vụ",
+          icon: <Users size={20} />,
+        },
+        {
+          path: "/admin/categories",
+          label: "Danh mục",
+          icon: <Tag size={20} />,
+        },
+        {
+          path: "/admin/blockchain",
+          label: "Blockchain",
+          icon: <LinkIcon size={20} />,
+        },
+        {
+          path: "/admin/settings",
+          label: "Cài đặt",
+          icon: <Settings size={20} />,
+        },
+      ],
     },
   ];
 
   return (
-    <div className="min-h-screen bg-gray-100 flex">
+    <div className="min-h-screen bg-slate-50 flex font-sans text-slate-900">
       {/* --- SIDEBAR --- */}
-      <aside className="w-64 bg-slate-900 text-white flex-shrink-0 fixed h-full z-20">
-        <div className="p-6 border-b border-slate-700">
-          <h1 className="text-2xl font-bold bg-gradient-to-r from-emerald-400 to-teal-500 bg-clip-text text-transparent">
-            Admin Panel
-          </h1>
-          <p className="text-xs text-slate-400 mt-1">
-            Hệ thống quản lý nông sản
-          </p>
+      <aside
+        className={`fixed inset-y-0 left-0 z-50 bg-white border-r border-slate-200 transition-all duration-300 ease-in-out
+          ${isSidebarOpen ? "w-64" : "w-20"} 
+          flex flex-col shadow-xl lg:shadow-none
+        `}
+      >
+        {/* Logo Area */}
+        <div className="h-16 flex items-center justify-center border-b border-slate-100">
+          {isSidebarOpen ? (
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 bg-emerald-600 rounded-lg flex items-center justify-center text-white font-bold">
+                A
+              </div>
+              <span className="text-xl font-bold bg-gradient-to-r from-emerald-600 to-teal-500 bg-clip-text text-transparent">
+                AdminPanel
+              </span>
+            </div>
+          ) : (
+            <div className="w-8 h-8 bg-emerald-600 rounded-lg flex items-center justify-center text-white font-bold">
+              A
+            </div>
+          )}
         </div>
 
-        <nav className="p-4 space-y-2">
-          {menuItems.map((item) => (
-            <Link
-              key={item.path}
-              to={item.path}
-              className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${
-                location.pathname === item.path
-                  ? "bg-emerald-600 text-white shadow-lg shadow-emerald-900/20"
-                  : "text-slate-400 hover:bg-slate-800 hover:text-white"
-              }`}
-            >
-              {item.icon}
-              <span className="font-medium">{item.label}</span>
-            </Link>
+        {/* Menu Items */}
+        <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-6 scrollbar-thin scrollbar-thumb-slate-200">
+          {menuGroups.map((group, idx) => (
+            <div key={idx}>
+              {isSidebarOpen && (
+                <h3 className="px-3 mb-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                  {group.title}
+                </h3>
+              )}
+              <div className="space-y-1">
+                {group.items.map((item) => {
+                  const isActive = location.pathname === item.path;
+                  return (
+                    <Link
+                      key={item.path}
+                      to={item.path}
+                      title={!isSidebarOpen ? item.label : ""}
+                      className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group
+                        ${
+                          isActive
+                            ? "bg-emerald-50 text-emerald-700 shadow-sm font-medium"
+                            : "text-slate-600 hover:bg-slate-50 hover:text-emerald-600"
+                        }
+                      `}
+                    >
+                      <div
+                        className={`${
+                          isActive
+                            ? "text-emerald-600"
+                            : "text-slate-400 group-hover:text-emerald-500"
+                        }`}
+                      >
+                        {item.icon}
+                      </div>
+                      {isSidebarOpen && <span>{item.label}</span>}
+
+                      {/* Active Indicator Strip */}
+                      {isActive && isSidebarOpen && (
+                        <div className="ml-auto w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
+                      )}
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
           ))}
         </nav>
 
-        <div className="absolute bottom-0 w-full p-4 border-t border-slate-700">
+        {/* Footer Sidebar */}
+        <div className="p-3 border-t border-slate-100">
           <button
             onClick={logout}
-            className="flex items-center gap-3 px-4 py-3 w-full text-rose-400 hover:bg-rose-500/10 rounded-xl transition-all"
+            className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-rose-500 hover:bg-rose-50 transition-colors ${
+              !isSidebarOpen && "justify-center"
+            }`}
           >
             <LogOut size={20} />
-            <span>Đăng xuất</span>
+            {isSidebarOpen && <span className="font-medium">Đăng xuất</span>}
           </button>
         </div>
       </aside>
 
       {/* --- MAIN CONTENT --- */}
-      <main className="flex-1 ml-64">
-        {/* Header */}
-        <header className="bg-white h-16 shadow-sm flex items-center justify-between px-8 sticky top-0 z-10">
-          <h2 className="text-xl font-bold text-gray-800">
-            {menuItems.find((i) => i.path === location.pathname)?.label ||
-              "Dashboard"}
-          </h2>
-
-          <div className="flex items-center gap-6">
-            <button className="relative p-2 text-gray-500 hover:bg-gray-100 rounded-full">
-              <Bell size={20} />
-              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+      <div
+        className={`flex-1 flex flex-col min-w-0 transition-all duration-300 ${
+          isSidebarOpen ? "lg:ml-64" : "lg:ml-20"
+        }`}
+      >
+        {/* Top Header */}
+        <header className="h-16 bg-white border-b border-slate-200 sticky top-0 z-40 flex items-center justify-between px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+              className="p-2 rounded-lg hover:bg-slate-100 text-slate-500"
+            >
+              {isSidebarOpen ? <Menu size={20} /> : <Menu size={20} />}
             </button>
-            <div className="flex items-center gap-3">
+
+            {/* Search Bar */}
+            <div className="hidden md:flex items-center relative">
+              <Search className="absolute left-3 w-4 h-4 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Tìm kiếm..."
+                className="pl-9 pr-4 py-2 bg-slate-100 border-none rounded-full text-sm focus:ring-2 focus:ring-emerald-500 w-64 transition-all"
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center gap-4 sm:gap-6">
+            <button className="relative p-2 text-slate-500 hover:bg-slate-100 rounded-full transition-colors">
+              <Bell size={20} />
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-rose-500 rounded-full ring-2 ring-white"></span>
+            </button>
+
+            {/* User Profile */}
+            <div className="flex items-center gap-3 pl-6 border-l border-slate-200">
               <div className="text-right hidden sm:block">
-                <p className="text-sm font-bold text-gray-800">
-                  {(user as any)?.TenDangNhap || "Admin"}
+                <p className="text-sm font-bold text-slate-800">
+                  {(user as any)?.TenDangNhap || "Administrator"}
                 </p>
-                <p className="text-xs text-emerald-600">Administrator</p>
+                <p className="text-xs text-emerald-600 font-medium">
+                  Super Admin
+                </p>
               </div>
-              <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 font-bold border-2 border-emerald-200">
-                A
+              <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center text-white font-bold shadow-md shadow-emerald-200 cursor-pointer hover:shadow-lg transition-all">
+                {(user as any)?.TenDangNhap?.charAt(0).toUpperCase() || "A"}
               </div>
             </div>
           </div>
         </header>
 
-        {/* Page Content */}
-        <div className="p-8">
-          <Outlet />
-        </div>
-      </main>
+        {/* Page Content Wrapper */}
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-x-hidden">
+          {/* Breadcrumb / Page Title Area can go here */}
+          <div className="max-w-7xl mx-auto animate-fade-in-up">
+            <Outlet />
+          </div>
+        </main>
+      </div>
     </div>
   );
 };

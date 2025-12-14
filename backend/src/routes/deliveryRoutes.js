@@ -6,8 +6,11 @@ import {
   shipperTakeOrder,
   shipperPickupOrder,
 } from "../controllers/deliveryController.js"; // hoặc deliveryController.js
+import { authenticateToken } from "../controllers/cuahangController.js";
 
 const router = express.Router();
+
+router.use(authenticateToken);
 
 // Admin assign shipper
 router.post("/assign", assignDelivery);

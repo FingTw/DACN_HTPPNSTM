@@ -12,6 +12,11 @@ const StoreManager: React.FC<StoreManagerProps> = ({
   isOwner,
   onStoreUpdate,
 }) => {
+  const formatCurrency = (value?: number | string) => {
+    const num = Number(value || 0);
+    return num.toLocaleString("vi-VN", { style: "currency", currency: "VND" });
+  };
+
   const [editing, setEditing] = useState<boolean>(false);
   const [formData, setFormData] = useState<StoreFormData>({
     TenCH: store?.TenCH || "",
@@ -153,6 +158,15 @@ const StoreManager: React.FC<StoreManagerProps> = ({
         </form>
       ) : (
         <div className="space-y-4">
+          <div className="flex items-center justify-between bg-emerald-50 border border-emerald-100 rounded-xl px-4 py-3">
+            <span className="text-sm font-medium text-emerald-700">
+              Số dư ví cửa hàng
+            </span>
+            <span className="text-lg font-bold text-emerald-700">
+              {formatCurrency(store.SoDu)}
+            </span>
+          </div>
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Tên cửa hàng
