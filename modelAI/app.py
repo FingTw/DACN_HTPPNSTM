@@ -5,17 +5,31 @@ from PIL import Image
 import os
 from werkzeug.utils import secure_filename
 from flask_cors import CORS
+from recommender import ProductRecommender
 
 app = Flask(__name__)
 CORS(app)
 
-# Load model khi khởi động server
+DB_USER = 'root'          
+DB_PASSWORD = ''          
+DB_HOST = 'localhost'    
+DB_NAME = 'nong_san_db'
+
+DB_CONNECTION_STRING = f"mysql+pymysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}/{DB_NAME}"
+
+recommender = ProductRecommender(db_config=DB_CONNECTION_STRING)
+
 try:
     model = tf.keras.models.load_model("fruit_veg_model.h5")
     print("✅ Model loaded successfully!")
 except Exception as e:
     print(f"❌ Error loading model: {e}")
     model = None
+
+try:
+    recommender.load_data_from_db()
+except Exception as e:
+    print(f"❌ Không thể khởi tạo Recommender từ DB: {e}")
 
 # 🟢 DANH SÁCH ĐẦY ĐỦ CLASS NAMES
 CLASS_NAMES = [
@@ -60,6 +74,42 @@ def predict_image(image):
     class_idx = int(np.argmax(pred))
     confidence = float(np.max(pred))
     return class_idx, confidence
+
+# 🟢 API GỢI Ý SẢN PHẨM (Đã dùng dữ liệu thật)
+@app.route("/recommend", methods=["POST"])
+def recommend_products():
+    try:
+        data = request.get_json()
+        if not data or 'cart' not in data:
+            return jsonify({"success": False, "message": "Thiếu thông tin 'cart'"}), 400
+            
+        current_cart = data['cart'] # List tên sản phẩm, VD: ["Cà chua", "Trứng"]
+        
+        # Gọi hàm gợi ý
+        recommendations = recommender.recommend(current_cart, top_n=5)
+        
+        return jsonify({
+            "success": True,
+            "input_cart": current_cart,
+            "recommendations": recommendations,
+            "source": "database_history"
+        })
+
+    except Exception as e:
+        print(f"❌ Lỗi gợi ý: {e}")
+        return jsonify({"success": False, "message": str(e)}), 500
+
+# 🟢 API TRAIN LẠI MODEL (Gọi thủ công khi cần update dữ liệu mới từ DB)
+@app.route("/retrain", methods=["POST"])
+def retrain_model():
+    try:
+        recommender.load_data_from_db()
+        return jsonify({
+            "success": True, 
+            "message": "Đã tải lại dữ liệu từ Database và train lại model."
+        })
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500
 
 # 🟢 API DỰ ĐOÁN
 @app.route("/predict", methods=["POST"])
