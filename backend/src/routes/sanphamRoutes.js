@@ -14,6 +14,7 @@ import {
   searchSanpham,
   getCategoriesWithCount,
   getProductStats,
+  getAllProductsForAI,
 } from "../controllers/sanphamController.js";
 
 const router = express.Router();
@@ -63,6 +64,8 @@ const upload = multer({
 // 🔍 Lấy danh sách tất cả sản phẩm (có phân trang, tìm kiếm, lọc)
 // GET /api/sanpham?page=1&limit=10&search=iphone&minPrice=1000000&maxPrice=5000000&minRating=4&danhMuc=DM001&sortBy=newest
 router.get("/", getAllSanpham);
+
+router.get("/all-for-ai", getAllProductsForAI);
 
 // 🔍 Tìm kiếm sản phẩm nâng cao
 // GET /api/sanpham/tim-kiem?keyword=iphone&minPrice=1000000&minRating=4&MaCH=CH001

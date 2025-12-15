@@ -395,6 +395,44 @@ export const getAllSanpham = async (req, res) => {
   }
 };
 
+export const getAllProductsForAI = async (req, res) => {
+  try {
+    const products = await sanpham.findAll({
+      // 🟢 SỬA Ở ĐÂY: Bỏ 'HinhAnh' ra khỏi danh sách attributes
+      attributes: ["MaSP", "TenSP", "GiaBan", "SLTon", "MaCH"],
+      include: [
+        {
+          model: hinhanh,
+          as: "hinhanhs",
+          attributes: ["URL"],
+          through: { attributes: [] },
+        },
+      ],
+    });
+
+    // Format dữ liệu gọn nhẹ
+    const formattedProducts = products.map((product) => {
+      const p = product.get({ plain: true });
+      return {
+        MaSP: p.MaSP,
+        TenSP: p.TenSP,
+        GiaBan: parseFloat(p.GiaBan),
+        SLTon: p.SLTon,
+        // 🟢 Logic lấy ảnh: Chỉ lấy từ bảng hinhanhs
+        HinhAnh: p.hinhanhs && p.hinhanhs.length > 0 ? p.hinhanhs[0].URL : null,
+      };
+    });
+
+    res.json({
+      success: true,
+      data: formattedProducts,
+    });
+  } catch (err) {
+    console.error("❌ Lỗi lấy danh sách sản phẩm cho AI:", err);
+    res.status(500).json({ success: false, message: "Lỗi server" });
+  }
+};
+
 // 🟢 LẤY DANH MỤC VỚI SỐ LƯỢNG SẢN PHẨM
 export const getCategoriesWithCount = async (req, res) => {
   try {
