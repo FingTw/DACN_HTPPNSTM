@@ -10,7 +10,7 @@ import { authAPI } from "../services/authService";
 interface User {
   MaTK: string;
   TenDangNhap: string;
-  role?: string;
+  role: string;
   roles?: string[];
   HoTen: string;
   MaCH?: string | null;
@@ -24,6 +24,7 @@ interface AuthContextType {
   logout: () => void;
   isAuthenticated: () => boolean;
   hasRole: (role: string | string[]) => boolean;
+  getUserRoles: () => string[];
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -107,24 +108,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     return !!localStorage.getItem("token");
   };
 
-  const getUserRoles = (usr: User | null): string[] => {
-    if (!usr) return [];
-    if (usr.roles && usr.roles.length > 0) return usr.roles;
-    return usr.role ? [usr.role] : [];
-  };
+  const getUserRoles = useCallback((): string[] => {
+    if (!user) return [];
+    if (user.roles && user.roles.length > 0) return user.roles;
+    return user.role ? [user.role] : [];
+  }, [user]);
+
+
+  const normalizeRole = (r: string) => r.trim().toLowerCase();
 
   const hasRole = useCallback(
     (role: string | string[]) => {
-      const targetRoles = Array.isArray(role) ? role : [role];
-      const userRoles = getUserRoles(user);
+      const targetRoles = (Array.isArray(role) ? role : [role])
+        .map(normalizeRole);
+
+      const userRoles = getUserRoles().map(normalizeRole);
+
       return targetRoles.some((r) => userRoles.includes(r));
     },
-    [user]
+    [getUserRoles]
   );
 
   return (
     <AuthContext.Provider
-      value={{ user, loading, login, logout, isAuthenticated, hasRole }}
+      value={{ user, loading, login, logout, isAuthenticated, hasRole, getUserRoles }}
     >
       {children}
     </AuthContext.Provider>

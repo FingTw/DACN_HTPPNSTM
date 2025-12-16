@@ -140,7 +140,7 @@ const RecordEvent: React.FC = () => {
             if (result.success) {
                 setResult({
                     success: true,
-                    data: result.data,
+                    // data: result.data,
                     message: 'Sự kiện đã được ghi thành công lên blockchain!'
                 });
 

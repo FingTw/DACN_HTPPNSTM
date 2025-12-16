@@ -14,7 +14,9 @@ import {
   getStoreOrders,
   updateOrderStatusByStore,
   getOrderStatistics,
-  getOrderDetail
+  getOrderDetail,
+  getAvailableShippingMethods,  
+  validateShippingMethod  
 } from "../controllers/orderController.js";
 
 const router = express.Router();
@@ -34,22 +36,41 @@ router.get("/order-success/:MaDH", orderSuccess);
 // Cập nhật trạng thái đơn hàng (admin)
 router.put("/update-status/:MaDH", updateOrderStatus);
 
-// 🆕 Tính toán phí vận chuyển theo khoảng cách thực tế
+// ==================== PHƯƠNG THỨC VẬN CHUYỂN MỚI ====================
+// 🆕 Tính toán phí vận chuyển theo loại giao hàng (standard/fast/express/super_express)
 router.post("/calculate-shipping", calculateShipping);
 
-// Lấy phương thức vận chuyển
+// 🆕 Lấy tất cả phương thức vận chuyển khả dụng cho địa chỉ
+router.post("/shipping/methods", getAvailableShippingMethods);
+
+// 🆕 Validate phương thức vận chuyển trước khi checkout
+router.post("/shipping/validate", validateShippingMethod);
+
+// ==================== PHƯƠNG THỨC VẬN CHUYỂN/THANH TOÁN ====================
+// Lấy danh sách phương thức vận chuyển (cấu hình trong DB)
 router.get("/shipping-methods", getShippingMethods);
 
-// Lấy phương thức thanh toán
+// Lấy danh sách phương thức thanh toán
 router.get("/payment-methods", getPaymentMethods);
 
-// Lấy tất cả đơn hàng
+// ==================== QUẢN LÝ ĐƠN HÀNG ====================
+// Lấy tất cả đơn hàng của người dùng
 router.get("/all", getAllOrder);
+
+// Lấy đơn hàng theo trạng thái
 router.get("/status/:status", getOrdersByStatus);
-// 🆕 CÁC ENDPOINTS MỚI CHO ORDER MANAGER
-router.get("/cua-hang/:MaCH", getStoreOrders); // Lấy đơn hàng theo cửa hàng
-router.put("/:MaDH/trang-thai-cua-hang", updateOrderStatusByStore); // Cập nhật trạng thái bởi cửa hàng
-router.get("/cua-hang/:MaCH/thong-ke", getOrderStatistics); // Thống kê đơn hàng
-router.get("/chi-tiet/:MaDH", getOrderDetail); // Chi tiết đơn hàng
+
+// ==================== QUẢN LÝ ĐƠN HÀNG THEO CỬA HÀNG ====================
+// 🆕 Lấy đơn hàng theo cửa hàng (cho order manager)
+router.get("/cua-hang/:MaCH", getStoreOrders);
+
+// 🆕 Cập nhật trạng thái bởi cửa hàng
+router.put("/:MaDH/trang-thai-cua-hang", updateOrderStatusByStore);
+
+// 🆕 Thống kê đơn hàng theo cửa hàng
+router.get("/cua-hang/:MaCH/thong-ke", getOrderStatistics);
+
+// 🆕 Chi tiết đơn hàng
+router.get("/chi-tiet/:MaDH", getOrderDetail);
 
 export default router;

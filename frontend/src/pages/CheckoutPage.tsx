@@ -8,16 +8,15 @@ import type {
   ProcessCheckoutData,
   ShippingCalculationResult,
   OrderItem as BaseOrderItem,
-  PaymentMethod, // Import thêm type này
+  PaymentMethod,
+  ShippingMethod as BaseShippingMethod, // Import type mới
 } from "@/services/orderService";
 import { AddressInput } from "@/components/AddressInput";
-import { ShippingSpeedSelector } from "@/components/shipping/ShippingSpeedSelector";
+import { ShippingSpeedSelector } from "@/components/shipping/ShippingSpeedSelector"; // Có thể giữ cho UI hoặc thay thế
 import { khuyenMaiAPI, type KhuyenMaiDaNhan } from "@/services/khuyenmaiApi";
 import { useAcceptProposal } from "@/hooks/useRFQ";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
-
-// 🟢 IMPORT COMPONENT PAYPAL
 import PayPalButtonWrapper from "@/components/payment/PayPalButtonWrapper";
 
 interface CheckoutProduct extends BaseOrderItem {
@@ -39,10 +38,21 @@ interface CheckoutData {
   shippingFee: number;
 }
 
+// 🆕 Interface Shipping Method mới theo API mới
 interface ShippingMethod {
   MaPTVC: string;
   TenPTVC: string;
-  PhiVanChuyen?: number;
+  PhiVanChuyen: number;
+  ThoiGianGiaoHang: string;
+  TocDo: string;
+  isAvailable: boolean;
+  UuDai: string[];
+  zone: string;
+  metadata?: {
+    pricingSource: string;
+    ruleApplied: string;
+    administrativeScope: string;
+  };
 }
 
 interface Address {
@@ -66,6 +76,39 @@ interface DiscountResult {
   appliedVouchers: AppliedVouchers;
 }
 
+// 🆕 Interface cho API response
+interface AvailableShippingResponse {
+  success: boolean;
+  data: {
+    availableMethods: ShippingMethod[];
+    zone: string;
+    unavailableReasons: Record<string, string>;
+  };
+  message: string;
+}
+
+// 🆕 Interface cho Shipping Calculation Response mới
+interface NewShippingCalculationResult {
+  success: boolean;
+  data: {
+    deliveryFee: number;
+    deliveryType: string;
+    zone: string;
+    metadata: {
+      originProvince: string;
+      destinationProvince: string;
+      isIntraCity: boolean;
+      isIntraProvince: boolean;
+      pricingSource: string;
+      ruleApplied: string;
+      estimatedDistance?: number;
+      administrativeScope: string;
+      calculatedAt: string;
+    };
+  };
+  message: string;
+}
+
 const CheckoutPage: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -75,19 +118,19 @@ const CheckoutPage: React.FC = () => {
   const { acceptProposal, loading: rfqLoading } = useAcceptProposal();
 
   const [loading, setLoading] = useState(false);
-  const [shippingMethods, setShippingMethods] = useState<ShippingMethod[]>([]);
+  const [shippingMethods, setShippingMethods] = useState<BaseShippingMethod[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [methodsLoading, setMethodsLoading] = useState(true);
   const [address, setAddress] = useState<Address | null>(null);
   const [finalTotalAmount, setFinalTotalAmount] = useState(0);
 
-  const [selectedShippingMethod, setSelectedShippingMethod] =
-    useState<ShippingCalculationResult | null>(null);
+  // 🆕 State mới cho shipping
+  const [availableShippingMethods, setAvailableShippingMethods] = useState<ShippingMethod[]>([]);
+  const [selectedShippingMethod, setSelectedShippingMethod] = useState<ShippingMethod | null>(null);
   const [dynamicShippingFee, setDynamicShippingFee] = useState(0);
+  const [shippingMethodsLoading, setShippingMethodsLoading] = useState(false);
 
-  const [availableVouchers, setAvailableVouchers] = useState<KhuyenMaiDaNhan[]>(
-    []
-  );
+  const [availableVouchers, setAvailableVouchers] = useState<KhuyenMaiDaNhan[]>([]);
   const [selectedVouchers, setSelectedVouchers] = useState<AppliedVouchers>({});
   const [vouchersLoading, setVouchersLoading] = useState(false);
   const [discountResult, setDiscountResult] = useState<DiscountResult>({
@@ -104,9 +147,7 @@ const CheckoutPage: React.FC = () => {
     MaPTTT: "",
   });
 
-  // State lưu tạm MaDH khi thanh toán PayPal
   const tempOrderIdRef = useRef<string | null>(null);
-
   const checkoutData = location.state as CheckoutData;
 
   const subtotal =
@@ -125,11 +166,87 @@ const CheckoutPage: React.FC = () => {
           ...prev,
           DCNhanHang: addressData.fullAddress,
         }));
+        // 🆕 Load shipping methods khi có địa chỉ đã lưu
+        if (addressData.fullAddress) {
+          fetchAvailableShippingMethods(addressData.fullAddress);
+        }
       } catch (error) {
         console.error("Lỗi khi parse địa chỉ:", error);
       }
     }
   }, []);
+
+  // 🆕 Hàm lấy shipping methods khả dụng
+  const fetchAvailableShippingMethods = async (deliveryAddress: string) => {
+    if (!deliveryAddress.trim()) return;
+    
+    setShippingMethodsLoading(true);
+    try {
+      // 🆕 Sử dụng API mới: POST /shipping/methods
+      const response = await orderService.getAvailableShippingMethods(deliveryAddress);
+      
+      if (response.success && response.data?.availableMethods) {
+        setAvailableShippingMethods(response.data.availableMethods);
+        
+        // Tự động chọn phương thức đầu tiên nếu có
+        if (response.data.availableMethods.length > 0) {
+          const firstMethod = response.data.availableMethods[0];
+          handleShippingSelect(firstMethod);
+        }
+      } else {
+        setAvailableShippingMethods([]);
+      }
+    } catch (error: any) {
+      console.error("Lỗi khi lấy phương thức vận chuyển:", error);
+      toast.error(error.message || "Không thể lấy phương thức vận chuyển");
+      setAvailableShippingMethods([]);
+    } finally {
+      setShippingMethodsLoading(false);
+    }
+  };
+
+  // 🆕 Hàm tính phí vận chuyển cho một phương thức cụ thể
+  const calculateShippingForMethod = async (deliveryType: string) => {
+    if (!address?.fullAddress || !deliveryType) return;
+    
+    try {
+      // 🆕 Sử dụng API mới: POST /calculate-shipping
+      const response = await orderService.calculateShippingFee({
+        deliveryAddress: address.fullAddress,
+        items: checkoutData?.selectedItems.map(item => ({
+          MaSP: item.MaSP,
+          SL: item.SL,
+          GiaBan: item.MaSP_sanpham?.GiaBan || 0
+        })) || [],
+        deliveryType: deliveryType
+      });
+      
+      if (response.success && response.data) {
+        return response.data.deliveryFee;
+      }
+      return 0;
+    } catch (error) {
+      console.error("Lỗi tính phí vận chuyển:", error);
+      return 0;
+    }
+  };
+
+  // 🆕 Hàm validate phương thức vận chuyển
+  const validateShippingMethod = async (deliveryType: string) => {
+    if (!address?.fullAddress) return false;
+    
+    try {
+      const response = await orderService.validateShippingMethod({
+        deliveryAddress: address.fullAddress,
+        deliveryType: deliveryType
+      });
+      
+      return response.success;
+    } catch (error) {
+      console.error("Lỗi validate phương thức vận chuyển:", error);
+      return false;
+    }
+  };
 
   // Load khuyến mãi
   useEffect(() => {
@@ -273,26 +390,38 @@ const CheckoutPage: React.FC = () => {
     setFinalTotalAmount(result.finalTotal);
   }, [selectedVouchers, subtotal, dynamicShippingFee, calculateDiscounts]);
 
+  // 🆕 Cập nhật handleAddressSelect
   const handleAddressSelect = useCallback((selectedAddress: Address) => {
     setAddress(selectedAddress);
     localStorage.setItem(
       "savedShippingAddress",
       JSON.stringify(selectedAddress)
     );
+    const fullAddress = selectedAddress.fullAddress;
     setFormData((prev) => ({
       ...prev,
-      DCNhanHang: selectedAddress.fullAddress,
+      DCNhanHang: fullAddress,
     }));
+    
+    // 🆕 Load shipping methods khi chọn địa chỉ mới
+    fetchAvailableShippingMethods(fullAddress);
   }, []);
 
-  const handleShippingSelect = useCallback(
-    (shipping: ShippingCalculationResult) => {
-      setSelectedShippingMethod(shipping);
-      setDynamicShippingFee(shipping.PhiVanChuyen);
-      setFormData((prev) => ({ ...prev, MaPTVC: shipping.MaPTVC }));
-    },
-    []
-  );
+  // 🆕 Cập nhật handleShippingSelect
+  const handleShippingSelect = useCallback(async (shipping: ShippingMethod) => {
+    setSelectedShippingMethod(shipping);
+    setDynamicShippingFee(shipping.PhiVanChuyen);
+    setFormData((prev) => ({ ...prev, MaPTVC: shipping.MaPTVC }));
+    
+    // 🆕 Validate phương thức đã chọn
+    const isValid = await validateShippingMethod(shipping.TocDo);
+    if (!isValid) {
+      toast.error(`Phương thức ${shipping.TenPTVC} không thể áp dụng cho địa chỉ này`);
+      return;
+    }
+    
+    toast.success(`Đã chọn: ${shipping.TenPTVC}`);
+  }, [address]);
 
   useEffect(() => {
     if (
@@ -354,7 +483,7 @@ const CheckoutPage: React.FC = () => {
     return true;
   };
 
-  // 🟢 HÀM TẠO PAYLOAD ĐƠN HÀNG
+  // 🟢 HÀM TẠO PAYLOAD ĐƠN HÀNG (CẬP NHẬT VỚI deliveryType)
   const createOrderPayload = () => {
     const processedItems = checkoutData.selectedItems.map((item) => ({
       MaSP: item.MaSP.trim(),
@@ -365,7 +494,8 @@ const CheckoutPage: React.FC = () => {
     return {
       DCNhanHang: formData.DCNhanHang.trim(),
       MaPTVC: formData.MaPTVC,
-      MaPTTT: formData.MaPTTT === "PAYPAL" ? "TT02" : formData.MaPTTT, // Map PayPal về một loại TT trong DB (ví dụ Chuyển khoản)
+      deliveryType: selectedShippingMethod?.TocDo || "standard", // 🆕 Thêm deliveryType
+      MaPTTT: formData.MaPTTT === "PAYPAL" ? "TT02" : formData.MaPTTT,
       TongTien: discountResult.finalTotal,
       items: processedItems,
       PhiVanChuyen: dynamicShippingFee,
@@ -456,6 +586,90 @@ const CheckoutPage: React.FC = () => {
     }
   };
 
+  // 🆕 Hàm render phương thức vận chuyển
+  const renderShippingMethods = () => {
+    if (shippingMethodsLoading) {
+      return <p className="text-gray-500">Đang tải phương thức vận chuyển...</p>;
+    }
+
+    if (!address?.fullAddress) {
+      return <p className="text-gray-500">Vui lòng chọn địa chỉ để xem phương thức vận chuyển.</p>;
+    }
+
+    if (availableShippingMethods.length === 0) {
+      return <p className="text-gray-500">Không có phương thức vận chuyển khả dụng cho địa chỉ này.</p>;
+    }
+
+    return (
+      <div className="space-y-3">
+        {availableShippingMethods.map((method) => (
+          <div
+            key={method.MaPTVC}
+            className={`p-4 border rounded-lg cursor-pointer transition-all ${
+              selectedShippingMethod?.MaPTVC === method.MaPTVC
+                ? "border-green-500 bg-green-50 shadow-sm"
+                : "border-gray-200 hover:border-gray-300"
+            }`}
+            onClick={() => handleShippingSelect(method)}
+          >
+            <div className="flex justify-between items-start">
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <h3 className="font-semibold text-gray-900">{method.TenPTVC}</h3>
+                  <span className={`text-xs px-2 py-1 rounded-full ${
+                    method.TocDo === 'super_express' ? 'bg-red-100 text-red-800' :
+                    method.TocDo === 'express' ? 'bg-orange-100 text-orange-800' :
+                    method.TocDo === 'fast' ? 'bg-blue-100 text-blue-800' :
+                    'bg-gray-100 text-gray-800'
+                  }`}>
+                    {method.TocDo}
+                  </span>
+                </div>
+                <p className="text-sm text-gray-600 mt-1">
+                  <span className="font-medium">Thời gian:</span> {method.ThoiGianGiaoHang}
+                </p>
+                {method.UuDai && method.UuDai.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {method.UuDai.map((benefit, index) => (
+                      <span
+                        key={index}
+                        className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded"
+                      >
+                        {benefit}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div className="text-right">
+                <p className="font-bold text-green-600 text-lg">
+                  {method.PhiVanChuyen.toLocaleString("vi-VN")}đ
+                </p>
+                <p className="text-xs text-gray-500 mt-1">{method.zone}</p>
+              </div>
+            </div>
+            {selectedShippingMethod?.MaPTVC === method.MaPTVC && (
+              <div className="mt-2 pt-2 border-t border-green-200">
+                <p className="text-xs text-green-600">
+                  ✓ Đã chọn • {method.metadata?.pricingSource}
+                </p>
+              </div>
+            )}
+          </div>
+        ))}
+        
+        {/* Hiển thị lý do không khả dụng nếu có */}
+        {availableShippingMethods.some(m => !m.isAvailable) && (
+          <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded">
+            <p className="text-sm text-yellow-800">
+              ⚠️ Một số phương thức không khả dụng cho địa chỉ này
+            </p>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-50 via-white to-emerald-50/30">
       <Header />
@@ -499,7 +713,6 @@ const CheckoutPage: React.FC = () => {
               {/* Khuyến mãi */}
               <div className="bg-white rounded-lg shadow-sm p-6">
                 <h2 className="text-xl font-semibold mb-4">Khuyến Mãi</h2>
-                {/* ... (Phần UI Khuyến mãi giữ nguyên logic cũ) ... */}
                 {vouchersLoading ? (
                   <p>Đang tải...</p>
                 ) : (
@@ -545,19 +758,13 @@ const CheckoutPage: React.FC = () => {
                     required
                   />
 
-                  <ShippingSpeedSelector
-                    province={address?.province || ""}
-                    district={address?.district || ""}
-                    items={
-                      checkoutData?.selectedItems.map((item) => ({
-                        MaSP: item.MaSP,
-                        SL: item.SL,
-                        GiaBan: item.MaSP_sanpham.GiaBan,
-                      })) || []
-                    }
-                    selectedShipping={selectedShippingMethod}
-                    onShippingSelect={handleShippingSelect}
-                  />
+                  {/* 🆕 Hiển thị phương thức vận chuyển mới */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Phương thức vận chuyển
+                    </label>
+                    {renderShippingMethods()}
+                  </div>
 
                   {/* 🟢 SELECT PHƯƠNG THỨC THANH TOÁN */}
                   <div>
@@ -618,6 +825,25 @@ const CheckoutPage: React.FC = () => {
                   </span>
                 </div>
               </div>
+
+              {/* Thông tin phương thức đã chọn */}
+              {selectedShippingMethod && (
+                <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+                  <h3 className="font-semibold text-green-800 mb-2">Phương thức đã chọn</h3>
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <p className="text-green-700">{selectedShippingMethod.TenPTVC}</p>
+                      <p className="text-sm text-green-600">{selectedShippingMethod.ThoiGianGiaoHang}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-bold text-green-700">
+                        {selectedShippingMethod.PhiVanChuyen.toLocaleString("vi-VN")}đ
+                      </p>
+                      <p className="text-xs text-green-600">{selectedShippingMethod.zone}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* 🟢 HIỂN THỊ NÚT THANH TOÁN */}
               {formData.MaPTTT === "PAYPAL" ? (

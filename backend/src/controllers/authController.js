@@ -727,13 +727,129 @@ const authController = {
           MaTK: newUser.MaTK,
           MaVT: khachRole.MaVT,
         });
-      }
+      } 
+      // 🔐 🔥 QUAN TRỌNG: TẠO KEY PAIR NGAY KHI ĐĂNG KÝ
+        let keyPairInfo = null;
+        try {
+            console.log(`🔐 Đang tạo key pair cho user mới: ${newUser.TenDangNhap}`);
+            
+            // Sử dụng crypto từ import (đã có ở đầu file)
+            const { publicKey, privateKey } = crypto.generateKeyPairSync('rsa', {
+                modulusLength: 2048,
+                publicKeyEncoding: {
+                    type: 'spki',
+                    format: 'pem'
+                },
+                privateKeyEncoding: {
+                    type: 'pkcs8',
+                    format: 'pem'
+                }
+            });
 
-      return res.json({ message: "Đăng ký thành công" });
+            const keyId = `key_${newUser.MaTK}_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
+            
+            // 🔐 LƯU KEY VÀO DATABASE
+            try {               
+               // Mã hóa private key đơn giản
+                const masterKey = process.env.ENCRYPTION_MASTER_KEY || 'blockchain-master-key-2025';
+                const iv = crypto.randomBytes(16);
+                const cipher = crypto.createCipheriv('aes-256-gcm', 
+                    crypto.scryptSync(masterKey, 'salt', 32), 
+                    iv
+                );
+                
+                let encrypted = cipher.update(privateKey, 'utf8', 'hex');
+                encrypted += cipher.final('hex');
+                const authTag = cipher.getAuthTag();
+
+                // Insert vào database
+                await sequelize.query(`
+                    INSERT INTO UserKeys 
+                    (MaTK, PublicKey, PrivateKeyEncrypted, KeyId, Algorithm, KeySize, CreatedAt, Status, Metadata)
+                    VALUES (?, ?, ?, ?, ?, ?, NOW(), 'active', ?)
+                `, {
+                    replacements: [
+                        newUser.MaTK,
+                        publicKey,
+                        JSON.stringify({
+                            encrypted,
+                            iv: iv.toString('hex'),
+                            authTag: authTag.toString('hex')
+                        }),
+                        keyId,
+                        'RS256',
+                        2048,
+                        JSON.stringify({
+                            generatedAt: new Date().toISOString(),
+                            source: 'registration',
+                            userAgent: req.headers['user-agent']
+                        })
+                    ]
+                });
+
+                console.log(`✅ Đã tạo và lưu key pair cho user: ${newUser.TenDangNhap}, Key ID: ${keyId}`);
+                
+                keyPairInfo = {
+                    keyId,
+                    publicKey,
+                    privateKey, // ⚠️ Chỉ trả về lần đầu duy nhất
+                    algorithm: 'RS256',
+                    keySize: 2048,
+                    createdAt: new Date()
+                };
+
+            } catch (dbError) {
+                console.error('❌ Lỗi lưu key vào database:', dbError);
+                // Vẫn trả về key pair, nhưng cảnh báo
+                keyPairInfo = {
+                    keyId,
+                    publicKey,
+                    privateKey,
+                    warning: 'Key chưa được lưu vào database, vui lòng liên hệ admin',
+                    createdAt: new Date()
+                };
+            }
+
+        } catch (keyError) {
+            console.error('❌ Lỗi tạo key pair:', keyError);
+            // KHÔNG throw error - vẫn cho đăng ký thành công
+            // User có thể tạo key sau
+        }
+
+        // 🔥 TRẢ VỀ RESPONSE VỚI KEY PAIR
+        const responseData = {
+            success: true,
+            message: "Đăng ký thành công",
+            data: {
+                user: {
+                    MaTK: newUser.MaTK,
+                    TenDangNhap: newUser.TenDangNhap,
+                    Email: newUser.Email,
+                    NgayTao: newUser.NgayTao
+                }
+            }
+        };
+
+        // Thêm key pair vào response nếu tạo thành công
+        if (keyPairInfo) {
+            responseData.data.keyPair = keyPairInfo;
+            responseData.message += " - Đã tạo chữ ký số";
+            
+            // ⚠️ CẢNH BÁO QUAN TRỌNG
+            responseData.warning = "HÃY LƯU PRIVATE KEY Ở NƠI AN TOÀN! Sẽ không hiển thị lại.";
+        }
+
+        return res.json(responseData);
+
     } catch (err) {
-      return res.status(500).json({ message: err.message });
+        console.error('❌ Lỗi đăng ký:', err);
+        return res.status(500).json({ 
+            success: false,
+            message: "Lỗi server khi đăng ký",
+            error: process.env.NODE_ENV === 'development' ? err.message : undefined
+        });
     }
-  },
+},
 
   // Đăng nhập
   login: async (req, res) => {

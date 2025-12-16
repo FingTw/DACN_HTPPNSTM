@@ -14,7 +14,10 @@
       },
       "previousHash": "0",
       "nonce": 0,
-      "hash": "79839629f6514a094da5240b00611d7afdccca6b42b0c9380ec9f242a87b47ad"
+      "hash": "79839629f6514a094da5240b00611d7afdccca6b42b0c9380ec9f242a87b47ad",
+      "signature": null,
+      "signedBy": null,
+      "signatureData": null
     },
     {
       "index": 1,
@@ -35,7 +38,10 @@
       },
       "previousHash": "79839629f6514a094da5240b00611d7afdccca6b42b0c9380ec9f242a87b47ad",
       "nonce": 0,
-      "hash": "15adc551f00ffa8b5783b458a939911722ce39a0bedc2c558f3ce32f4cc1d435"
+      "hash": "15adc551f00ffa8b5783b458a939911722ce39a0bedc2c558f3ce32f4cc1d435",
+      "signature": null,
+      "signedBy": null,
+      "signatureData": null
     },
     {
       "index": 2,
@@ -56,7 +62,10 @@
       },
       "previousHash": "15adc551f00ffa8b5783b458a939911722ce39a0bedc2c558f3ce32f4cc1d435",
       "nonce": 0,
-      "hash": "acf564353ac06e7965bc7ebffd87be73e0a831d45e102e75c194ce9ef2159132"
+      "hash": "acf564353ac06e7965bc7ebffd87be73e0a831d45e102e75c194ce9ef2159132",
+      "signature": null,
+      "signedBy": null,
+      "signatureData": null
     },
     {
       "index": 3,
@@ -77,11 +86,145 @@
       },
       "previousHash": "acf564353ac06e7965bc7ebffd87be73e0a831d45e102e75c194ce9ef2159132",
       "nonce": 0,
-      "hash": "f8ca737cdcf39b8c465bc10f949d20998792ca455366542d7646cae8e1773a36"
+      "hash": "f8ca737cdcf39b8c465bc10f949d20998792ca455366542d7646cae8e1773a36",
+      "signature": null,
+      "signedBy": null,
+      "signatureData": null
+    },
+    {
+      "index": 4,
+      "timestamp": 1765374909763,
+      "data": {
+        "productId": "dưa hấu",
+        "eventType": "planting",
+        "location": "hcm",
+        "actor": "testkey5",
+        "action": "view",
+        "timestamp": "2025-12-10T13:55:09.760Z",
+        "version": "1.0",
+        "quality": "A",
+        "seedType": "wwee",
+        "area": 1000,
+        "harvestDate": "2025-12-10",
+        "imageUrl": "/uploads/products/image-1765374909489-25380929.jpg"
+      },
+      "previousHash": "f8ca737cdcf39b8c465bc10f949d20998792ca455366542d7646cae8e1773a36",
+      "nonce": 0,
+      "hash": "9de17bcc54085cd6a1c28b1b7f9faf117fda2e951719e9454e9068da138eb6c4",
+      "signature": null,
+      "signedBy": null,
+      "signatureData": null
+    },
+    {
+      "index": 5,
+      "timestamp": 1765425508035,
+      "data": {
+        "productId": "dưa hấu",
+        "eventType": "fertilizing",
+        "location": "hcm",
+        "actor": "testkey5",
+        "action": "view",
+        "timestamp": "2025-12-11T03:58:28.033Z",
+        "version": "1.0",
+        "quality": "A",
+        "fertilizerType": "lân",
+        "imageUrl": "/uploads/products/image-1765425507834-494320377.jpg"
+      },
+      "previousHash": "9de17bcc54085cd6a1c28b1b7f9faf117fda2e951719e9454e9068da138eb6c4",
+      "nonce": 0,
+      "hash": "a04b3ef641254232a353f7a8de9bf628fbbe49569cf68d88cac6d28dc4d71f17",
+      "signature": null,
+      "signedBy": null,
+      "signatureData": null
+    },
+    {
+      "index": 6,
+      "timestamp": 1765428005513,
+      "data": {
+        "productId": "dưa hấu",
+        "eventType": "fertilizing",
+        "location": "hcm",
+        "actor": "testkey5",
+        "action": "view",
+        "timestamp": "2025-12-11T04:40:05.509Z",
+        "version": "1.0",
+        "quality": "B",
+        "fertilizerType": "lân",
+        "imageUrl": "/uploads/products/image-1765428005477-31214696.jpg"
+      },
+      "previousHash": "a04b3ef641254232a353f7a8de9bf628fbbe49569cf68d88cac6d28dc4d71f17",
+      "nonce": 0,
+      "hash": "dd6a31b19e720258423bc838be6b4707e69f33c08467283c7d53d81903289ef0",
+      "signature": null,
+      "signedBy": null,
+      "signatureData": null
+    },
+    {
+      "index": 7,
+      "timestamp": 1765428780964,
+      "data": {
+        "productId": "dưa hấu",
+        "eventType": "fertilizing",
+        "location": "hcm",
+        "actor": "testkey5",
+        "action": "view",
+        "timestamp": "2025-12-11T04:53:00.961Z",
+        "version": "1.0",
+        "quality": "B",
+        "fertilizerType": "lân",
+        "imageUrl": "/uploads/products/image-1765428780932-880936299.jpg"
+      },
+      "previousHash": "dd6a31b19e720258423bc838be6b4707e69f33c08467283c7d53d81903289ef0",
+      "nonce": 0,
+      "hash": "7f775080f8a1826cd31f29bc8772df66d86b99911f7a666e0dd7359c897b0edd",
+      "signature": null,
+      "signedBy": null,
+      "signatureData": null
+    },
+    {
+      "index": 8,
+      "timestamp": 1765435388806,
+      "data": {
+        "productId": "dưa hấu",
+        "eventType": "fertilizing",
+        "location": "hcm",
+        "actor": "testkey5",
+        "action": "view",
+        "timestamp": "2025-12-11T06:43:08.804Z",
+        "version": "1.0",
+        "quality": "A",
+        "fertilizerType": "ĐẠM",
+        "imageUrl": "/uploads/products/image-1765435388763-326942274.jpg"
+      },
+      "previousHash": "7f775080f8a1826cd31f29bc8772df66d86b99911f7a666e0dd7359c897b0edd",
+      "nonce": 0,
+      "hash": "65584efdd1cc6337718872955e5e5666602ab382371f7675f5ce6e3d9e8485fb",
+      "signature": null,
+      "signedBy": null,
+      "signatureData": null
+    },
+    {
+      "index": 9,
+      "timestamp": 1765437639111,
+      "data": {
+        "productId": "dưa hấu",
+        "eventType": "harvesting",
+        "location": "hcm",
+        "actor": "testkey5",
+        "action": "view",
+        "timestamp": "2025-12-11T07:20:39.109Z",
+        "version": "1.0",
+        "quality": "A"
+      },
+      "previousHash": "65584efdd1cc6337718872955e5e5666602ab382371f7675f5ce6e3d9e8485fb",
+      "nonce": 0,
+      "hash": "45149c3b0f1b7b47775cb486f3cb5df630add7be64a66f94bffbafbd077740f4",
+      "signature": null,
+      "signedBy": null,
+      "signatureData": null
     }
   ],
-  "pendingTransactions": [],
   "difficulty": 2,
-  "lastUpdated": "2025-12-06T15:06:40.380Z",
-  "totalBlocks": 4
+  "lastUpdated": "2025-12-11T07:20:39.111Z",
+  "totalBlocks": 10
 }

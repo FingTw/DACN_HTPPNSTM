@@ -88,7 +88,7 @@ const EVENT_TYPES_BY_ROLE = {
 };
 
 const BlockchainDashboard: React.FC = () => {
-  const { user: authUser, loading } = useAuth(); // ← THÊM LẠI
+  const { user: authUser, loading, getUserRoles } = useAuth();
   const [activeSection, setActiveSection] = useState<'form' | 'history'>('form');
   const [blockchainStats, setBlockchainStats] = useState<any>(null);
   const [userEvents, setUserEvents] = useState<UserEvent[]>([]);
@@ -121,11 +121,14 @@ const BlockchainDashboard: React.FC = () => {
     customerType: null
   });
 
+  const roles = getUserRoles();
+  const displayRole = roles[0];
+
   const [agree, setAgree] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
+  
   // Lấy event types theo role của user
   const getEventTypesForCurrentUser = () => {
     if (!authUser) return [];
@@ -1057,7 +1060,7 @@ const BlockchainDashboard: React.FC = () => {
       <div className="navbar">
         <h1>📦 Supply Chain Blockchain</h1>
         <div className="user-info">
-          <span className="user-role">{getRoleIcon(authUser.role)} {getRoleName(authUser.role)}</span>
+          <span className="user-role">{getRoleIcon(displayRole)} {getRoleName(displayRole)}</span>
           <span className="user-name">👤 {authUser.TenDangNhap}</span>
           <button className="nav-home" onClick={() => window.location.href = '/'}>🏠 Trang chủ</button>
         </div>
@@ -1107,15 +1110,15 @@ const BlockchainDashboard: React.FC = () => {
         {/* Main Content */}
         {activeSection === 'form' ? (
           <div className="input-section">
-            <h2>{getRoleIcon(authUser.role)} Ghi nhận thông tin {getRoleName(authUser.role)}</h2>
+            <h2>{getRoleIcon(displayRole)} Ghi nhận thông tin {getRoleName(displayRole)}</h2>
             
             {/* User Info & Stats */}
             <div className="user-stats">
               <div className="user-details">
                 <div className="user-name-display">
-                  <strong>{getRoleIcon(authUser.role)} {authUser.TenDangNhap}</strong>
+                  <strong>{getRoleIcon(displayRole)} {authUser.TenDangNhap}</strong>
                 </div>
-                <div className="user-role-display">{getRoleName(authUser.role)}</div>
+                <div className="user-role-display">{getRoleName(displayRole)}</div>
               </div>
               <div className="stats-display">
                 {statsLoading ? (
