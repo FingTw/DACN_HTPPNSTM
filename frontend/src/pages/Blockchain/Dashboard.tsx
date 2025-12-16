@@ -50,8 +50,12 @@ interface QRModalData {
   qrUrl?: string;
 }
 
+interface EventType {
+  value: string;
+  label: string;
+}
 // Event types theo role
-const EVENT_TYPES_BY_ROLE = {
+const EVENT_TYPES_BY_ROLE : Record<string, EventType[]> = {
   'Farmer': [
     { value: 'planting', label: 'Trồng cây' },
     { value: 'fertilizing', label: 'Bón phân' },
@@ -131,10 +135,29 @@ const BlockchainDashboard: React.FC = () => {
   
   // Lấy event types theo role của user
   const getEventTypesForCurrentUser = () => {
-    if (!authUser) return [];
-    const userRole = authUser.role;
-    return EVENT_TYPES_BY_ROLE[userRole as keyof typeof EVENT_TYPES_BY_ROLE] || [];
+  if (!authUser) return [];
+  
+  // Map role từ database sang key trong EVENT_TYPES_BY_ROLE
+  const roleMapping: Record<string, string> = {
+    'Factory': 'Factory',        // DB: Factory → Map: Factory
+    'Farmer': 'Farmer',          // DB: Farmer → Map: Farmer  
+    'Cửa Hàng': 'CuaHang',       // DB: Cửa Hàng → Map: CuaHang
+    'Shipper': 'Shipper',        // DB: Shipper → Map: Shipper
+    'Khách Hàng': 'Customer',    // DB: Khách Hàng → Map: Customer
+    'Admin': 'Farmer'            // Admin có thể xem được của Farmer
   };
+  
+  const dbRole = authUser.role; // Lấy role trực tiếp từ authUser
+  const mappedRole = roleMapping[dbRole];
+  
+  console.log('🔍 Role mapping:', { 
+    dbRole, 
+    mappedRole, 
+    available: mappedRole ? EVENT_TYPES_BY_ROLE[mappedRole]?.length || 0 : 0 
+  });
+  
+  return mappedRole ? EVENT_TYPES_BY_ROLE[mappedRole as keyof typeof EVENT_TYPES_BY_ROLE] || [] : [];
+};
 
   useEffect(() => {
     if (loading) return;
@@ -616,11 +639,22 @@ const BlockchainDashboard: React.FC = () => {
   const renderDynamicFields = () => {
     if (!authUser) return null;
 
-    const userRole = authUser.role;
+    const dbRole  = authUser.role;
     const eventType = form.eventType;
 
+    const roleMapping: Record<string, string> = {
+      'Factory': 'Factory',
+      'Farmer': 'Farmer', 
+      'Cửa Hàng': 'CuaHang',
+      'Shipper': 'Shipper',
+      'Khách Hàng': 'Customer',
+      'Admin': 'Farmer'
+    };
+
+    const mappedRole = roleMapping[dbRole];
+
     // 🧑‍🌾 NÔNG DÂN (Farmer)
-    if (userRole === 'Farmer') {
+    if (mappedRole === 'Farmer') {
       switch (eventType) {
         case 'planting':
           return (
@@ -756,7 +790,7 @@ const BlockchainDashboard: React.FC = () => {
     }
 
     // 🏭 NHÀ MÁY (Factory)
-    if (userRole === 'Factory') {
+    if (mappedRole  === 'Factory') {
       switch (eventType) {
         case 'cleaning':
         case 'sorting':
@@ -830,7 +864,7 @@ const BlockchainDashboard: React.FC = () => {
     }
 
     // 🚚 VẬN CHUYỂN (Shipper)
-    if (userRole === 'Shipper') {
+    if (mappedRole  === 'Shipper') {
       switch (eventType) {
         case 'pickup':
         case 'intransit':
@@ -872,7 +906,7 @@ const BlockchainDashboard: React.FC = () => {
     }
 
     // 🏪 CỬA HÀNG (CuaHang)
-    if (userRole === 'CuaHang') {
+    if (mappedRole  === 'Cửa Hàng' || mappedRole  === 'CuaHang') {
       switch (eventType) {
         case 'received':
           return (
@@ -945,7 +979,7 @@ const BlockchainDashboard: React.FC = () => {
     }
 
     // 👤 KHÁCH HÀNG (Customer)
-    if (userRole === 'Customer') {
+    if (mappedRole  === 'Customer') {
       switch (eventType) {
         case 'purchase':
           return (
