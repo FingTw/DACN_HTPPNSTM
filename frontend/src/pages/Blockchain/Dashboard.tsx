@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/context/AuthContext'; 
 import { blockchainAPI, apiClient } from '@/services/blockchainApi';
 import './BlockchainDashboard.css';
+import { AddressInput } from '@/components/AddressInput';
 
 interface UserEvent {
   productId: string;
@@ -48,6 +49,14 @@ interface QRModalData {
   blockHash: string;
   totalBlocks?: number;
   qrUrl?: string;
+}
+
+interface SelectedAddress {
+  street: string;
+  ward: string;
+  district: string;
+  province: string;
+  fullAddress: string;
 }
 
 interface EventType {
@@ -101,6 +110,7 @@ const BlockchainDashboard: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [qrModal, setQrModal] = useState<QRModalData | null>(null);
   const [successData, setSuccessData] = useState<any>(null);
+  const [selectedAddress, setSelectedAddress] = useState<SelectedAddress | null>(null);
 
   const [form, setForm] = useState<NewBlockData>({
     productId: '',
@@ -124,6 +134,13 @@ const BlockchainDashboard: React.FC = () => {
     temperature: null,
     customerType: null
   });
+
+const handleAddressSelect = (address: SelectedAddress) => {
+  setSelectedAddress(address);
+  // CHỈ lưu fullAddress vào form.location
+  handleFormChange('location', address.fullAddress);
+
+};
 
   const roles = getUserRoles();
   const displayRole = roles[0];
@@ -257,12 +274,16 @@ const BlockchainDashboard: React.FC = () => {
   };
 
   const validateForm = (): string | null => {
-    if (!form.productId?.trim()) return 'Vui lòng nhập Mã sản phẩm';
-    if (!form.eventType?.trim()) return 'Vui lòng chọn Loại sự kiện';
-    if (!form.location?.trim()) return 'Vui lòng nhập Địa điểm';
-    if (!agree) return 'Bạn phải đồng ý lưu dữ liệu lên blockchain';
-    return null;
-  };
+  if (!form.productId?.trim()) return 'Vui lòng nhập Mã sản phẩm';
+  if (!form.eventType?.trim()) return 'Vui lòng chọn Loại sự kiện';
+  
+  // Đơn giản hóa: chỉ cần có location
+  const locationToUse = selectedAddress?.fullAddress || form.location;
+  if (!locationToUse?.trim()) return 'Vui lòng nhập Địa điểm';
+  
+  if (!agree) return 'Bạn phải đồng ý lưu dữ liệu lên blockchain';
+  return null;
+};
 
   const submitEventForm = async () => {
   const error = validateForm();
@@ -280,62 +301,72 @@ const BlockchainDashboard: React.FC = () => {
   setSubmitting(true);
 
   try {
-    // Upload image if exists - SỬA LẠI HOÀN TOÀN
-        let imageUrl: string | null = null;
-        if (file) {
-          try {
-            console.log('🖼️ Đang upload ảnh...');
-            const uploadRes = await blockchainAPI.uploadImage(file);
-            console.log('📊 Upload result:', uploadRes);
-            
-            // SỬA: Kiểm tra đúng cách và tránh truy cập property không tồn tại theo kiểu tường minh
-            // uploadRes có thể có cấu trúc ApiResponse với data.imageUrl, hoặc một object trực tiếp chứa imageUrl
-            if (uploadRes && (uploadRes as any).success) {
-              imageUrl = uploadRes.data?.imageUrl ?? (uploadRes as any).imageUrl ?? (uploadRes as any).data?.url ?? null;
-              console.log('✅ Upload thành công, imageUrl:', imageUrl);
-            } else {
-              console.warn('⚠️ Upload không thành công:', (uploadRes as any).message || 'Unknown upload error');
-            }
-          } catch (uploadErr: any) {
-            console.error('❌ Upload image error:', uploadErr);
-            console.log('📌 Tiếp tục không có ảnh...');
-            // Tiếp tục mà không có ảnh
-          }
+    // Upload image if exists - GIỮ NGUYÊN
+    let imageUrl: string | null = null;
+    if (file) {
+      try {
+        console.log('🖼️ Đang upload ảnh...');
+        const uploadRes = await blockchainAPI.uploadImage(file);
+        console.log('📊 Upload result:', uploadRes);
+        
+        if (uploadRes && uploadRes.success) {
+          imageUrl = uploadRes.imageUrl;
+          console.log('✅ Upload thành công, imageUrl:', imageUrl);
         } else {
-          console.log('📷 Không có ảnh để upload');
+          console.warn('⚠️ Upload không thành công');
         }
+      } catch (uploadErr: any) {
+        console.error('❌ Upload image error:', uploadErr);
+      }
+    }
 
-    // Prepare payload
+    // 🔥 QUAN TRỌNG: SỬA PAYLOAD - LOẠI BỎ locationDetails
     const payload: any = {
       productId: form.productId,
       eventType: form.eventType,
-      location: form.location,
-      notes: form.notes,
-      quantity: form.quantity,
-      quality: form.quality,
-      price: form.price,
-      batchNumber: form.batchNumber,
-      fromLocation: form.fromLocation,
-      toLocation: form.toLocation,
-      seedType: form.seedType,
-      area: form.area,
-      yield: form.yield,
-      waterSource: form.waterSource,
-      fertilizerType: form.fertilizerType,
-      harvestDate: form.harvestDate,
-      saleDate: form.saleDate,
-      duration: form.duration,
-      temperature: form.temperature,
-      customerType: form.customerType,
+      // CHỈ dùng string đơn giản, không dùng object
+      location: selectedAddress?.fullAddress || form.location || '',
+      
+      // Các trường address riêng biệt (string)
+      addressStreet: selectedAddress?.street || '',
+      addressWard: selectedAddress?.ward || '',
+      addressDistrict: selectedAddress?.district || '',
+      addressProvince: selectedAddress?.province || '',
+      
+      // Các trường còn lại giữ nguyên
+      notes: form.notes || '',
+      quantity: form.quantity || null,
+      quality: form.quality || null,
+      price: form.price || null,
+      batchNumber: form.batchNumber || null,
+      fromLocation: form.fromLocation || null,
+      toLocation: form.toLocation || null,
+      seedType: form.seedType || null,
+      area: form.area || null,
+      yield: form.yield || null,
+      waterSource: form.waterSource || null,
+      fertilizerType: form.fertilizerType || null,
+      harvestDate: form.harvestDate || null,
+      saleDate: form.saleDate || null,
+      duration: form.duration || null,
+      temperature: form.temperature || null,
+      customerType: form.customerType || null,
+      
+      // Bắt buộc
       imageUrl: imageUrl,
       actor: authUser.TenDangNhap,
       role: authUser.role,
       timestamp: new Date().toISOString()
     };
 
-    console.log('📤 Gửi payload đến blockchain:', payload);
+    // 🔥 XÓA locationDetails nếu có
+    delete payload.locationDetails;
 
+    console.log('📤 Gửi payload SIMPLIFIED đến blockchain:', JSON.stringify(payload));
+
+    // Gọi API
     const res = await blockchainAPI.recordTransaction(payload);
+    
     if (!res.success) {
       throw new Error(res.message || 'Ghi blockchain thất bại');
     }
@@ -346,7 +377,6 @@ const BlockchainDashboard: React.FC = () => {
     await loadUserEvents(authUser.TenDangNhap);
     resetForm(true);
 
-    // Auto remove success message
     setTimeout(() => setSuccessData(null), 8000);
 
   } catch (err: any) {
@@ -384,33 +414,80 @@ const BlockchainDashboard: React.FC = () => {
     }
   };
 
-  const generateQRCode = async (productId: string) => {
+  // Trong Dashboard.tsx, hàm generateQRCode:
+const generateQRCode = async (productId: string) => {
   try {
-    console.log(`📱 Đang tạo QR code cho sản phẩm: ${productId}`);
+    console.log(`📱 Đang tạo QR code cho: ${productId}`);
     
-    // CHỈ GỌI MỘT ENDPOINT DUY NHẤT
-    const res = await apiClient.get(`/qrcode/${productId}`);
-
-    console.log('📊 QR code response:', res.data);
+    // 🔥 Gọi TRỰC TIẾP endpoint đơn giản
+    const response = await fetch(`/api/blockchain/qrcode-simple/${productId}`);
     
-    if (res.data.success && res.data.qrCode) {
-      console.log('✅ QR code tạo thành công');
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    
+    const res = await response.json();
+    console.log('📊 Simple QR response:', res);
+    
+    if (!res.success) {
+      alert(`❌ ${res.message || 'Không tạo được QR'}`);
+      return;
+    }
+    
+    if (!res.qrCode) {
+      // Tạo QR code dự phòng
+      const fallbackQR = `data:image/svg+xml;base64,${btoa(`
+        <svg width="300" height="300" viewBox="0 0 300 300" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect width="300" height="300" fill="#f8f9fa"/>
+          <rect x="50" y="50" width="200" height="200" fill="#1a237e"/>
+          <text x="150" y="120" font-family="Arial" font-size="16" fill="white" text-anchor="middle">📦</text>
+          <text x="150" y="150" font-family="Arial" font-size="12" fill="white" text-anchor="middle">${productId}</text>
+          <text x="150" y="180" font-family="Arial" font-size="10" fill="#e3f2fd" text-anchor="middle">Blockchain</text>
+        </svg>
+      `)}`;
       
       setQrModal({
-        qrCode: res.data.qrCode,
+        qrCode: fallbackQR,
         productId: productId,
-        blockIndex: res.data.blockCount || 0,
-        blockHash: res.data.blockCount ? `Sản phẩm có ${res.data.blockCount} blocks` : 'Quét mã để xem chi tiết',
-        totalBlocks: res.data.blockCount,
-        qrUrl: res.data.url
+        blockIndex: 0,
+        blockHash: 'Manual QR',
+        totalBlocks: 0,
+        qrUrl: `http://localhost:3000/product/${productId}`
       });
-    } else {
-      alert('❌ Không thể tạo QR code: ' + (res.data.message || 'Lỗi không xác định'));
+      return;
     }
+    
+    // Thành công
+    setQrModal({
+      qrCode: res.qrCode,
+      productId: res.productId || productId,
+      blockIndex: res.blockCount || 0,
+      blockHash: `Sản phẩm có ${res.blockCount || 0} blocks`,
+      totalBlocks: res.blockCount || 0,
+      qrUrl: res.url || `http://localhost:3000/product/${productId}`
+    });
+    
   } catch (err: any) {
-    console.error('❌ Lỗi tạo QR code:', err);
-    const errorMessage = err.response?.data?.message || err.message || 'Lỗi kết nối server';
-    alert(`❌ Không thể tạo QR code: ${errorMessage}`);
+    console.error('❌ QR Error:', err);
+    
+    // QR code fallback đơn giản
+    const fallbackQR = `data:image/svg+xml;base64,${btoa(`
+      <svg width="300" height="300" viewBox="0 0 300 300">
+        <rect width="300" height="300" fill="#fff0f0"/>
+        <text x="150" y="150" font-family="Arial" font-size="14" fill="#d32f2f" text-anchor="middle">
+          QR Error: ${productId}
+        </text>
+      </svg>
+    `)}`;
+    
+    setQrModal({
+      qrCode: fallbackQR,
+      productId: productId,
+      blockIndex: 0,
+      blockHash: 'Error',
+      totalBlocks: 0,
+      qrUrl: ''
+    });
   }
 };
 
@@ -1183,16 +1260,22 @@ const BlockchainDashboard: React.FC = () => {
                 </div>
 
                 <div className="form-group">
-                  <label htmlFor="location">Địa điểm *</label>
-                  <input
-                    type="text"
-                    id="location"
-                    value={form.location}
-                    onChange={(e) => handleFormChange('location', e.target.value)}
-                    placeholder="Nhập địa điểm hiện tại"
-                    required
-                  />
-                </div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Địa điểm *
+                </label>
+                <AddressInput
+                  onAddressSelect={handleAddressSelect}
+                  required={true}
+                />
+                {/* Hiển thị địa chỉ đã chọn (tùy chọn) */}
+                {selectedAddress && (
+                  <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded">
+                    <p className="text-sm text-green-800 font-medium">
+                      ✅ Đã chọn: {selectedAddress.fullAddress}
+                    </p>
+                  </div>
+                )}
+              </div>
 
                 {/* Event Type - CHỈ HIỆN EVENT THEO ROLE */}
                 <div className="form-group">
@@ -1357,7 +1440,7 @@ const BlockchainDashboard: React.FC = () => {
       <div className="qr-modal show" onClick={() => setQrModal(null)}>
         <div className="qr-modal-content" onClick={(e) => e.stopPropagation()}>
           <h2>📱 Mã QR Sản Phẩm</h2>
-          <div className="qr-product-info">
+          {/*<div className="qr-product-info">
             <p><strong>Mã sản phẩm:</strong> {qrModal.productId}</p>
             <p><strong>Tổng số blocks:</strong> {qrModal.totalBlocks || 'Đang tải...'}</p>
             <p><strong>Block mới nhất:</strong> #{qrModal.blockIndex}</p>
@@ -1367,7 +1450,8 @@ const BlockchainDashboard: React.FC = () => {
                 {qrModal.qrUrl || 'Quét mã để xem chi tiết'}
               </code>
             </p>
-          </div>
+          </div>*/}
+          
           <img src={qrModal.qrCode} alt="QR Code" className="qr-image" />
           <p className="qr-note">
             📸 Quét mã QR bằng điện thoại (cùng mạng WiFi) 
@@ -1376,10 +1460,10 @@ const BlockchainDashboard: React.FC = () => {
           </p>
           <div className="qr-buttons">
             <button className="qr-download-btn" onClick={downloadQRCode}>
-              💾 Tải xuống QR
+              Tải xuống QR
             </button>
             <button className="qr-open-btn" onClick={openQRCodeInNewTab}>
-              🔍 Mở toàn màn hình
+              Mở toàn màn hình
             </button>
             <button className="qr-close-btn" onClick={() => setQrModal(null)}>
               Đóng

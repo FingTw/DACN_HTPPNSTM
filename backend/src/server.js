@@ -205,25 +205,77 @@ app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
 // 🟢 Tính toán đường dẫn tuyệt đối dựa vào vị trí của server.js
-const srcDir = path.dirname(fileURLToPath(import.meta.url));
-const backendDir = path.join(srcDir, "..");
-const publicDir = path.join(backendDir, "public");
+const srcDir = path.dirname(fileURLToPath(import.meta.url)); // backend/src
+const backendDir = path.join(srcDir, ".."); // backend
 
-console.log("📂 Static Directory:", publicDir);
-app.use(express.static(publicDir));
+// 🔥 SỬA: public folder nằm trong src, không phải backend
+const publicDir = path.join(srcDir, "public"); // backend/src/public (ĐÚNG!)
+const uploadsPath = path.join(publicDir, 'uploads');
 
-// Multer configuration
+console.log("📂 Debug Paths:");
+console.log("   srcDir:", srcDir);
+console.log("   backendDir:", backendDir);
+console.log("   publicDir:", publicDir);
+console.log("   uploadsPath:", uploadsPath);
+
+// Static serving - ĐƠN GIẢN
+app.use('/uploads', express.static(uploadsPath));
+
+// 🔍 DEBUG CHI TIẾT
+const testFile = 'image-1765984799438-881202066.jpg';
+const testFilePath = path.join(uploadsPath, 'others', testFile);
+console.log('\n🔍 File Check:');
+console.log("   Looking for:", testFilePath);
+console.log("   File exists:", fs.existsSync(testFilePath) ? '✅ YES' : '❌ NO');
+
+if (!fs.existsSync(testFilePath)) {
+  console.log("\n⚠️  Tìm kiếm thay thế...");
+  
+  // Thử các đường dẫn khác
+  const possiblePaths = [
+    path.join(backendDir, 'public', 'uploads', 'others', testFile),
+    path.join(backendDir, 'src', 'public', 'uploads', 'others', testFile),
+    path.join(srcDir, 'public', 'uploads', 'others', testFile),
+    path.join(__dirname, 'public', 'uploads', 'others', testFile),
+    path.join(process.cwd(), 'public', 'uploads', 'others', testFile),
+  ];
+  
+  possiblePaths.forEach((p, i) => {
+    console.log(`   [${i}] ${p} -> ${fs.existsSync(p) ? '✅' : '❌'}`);
+  });
+}
+
+// 🗂️ Kiểm tra thư mục
+console.log('\n📁 Directory Check:');
+const othersDir = path.join(uploadsPath, 'others');
+if (fs.existsSync(othersDir)) {
+  const files = fs.readdirSync(othersDir);
+  console.log(`   others/ contains ${files.length} files`);
+  if (files.length > 0) {
+    console.log('   First 5 files:', files.slice(0, 5).join(', '));
+  }
+} else {
+  console.log('   ❌ others/ directory not found!');
+  console.log('   Looking for:', othersDir);
+}
+
+console.log('\n🔗 Test URLs:');
+console.log(`   http://localhost:3000/uploads/others/${testFile}`);
+console.log(`   http://localhost:3000/uploads/others/image-*.jpg`);
+
+// Multer configuration - CẬP NHẬT THEO ĐƯỜNG DẪN MỚI
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
     let folder = "others";
-
     if (req.originalUrl.includes("avatar")) folder = "avatars";
     else if (req.originalUrl.includes("product")) folder = "products";
 
-    const uploadDir = path.join(backendDir, "public", "uploads", folder);
+    // SỬA: Dùng publicDir mới
+    const uploadDir = path.join(publicDir, "uploads", folder);
 
     if (!fs.existsSync(uploadDir)) {
       fs.mkdirSync(uploadDir, { recursive: true });
+      console.log(`   Created directory: ${uploadDir}`);
     }
     cb(null, uploadDir);
   },
@@ -231,8 +283,52 @@ const storage = multer.diskStorage({
   filename: function (req, file, cb) {
     const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
     const ext = path.extname(file.originalname);
-    cb(null, `${file.fieldname}-${uniqueSuffix}${ext}`);
+    cb(null, `image-${uniqueSuffix}${ext}`);
   },
+});
+
+// 🎯 THÊM ROUTE TRỰC TIẾP ĐỂ ĐẢM BẢO
+app.get('/uploads/others/:filename', (req, res) => {
+  const filename = req.params.filename;
+  const filePath = path.join(uploadsPath, 'others', filename);
+  
+  console.log(`\n📤 Direct request: ${filename}`);
+  console.log(`   Path: ${filePath}`);
+  console.log(`   Exists: ${fs.existsSync(filePath) ? '✅' : '❌'}`);
+  
+  if (!fs.existsSync(filePath)) {
+    console.log(`   ❌ File not found!`);
+    return res.status(404).send('File not found');
+  }
+  
+  res.sendFile(filePath, (err) => {
+    if (err) {
+      console.log(`   ❌ Error sending: ${err.message}`);
+    } else {
+      console.log(`   ✅ File sent successfully`);
+    }
+  });
+});
+
+// Tương tự cho products và avatars
+app.get('/uploads/products/:filename', (req, res) => {
+  const filePath = path.join(uploadsPath, 'products', req.params.filename);
+  if (fs.existsSync(filePath)) res.sendFile(filePath);
+  else res.status(404).send('File not found');
+});
+
+app.get('/uploads/avatars/:filename', (req, res) => {
+  const filePath = path.join(uploadsPath, 'avatars', req.params.filename);
+  if (fs.existsSync(filePath)) res.sendFile(filePath);
+  else res.status(404).send('File not found');
+});
+
+// Middleware debug để xem mọi request
+app.use((req, res, next) => {
+  if (req.originalUrl.startsWith('/uploads/')) {
+    console.log(`\n📍 [UPLOAD REQUEST] ${req.method} ${req.originalUrl}`);
+  }
+  next();
 });
 
 export const upload = multer({
@@ -597,6 +693,7 @@ app.get("/product/:productId", (req, res) => {
 });
 
 // Blockchain product blocks
+// Blockchain product blocks - FIXED VERSION
 app.get("/api/blockchain/product/:productId/blocks", async (req, res) => {
   try {
     const { productId } = req.params;
@@ -622,40 +719,49 @@ app.get("/api/blockchain/product/:productId/blocks", async (req, res) => {
     }
 
     const blocks = rawBlocks.map((block) => {
+      // 🔥 QUAN TRỌNG: Trả về TOÀN BỘ dữ liệu từ block.data
+      const blockData = block.data || {};
+      
       return {
         index: block.index,
         timestamp: block.timestamp,
-        eventType: block.data.eventType,
-        action: block.data.action,
-        imageUrl: block.data.imageUrl,
-        location: block.data.location,
-        actor: block.data.actor,
-        role: block.data.role,
-        notes: block.data.notes,
-        productId: block.data.productId,
-        productName: block.data.productName,
-        seedType: block.data.seedType,
-        area: block.data.area,
-        yield: block.data.yield,
-        waterSource: block.data.waterSource,
-        fertilizerType: block.data.fertilizerType,
-        harvestDate: block.data.harvestDate,
-        saleDate: block.data.saleDate,
-        duration: block.data.duration,
-        temperature: block.data.temperature,
-        customerType: block.data.customerType,
-        batchNumber: block.data.batchNumber,
-        fromLocation: block.data.fromLocation,
-        toLocation: block.data.toLocation,
-        processType: block.data.processType,
-        quantity: block.data.quantity,
-        quality: block.data.quality,
-        price: block.data.price,
         hash: block.hash,
         previousHash: block.previousHash,
         nonce: block.nonce,
+        // 🔥 ĐẢM BẢO CÁC TRƯỜNG QUAN TRỌNG ĐƯỢC TRẢ VỀ
+        eventType: blockData.eventType,
+        action: blockData.action,
+        imageUrl: blockData.imageUrl,  // ⚡ THÊM DÒNG NÀY!
+        location: blockData.location,
+        actor: blockData.actor,
+        role: blockData.role,
+        notes: blockData.notes,
+        productId: blockData.productId,
+        productName: blockData.productName,
+        seedType: blockData.seedType,
+        area: blockData.area,
+        yield: blockData.yield,
+        waterSource: blockData.waterSource,
+        fertilizerType: blockData.fertilizerType,
+        harvestDate: blockData.harvestDate,
+        saleDate: blockData.saleDate,
+        duration: blockData.duration,
+        temperature: blockData.temperature,
+        customerType: blockData.customerType,
+        batchNumber: blockData.batchNumber,
+        fromLocation: blockData.fromLocation,
+        toLocation: blockData.toLocation,
+        processType: blockData.processType,
+        quantity: blockData.quantity,
+        quality: blockData.quality,
+        price: blockData.price,
+        // 🔥 THÊM TẤT CẢ CÁC TRƯỜNG CÒN LẠI
+        ...blockData
       };
     });
+
+    // Log để debug
+    console.log(`📸 Sample block #${blocks[0]?.index} imageUrl: ${blocks[0]?.imageUrl}`);
 
     res.json({
       success: true,
@@ -663,6 +769,7 @@ app.get("/api/blockchain/product/:productId/blocks", async (req, res) => {
         totalBlocks: blocks.length,
         blocks: blocks,
       },
+      message: `Tìm thấy ${blocks.length} blocks cho sản phẩm ${productId}`
     });
   } catch (error) {
     console.error("❌ Error:", error);
@@ -679,7 +786,7 @@ app.get("/api/blockchain/qrcode-simple/:productId", async (req, res) => {
   try {
     const { productId } = req.params;
 
-    console.log(`📱 Simple QR code request for: ${productId}`);
+    console.log(`Simple QR code request for: ${productId}`);
 
     const serverIP = process.env.SERVER_IP || wifiIP;
     const backendPort = process.env.PORT || 3000;
@@ -692,7 +799,7 @@ app.get("/api/blockchain/qrcode-simple/:productId", async (req, res) => {
       width: 300,
       margin: 2,
       color: {
-        dark: "#1a237e",
+        dark: "#000000ff",
         light: "#FFFFFF",
       },
     });
@@ -778,7 +885,13 @@ app.get("/api/qrcode/:productId", async (req, res) => {
 
 // ==================== ERROR HANDLING ====================
 // Handle 404 routes
-app.use("*", (req, res) => {
+app.use("*", (req, res, next) => {
+  if (req.originalUrl.startsWith('/uploads/') || 
+      req.originalUrl.startsWith('/api/static/') ||
+      req.originalUrl.startsWith('/api/blockchain/product/')) {
+    console.log(`📁 Static file request: ${req.originalUrl} - Passing through`);
+    return next(); // Chuyển tiếp, KHÔNG trả 404
+  }
   console.warn(`❌ Route not found: ${req.originalUrl}`);
   res.status(404).json({
     success: false,
@@ -870,7 +983,22 @@ app.use((err, req, res, next) => {
     }),
   });
 });
-
+// 🔥 REDIRECT TỰ ĐỘNG: /uploads/products/ → /uploads/others/
+app.use('/uploads/products/:filename', (req, res) => {
+  const { filename } = req.params;
+  const othersPath = path.join(uploadsPath, 'others', filename);
+  const productsPath = path.join(uploadsPath, 'products', filename);
+  
+  // Kiểm tra file có tồn tại không
+  if (fs.existsSync(othersPath)) {
+    console.log(`🔄 Redirect: /uploads/products/${filename} → /uploads/others/${filename}`);
+    return res.redirect(`/uploads/others/${filename}`);
+  } else if (fs.existsSync(productsPath)) {
+    return res.sendFile(productsPath);
+  } else {
+    res.status(404).send('File not found');
+  }
+});
 // ==================== SERVER STARTUP ====================
 async function startServer() {
   try {
@@ -986,29 +1114,29 @@ async function startServer() {
     });
 
     // 5️⃣ XỬ LÝ ROUTE KHÔNG TỒN TẠI
-    app.use("*", (req, res) => {
-      console.warn(`❌ Route not found: ${req.originalUrl}`);
-      res.status(404).json({
-        success: false,
-        error: "Route not found",
-        message: `Endpoint ${req.method} ${req.originalUrl} không tồn tại`,
-        suggestion: "Xem danh sách endpoints tại GET /api/docs",
-        availableEndpoints: [
-          "/api/sanpham",
-          "/api/cuahang",
-          "/api/auth",
-          "/api/cart",
-          "/api/order",
-          "/api/categories",
-          "/api/hinh-anh",
-          "/api/danh-gia-san-pham",
-          "/api/danh-gia-cua-hang",
-          "/api/docs",
-          "/api/debug/routes",
-          "/health",
-        ],
-      });
-    });
+    // app.use("*", (req, res) => {
+    //   console.warn(`❌ Route not found: ${req.originalUrl}`);
+    //   res.status(404).json({
+    //     success: false,
+    //     error: "Route not found",
+    //     message: `Endpoint ${req.method} ${req.originalUrl} không tồn tại`,
+    //     suggestion: "Xem danh sách endpoints tại GET /api/docs",
+    //     availableEndpoints: [
+    //       "/api/sanpham",
+    //       "/api/cuahang",
+    //       "/api/auth",
+    //       "/api/cart",
+    //       "/api/order",
+    //       "/api/categories",
+    //       "/api/hinh-anh",
+    //       "/api/danh-gia-san-pham",
+    //       "/api/danh-gia-cua-hang",
+    //       "/api/docs",
+    //       "/api/debug/routes",
+    //       "/health",
+    //     ],
+    //   });
+    // });
 
     // 6️⃣ XỬ LÝ LỖI TOÀN CỤC
     app.use((err, req, res, next) => {

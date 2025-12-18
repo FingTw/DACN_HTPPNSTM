@@ -120,9 +120,9 @@ router.post("/upload-image", upload.single("image"), async (req, res) => {
       });
     }
 
-    // Multer storage places files under a subfolder (e.g. `products` or `avatars`).
+    // Multer storage places files under a subfolder (e.g. `others` or `avatars`).
     // Use the same subfolder when returning the web URL so it matches the on-disk location.
-    const imageUrl = `/uploads/products/${req.file.filename}`;
+    const imageUrl = `/uploads/others/${req.file.filename}`;
 
     res.json({
       success: true,
