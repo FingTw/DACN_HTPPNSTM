@@ -328,14 +328,16 @@ export const blockchainAPI = {
     },
 
     // Image Upload - SỬA LẠI ĐỂ XỬ LÝ RESPONSE ĐÚNG
-    uploadImage: async (imageFile: File): Promise<ApiResponse<{
-        imageUrl: string;
-        filename: string;
-        originalName: string;
-    }>> => {
+    // Image Upload - SỬA LẠI HOÀN TOÀN
+uploadImage: async (imageFile: File): Promise<any> => {
+    try {
         const formData = new FormData();
         formData.append('image', imageFile);
-        console.log('🖼️ Uploading image:', imageFile.name, imageFile.size);
+        console.log('🖼️ Uploading image:', {
+            name: imageFile.name,
+            size: imageFile.size,
+            type: imageFile.type
+        });
         
         const response = await apiClient.post('/blockchain/upload-image', formData, {
             headers: {
@@ -343,15 +345,22 @@ export const blockchainAPI = {
             },
         });
         
-        console.log('📊 Upload response:', response.data);
+        console.log('📊 Upload API raw response:', response.data);
         
-        // Đảm bảo trả về đúng structure
-        return {
-            success: response.data.success,
-            data: response.data,
-            message: response.data.message
-        };
-    },
+        // 🔥 FIX: Trả về trực tiếp response.data (không wrap thêm)
+        // Backend trả về: { success, message, imageUrl, filename }
+        // Không phải: { success, data: { imageUrl, filename }, message }
+        return response.data;
+        
+    } catch (error: any) {
+        console.error('❌ Upload error:', {
+            message: error.message,
+            response: error.response?.data,
+            status: error.response?.status
+        });
+        throw error;
+    }
+},
 
     // User Management
     getUsersByRole: async (role: string): Promise<ApiResponse<User[]>> => {

@@ -78,10 +78,49 @@
       "previousHash": "acf564353ac06e7965bc7ebffd87be73e0a831d45e102e75c194ce9ef2159132",
       "nonce": 0,
       "hash": "f8ca737cdcf39b8c465bc10f949d20998792ca455366542d7646cae8e1773a36"
+    },
+    {
+      "index": 4,
+      "timestamp": 1765951350561,
+      "data": {
+        "productId": "cafe",
+        "eventType": "purchase",
+        "location": "12 34, Phường Quang Trung, Thành phố Hà Giang, Tỉnh Hà Giang",
+        "actor": "bang",
+        "action": "view",
+        "timestamp": "2025-12-17T06:02:30.554Z",
+        "version": "1.0",
+        "quality": "B",
+        "saleDate": "2025-12-17",
+        "customerType": "cá nhân"
+      },
+      "previousHash": "f8ca737cdcf39b8c465bc10f949d20998792ca455366542d7646cae8e1773a36",
+      "nonce": 0,
+      "hash": "e48f8208c22b2e1b454e715e5b1cddef0088a7cb9c92fc1c18b4d22c97105da8"
+    },
+    {
+      "index": 5,
+      "timestamp": 1766048389304,
+      "data": {
+        "productId": "cafe",
+        "eventType": "purchase",
+        "location": "1233, Xã Lũng Cú, Huyện Đồng Văn, Tỉnh Hà Giang",
+        "actor": "bang",
+        "action": "view",
+        "timestamp": "2025-12-18T08:59:49.298Z",
+        "version": "1.0",
+        "quality": "A",
+        "saleDate": "2025-12-18",
+        "customerType": "ee",
+        "imageUrl": "/uploads/others/image-1766048389248-576744692.jpg"
+      },
+      "previousHash": "e48f8208c22b2e1b454e715e5b1cddef0088a7cb9c92fc1c18b4d22c97105da8",
+      "nonce": 0,
+      "hash": "4f8346b0681e3584d7bf4fbb94c1f537f6b918a0597cb60a0f594a2b90fc6c16"
     }
   ],
   "pendingTransactions": [],
   "difficulty": 2,
-  "lastUpdated": "2025-12-06T15:06:40.380Z",
-  "totalBlocks": 4
+  "lastUpdated": "2025-12-18T08:59:49.306Z",
+  "totalBlocks": 6
 }
