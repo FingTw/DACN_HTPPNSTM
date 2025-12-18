@@ -31,7 +31,7 @@
         "seedType": "MN2",
         "area": 1000,
         "harvestDate": "2025-12-03",
-        "imageUrl": "/uploads/products/image-1764696611520-443372073.jpg"
+        "imageUrl": "/uploads/others/image-1764696611520-443372073.jpg"
       },
       "previousHash": "79839629f6514a094da5240b00611d7afdccca6b42b0c9380ec9f242a87b47ad",
       "nonce": 0,
@@ -52,7 +52,7 @@
         "seedType": "MN2",
         "area": 1000,
         "harvestDate": "2025-12-03",
-        "imageUrl": "/uploads/products/image-1764742618406-542563038.jpg"
+        "imageUrl": "/uploads/others/image-1764742618406-542563038.jpg"
       },
       "previousHash": "15adc551f00ffa8b5783b458a939911722ce39a0bedc2c558f3ce32f4cc1d435",
       "nonce": 0,
@@ -73,15 +73,248 @@
         "seedType": "ert",
         "area": 1000,
         "harvestDate": "2025-12-06",
-        "imageUrl": "/uploads/image-1765033600352-777181103.jpg"
+        "imageUrl": "/uploads/others/image-1765033600352-777181103.jpg"
       },
       "previousHash": "acf564353ac06e7965bc7ebffd87be73e0a831d45e102e75c194ce9ef2159132",
       "nonce": 0,
       "hash": "f8ca737cdcf39b8c465bc10f949d20998792ca455366542d7646cae8e1773a36"
+    },
+    {
+      "index": 4,
+      "timestamp": 1765374909763,
+      "data": {
+        "productId": "dưa hấu",
+        "eventType": "planting",
+        "location": "hcm",
+        "actor": "testkey5",
+        "action": "view",
+        "timestamp": "2025-12-10T13:55:09.760Z",
+        "version": "1.0",
+        "quality": "A",
+        "seedType": "wwee",
+        "area": 1000,
+        "harvestDate": "2025-12-10",
+        "imageUrl": "/uploads/others/image-1765374909489-25380929.jpg"
+      },
+      "previousHash": "f8ca737cdcf39b8c465bc10f949d20998792ca455366542d7646cae8e1773a36",
+      "nonce": 0,
+      "hash": "9de17bcc54085cd6a1c28b1b7f9faf117fda2e951719e9454e9068da138eb6c4"
+    },
+    {
+      "index": 5,
+      "timestamp": 1765425508035,
+      "data": {
+        "productId": "dưa hấu",
+        "eventType": "fertilizing",
+        "location": "hcm",
+        "actor": "testkey5",
+        "action": "view",
+        "timestamp": "2025-12-11T03:58:28.033Z",
+        "version": "1.0",
+        "quality": "A",
+        "fertilizerType": "lân",
+        "imageUrl": "/uploads/others/image-1765425507834-494320377.jpg"
+      },
+      "previousHash": "9de17bcc54085cd6a1c28b1b7f9faf117fda2e951719e9454e9068da138eb6c4",
+      "nonce": 0,
+      "hash": "a04b3ef641254232a353f7a8de9bf628fbbe49569cf68d88cac6d28dc4d71f17"
+    },
+    {
+      "index": 6,
+      "timestamp": 1765428005513,
+      "data": {
+        "productId": "dưa hấu",
+        "eventType": "fertilizing",
+        "location": "hcm",
+        "actor": "testkey5",
+        "action": "view",
+        "timestamp": "2025-12-11T04:40:05.509Z",
+        "version": "1.0",
+        "quality": "B",
+        "fertilizerType": "lân",
+        "imageUrl": "/uploads/others/image-1765428005477-31214696.jpg"
+      },
+      "previousHash": "a04b3ef641254232a353f7a8de9bf628fbbe49569cf68d88cac6d28dc4d71f17",
+      "nonce": 0,
+      "hash": "dd6a31b19e720258423bc838be6b4707e69f33c08467283c7d53d81903289ef0"
+    },
+    {
+      "index": 7,
+      "timestamp": 1765428780964,
+      "data": {
+        "productId": "dưa hấu",
+        "eventType": "fertilizing",
+        "location": "hcm",
+        "actor": "testkey5",
+        "action": "view",
+        "timestamp": "2025-12-11T04:53:00.961Z",
+        "version": "1.0",
+        "quality": "B",
+        "fertilizerType": "lân",
+        "imageUrl": "/uploads/others/image-1765428780932-880936299.jpg"
+      },
+      "previousHash": "dd6a31b19e720258423bc838be6b4707e69f33c08467283c7d53d81903289ef0",
+      "nonce": 0,
+      "hash": "7f775080f8a1826cd31f29bc8772df66d86b99911f7a666e0dd7359c897b0edd"
+    },
+    {
+      "index": 8,
+      "timestamp": 1765435388806,
+      "data": {
+        "productId": "dưa hấu",
+        "eventType": "fertilizing",
+        "location": "hcm",
+        "actor": "testkey5",
+        "action": "view",
+        "timestamp": "2025-12-11T06:43:08.804Z",
+        "version": "1.0",
+        "quality": "A",
+        "fertilizerType": "ĐẠM",
+        "imageUrl": "/uploads/others/image-1765435388763-326942274.jpg"
+      },
+      "previousHash": "7f775080f8a1826cd31f29bc8772df66d86b99911f7a666e0dd7359c897b0edd",
+      "nonce": 0,
+      "hash": "65584efdd1cc6337718872955e5e5666602ab382371f7675f5ce6e3d9e8485fb"
+    },
+    {
+      "index": 9,
+      "timestamp": 1765437639111,
+      "data": {
+        "productId": "dưa hấu",
+        "eventType": "harvesting",
+        "location": "hcm",
+        "actor": "testkey5",
+        "action": "view",
+        "timestamp": "2025-12-11T07:20:39.109Z",
+        "version": "1.0",
+        "quality": "A"
+      },
+      "previousHash": "65584efdd1cc6337718872955e5e5666602ab382371f7675f5ce6e3d9e8485fb",
+      "nonce": 0,
+      "hash": "45149c3b0f1b7b47775cb486f3cb5df630add7be64a66f94bffbafbd077740f4"
+    },
+    {
+      "index": 10,
+      "timestamp": 1765984799749,
+      "data": {
+        "productId": "dưa lưới",
+        "eventType": "planting",
+        "location": "12 rrr, Xã Thạnh Trị, Thị xã Kiến Tường, Tỉnh Long An",
+        "actor": "testkey5",
+        "action": "view",
+        "timestamp": "2025-12-17T15:19:59.745Z",
+        "version": "1.0",
+        "quality": "A",
+        "seedType": "mnw",
+        "area": 999,
+        "harvestDate": "2025-12-17",
+        "imageUrl": "/uploads/others/image-1765984799438-881202066.jpg"
+      },
+      "previousHash": "45149c3b0f1b7b47775cb486f3cb5df630add7be64a66f94bffbafbd077740f4",
+      "nonce": 0,
+      "hash": "296143f9549feb2777b993f6c00058591b293d6efe1cd0e75d37cd306cc0751a"
+    },
+    {
+      "index": 11,
+      "timestamp": 1765986254779,
+      "data": {
+        "productId": "dưa hấu",
+        "eventType": "planting",
+        "location": "hcm",
+        "actor": "testkey5",
+        "action": "view",
+        "timestamp": "2025-12-17T15:44:14.774Z",
+        "version": "1.0",
+        "quality": "A",
+        "seedType": "MN2",
+        "area": 123,
+        "harvestDate": "2025-12-17",
+        "imageUrl": "/uploads/others/image-1765986254764-508532254.jpg"
+      },
+      "previousHash": "296143f9549feb2777b993f6c00058591b293d6efe1cd0e75d37cd306cc0751a",
+      "nonce": 0,
+      "hash": "36722b8c8486a786b535f95c60ca5cc496962b214a5fff030329528b31a98d64"
+    },
+    {
+      "index": 12,
+      "timestamp": 1765989720054,
+      "data": {
+        "productId": "dưa lưới",
+        "eventType": "fertilizing",
+        "location": "12 rrr, Xã An Phước, Huyện Mang Thít, Tỉnh Vĩnh Long",
+        "actor": "testkey5",
+        "action": "view",
+        "timestamp": "2025-12-17T16:42:00.048Z",
+        "version": "1.0",
+        "quality": "A",
+        "fertilizerType": "lân",
+        "imageUrl": "/uploads/others/image-1765989720029-565212530.jpg"
+      },
+      "previousHash": "36722b8c8486a786b535f95c60ca5cc496962b214a5fff030329528b31a98d64",
+      "nonce": 0,
+      "hash": "43d39d1e3a12de81a5b8f81917e3c9ff498b35c60252e6317aabf6288026a28e"
+    },
+    {
+      "index": 13,
+      "timestamp": 1765991891778,
+      "data": {
+        "productId": "dưa lưới",
+        "eventType": "fertilizing",
+        "location": "12 rrr, Phường Trần Phú, Thành phố Hà Giang, Tỉnh Hà Giang",
+        "actor": "testkey5",
+        "action": "view",
+        "timestamp": "2025-12-17T17:18:11.774Z",
+        "version": "1.0",
+        "quality": "A",
+        "fertilizerType": "đạm",
+        "imageUrl": "/uploads/others/image-1765991891737-524260145.jpg"
+      },
+      "previousHash": "43d39d1e3a12de81a5b8f81917e3c9ff498b35c60252e6317aabf6288026a28e",
+      "nonce": 0,
+      "hash": "49533106a4fcd345aa390202ae7866fa43e4ec89dc69075c874d1fcbfeea34cc"
+    },
+    {
+      "index": 14,
+      "timestamp": 1766025787917,
+      "data": {
+        "productId": "dưa lưới",
+        "eventType": "watering",
+        "location": "12 rrr, Xã Mường Tùng, Huyện Mường Chà, Tỉnh Điện Biên",
+        "actor": "testkey5",
+        "action": "view",
+        "timestamp": "2025-12-18T02:43:07.914Z",
+        "version": "1.0",
+        "quality": "A",
+        "waterSource": "tt",
+        "imageUrl": "/uploads/others/image-1766025787645-782330134.jpg"
+      },
+      "previousHash": "49533106a4fcd345aa390202ae7866fa43e4ec89dc69075c874d1fcbfeea34cc",
+      "nonce": 0,
+      "hash": "c613beb17ccf3ec8bba556de6f62b2008f0b63128553abf8088edb67d02e319d"
+    },
+    {
+      "index": 15,
+      "timestamp": 1766027827034,
+      "data": {
+        "productId": "dưa lưới",
+        "eventType": "harvesting",
+        "location": "12 rrr, Xã Nhạn Môn, Huyện Pác Nặm, Tỉnh Bắc Kạn",
+        "actor": "testkey5",
+        "action": "view",
+        "timestamp": "2025-12-18T03:17:07.031Z",
+        "version": "1.0",
+        "quantity": 12333,
+        "quality": "B",
+        "harvestDate": "2025-12-18",
+        "imageUrl": "/uploads/others/image-1766027827014-397355411.jpg"
+      },
+      "previousHash": "c613beb17ccf3ec8bba556de6f62b2008f0b63128553abf8088edb67d02e319d",
+      "nonce": 0,
+      "hash": "6116fefb3ca5546ea2fcad675ead3d36c1b379e4f727cfab002b70fe200b0943"
     }
   ],
   "pendingTransactions": [],
   "difficulty": 2,
-  "lastUpdated": "2025-12-06T15:06:40.380Z",
-  "totalBlocks": 4
+  "lastUpdated": "2025-12-18T03:17:07.035Z",
+  "totalBlocks": 16
 }

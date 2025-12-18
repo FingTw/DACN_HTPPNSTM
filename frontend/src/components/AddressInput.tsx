@@ -332,7 +332,7 @@ export const AddressInput: React.FC<AddressInputProps> = ({
       {addresses.length === 0 && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
           <p className="text-blue-800 text-sm font-medium">
-            📍 Vui lòng nhập thông tin địa chỉ để tính phí vận chuyển chính xác
+            📍 Vui lòng nhập thông tin địa chỉ chính xác
           </p>
         </div>
       )}

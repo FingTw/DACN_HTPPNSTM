@@ -15,6 +15,7 @@ export interface OrderItem {
 export interface ProcessCheckoutData {
   DCNhanHang: string;
   MaPTVC: string | null;
+  deliveryType?: string; // 🆕 Thêm deliveryType
   MaPTTT: string | null;
   TongTien: number;
   items: OrderItem[];
@@ -36,24 +37,86 @@ export interface Order {
   }>;
 }
 
-export interface ShippingMethod {
-  MaPTVC: string;
-  TenPTVC: string;
-  PhiVanChuyen?: number;
-  ThoiGianGiaoHang?: string;
-  TocDo?: "standard" | "fast" | "express" | "super_express";
-}
-
 export interface PaymentMethod {
   MaPTTT: string;
   TenPTTT: string;
 }
 
-// ============================================
-// SHIPPING CALCULATION TYPES
-// ============================================
+// 🆕 Thêm interface mới cho Shipping
+export interface AvailableShippingResponse {
+  success: boolean;
+  data: {
+    availableMethods: ShippingMethod[];
+    zone: string;
+    unavailableReasons: Record<string, string>;
+  };
+  message: string;
+}
+
+export interface ShippingMethod {
+  MaPTVC: string;
+  TenPTVC: string;
+  PhiVanChuyen: number;
+  ThoiGianGiaoHang: string;
+  TocDo: string;
+  isAvailable: boolean;
+  UuDai: string[];
+  zone: string;
+  metadata?: {
+    pricingSource: string;
+    ruleApplied: string;
+    administrativeScope: string;
+  };
+}
 
 export interface ShippingCalculationRequest {
+  deliveryAddress: string;
+  items: OrderItem[];
+  deliveryType: string;
+}
+
+export interface ShippingCalculationResponse {
+  success: boolean;
+  data: {
+    deliveryFee: number;
+    deliveryType: string;
+    zone: string;
+    metadata: {
+      originProvince: string;
+      destinationProvince: string;
+      isIntraCity: boolean;
+      isIntraProvince: boolean;
+      pricingSource: string;
+      ruleApplied: string;
+      estimatedDistance?: number;
+      administrativeScope: string;
+      calculatedAt: string;
+    };
+  };
+  message: string;
+}
+
+export interface ShippingValidationRequest {
+  deliveryAddress: string;
+  deliveryType: string;
+}
+
+export interface ShippingValidationResponse {
+  success: boolean;
+  data: {
+    deliveryFee: number;
+    deliveryType: string;
+    zone: string;
+    metadata: any;
+  };
+  message: string;
+}
+
+// ============================================
+// SHIPPING CALCULATION TYPES (CŨ - CHO TƯƠNG THÍCH)
+// ============================================
+
+export interface ShippingCalculationRequestOld {
   province: string;
   district: string;
   items: OrderItem[];
@@ -76,7 +139,7 @@ export interface ShippingCalculationResult {
 }
 
 // ============================================
-// ORDER SERVICE - VẬN CHUYỂN TỐC ĐỘ CAO
+// ORDER SERVICE
 // ============================================
 
 export const orderService = {
@@ -108,13 +171,10 @@ export const orderService = {
   // 3. Xử lý checkout
   processCheckout: async (
     data: ProcessCheckoutData & { appliedVouchers?: string[] }
-  ): Promise<Order | null> => {
+  ): Promise<{ MaDH: string; listMaDH: string[]; message: string; totalAmount: number }> => {
     try {
       console.log("🔄 Calling endpoint: POST /order/process-checkout");
-      console.log("📦 Payload:", {
-        ...data,
-        items: data.items.map((item) => ({ MaSP: item.MaSP, SL: item.SL })),
-      });
+      console.log("📦 Payload:", data);
 
       const response = await api.post("/order/process-checkout", data);
 
@@ -131,15 +191,15 @@ export const orderService = {
         throw new Error(response.data.message || "Đặt hàng thất bại");
       }
 
-      if (response.data.data) {
-        console.log("✅ Backend returned data:", response.data.data);
-        return response.data.data;
+      if (response.data.MaDH || response.data.listMaDH) {
+        console.log("✅ Backend returned order data:", response.data);
+        return response.data;
       }
 
       // Trường hợp backend trả về data trực tiếp (không wrap)
-      if (response.data.MaDH) {
+      if (response.data.data?.MaDH) {
         console.log("✅ Backend returned direct order data");
-        return response.data;
+        return response.data.data;
       }
 
       console.log("❌ No valid data in response");
@@ -170,7 +230,7 @@ export const orderService = {
   // 4. Lấy đơn hàng của tôi
   getMyOrders: async (): Promise<Order[] | null> => {
     try {
-      const response = await api.get<ApiResponse<Order[]>>("/order/my-orders");
+      const response = await api.get<ApiResponse<Order[]>>("/order/all");
       return response.data.data;
     } catch (error: any) {
       console.error("Lỗi lấy đơn hàng:", error);
@@ -205,30 +265,19 @@ export const orderService = {
     }
   },
 
-  // 7. Lấy danh sách phương thức vận chuyển
-  getShippingMethods: async (): Promise<ShippingMethod[] | null> => {
+  // 7. Lấy danh sách phương thức vận chuyển từ DB
+  getShippingMethods: async (): Promise<PaymentMethod[] | null> => {
     try {
-      const response = await api.get<ApiResponse<ShippingMethod[]>>(
+      const response = await api.get<ApiResponse<PaymentMethod[]>>(
         "/order/shipping-methods"
       );
       return response.data.data;
     } catch (error: any) {
       console.error("Lỗi lấy phương thức vận chuyển:", error);
+      // Fallback cho các mã PTVC cơ bản
       return [
-        {
-          MaPTVC: "VC01",
-          TenPTVC: "Giao hàng tiêu chuẩn",
-          PhiVanChuyen: 30000,
-          ThoiGianGiaoHang: "2-3 ngày",
-          TocDo: "standard",
-        },
-        {
-          MaPTVC: "VC02",
-          TenPTVC: "Giao hàng nhanh",
-          PhiVanChuyen: 50000,
-          ThoiGianGiaoHang: "24 giờ",
-          TocDo: "fast",
-        },
+        { MaPTTT: "VC01", TenPTTT: "Giao hàng tiêu chuẩn" },
+        { MaPTTT: "VC02", TenPTTT: "Giao hàng nhanh" },
       ];
     }
   },
@@ -242,52 +291,138 @@ export const orderService = {
       return response.data.data;
     } catch (error: any) {
       console.error("Lỗi lấy phương thức thanh toán:", error);
+      // Fallback
       return [
         { MaPTTT: "TT01", TenPTTT: "Thanh toán khi nhận hàng (COD)" },
         { MaPTTT: "TT02", TenPTTT: "Chuyển khoản ngân hàng" },
+        { MaPTTT: "PAYPAL", TenPTTT: "Thanh toán qua PayPal (Visa/MasterCard)" },
       ];
     }
   },
 
-  // 🆕 9. Tính toán phí vận chuyển theo tốc độ
-  calculateShipping: async (
-    request: ShippingCalculationRequest
-  ): Promise<ShippingCalculationResult[] | null> => {
+  // ============================================
+  // 🆕 API VẬN CHUYỂN MỚI
+  // ============================================
+
+  // 🆕 9. Lấy tất cả phương thức vận chuyển khả dụng cho địa chỉ
+  getAvailableShippingMethods: async (
+    deliveryAddress: string
+  ): Promise<AvailableShippingResponse> => {
     try {
-      console.log("🚀 Gửi request tính phí VC:", request);
-
-      const response = await api.post<ApiResponse<ShippingCalculationResult[]>>(
-        "/order/calculate-shipping",
-        {
-          deliveryAddress: request.province + ", " + request.district, // Gửi full address
-          items: request.items,
-          deliverySpeed: request.deliverySpeed || "standard", // Đảm bảo có giá trị mặc định
-        }
+      const response = await api.post<AvailableShippingResponse>(
+        "/order/shipping/methods",
+        { deliveryAddress }
       );
+      return response.data;
+    } catch (error: any) {
+      console.error("❌ Lỗi lấy phương thức vận chuyển khả dụng:", error);
+      throw new Error(error.response?.data?.message || "Không thể lấy phương thức vận chuyển");
+    }
+  },
 
-      console.log("✅ Phản hồi từ server:", response.data);
-      return response.data.data;
+  // 🆕 10. Tính phí vận chuyển cho một loại giao hàng cụ thể
+  calculateShippingFee: async (
+    data: ShippingCalculationRequest
+  ): Promise<ShippingCalculationResponse> => {
+    try {
+      const response = await api.post<ShippingCalculationResponse>(
+        "/order/calculate-shipping",
+        data
+      );
+      return response.data;
     } catch (error: any) {
       console.error("❌ Lỗi tính phí vận chuyển:", error);
+      throw new Error(error.response?.data?.message || "Không thể tính phí vận chuyển");
+    }
+  },
+
+  // 🆕 11. Validate phương thức vận chuyển
+  validateShippingMethod: async (
+    data: ShippingValidationRequest
+  ): Promise<ShippingValidationResponse> => {
+    try {
+      const response = await api.post<ShippingValidationResponse>(
+        "/order/shipping/validate",
+        data
+      );
+      return response.data;
+    } catch (error: any) {
+      console.error("❌ Lỗi validate phương thức vận chuyển:", error);
+      throw new Error(error.response?.data?.message || "Không thể validate phương thức vận chuyển");
+    }
+  },
+
+  // ============================================
+  // API CŨ (CHO TƯƠNG THÍCH)
+  // ============================================
+
+  // 🟡 Hàm cũ: Tính toán phí vận chuyển theo tốc độ (cho tương thích)
+  calculateShipping: async (
+    request: ShippingCalculationRequestOld
+  ): Promise<ShippingCalculationResult[] | null> => {
+    try {
+      console.log("🚀 Gửi request tính phí VC (cũ):", request);
+
+      // 🆕 Chuyển đổi request cũ sang request mới
+      const deliveryAddress = `${request.district}, ${request.province}`;
+      
+      // Gọi API mới để lấy phương thức khả dụng
+      const methodsResponse = await api.post<AvailableShippingResponse>(
+        "/order/shipping/methods",
+        { deliveryAddress }
+      );
+
+      if (!methodsResponse.data.success) {
+        throw new Error(methodsResponse.data.message);
+      }
+
+      const availableMethods = methodsResponse.data.data.availableMethods;
+
+      // Map sang ShippingCalculationResult[] (cấu trúc cũ)
+      const results: ShippingCalculationResult[] = availableMethods
+        .filter(method => method.isAvailable)
+        .map(method => ({
+          MaPTVC: method.MaPTVC,
+          TenPTVC: method.TenPTVC,
+          PhiVanChuyen: method.PhiVanChuyen,
+          ThoiGianGiaoHang: method.ThoiGianGiaoHang,
+          TocDo: method.TocDo as "standard" | "fast" | "express" | "super_express",
+          UuDai: method.UuDai,
+          estimatedDelivery: calculateEstimatedDelivery(method.TocDo),
+          isAvailable: method.isAvailable,
+        }));
+
+      console.log("✅ Phản hồi từ server (đã chuyển đổi):", results);
+      return results;
+    } catch (error: any) {
+      console.error("❌ Lỗi tính phí vận chuyển (cũ):", error);
       console.error("❌ Chi tiết lỗi:", error.response?.data);
       return await calculateShippingFallback(request);
     }
   },
 
-  // 🆕 10. Lấy phương thức vận chuyển tốc độ cao
+  // 🆕 12. Lấy phương thức vận chuyển tốc độ cao (cho tương thích)
   getExpressShippingMethods: async (): Promise<ShippingMethod[] | null> => {
     try {
+      // Gọi API mới và lọc các phương thức express/super_express
       const response = await api.get<ApiResponse<ShippingMethod[]>>(
-        "/order/express-shipping-methods"
+        "/order/shipping-methods"
       );
-      return response.data.data;
+      
+      if (response.data.data) {
+        const expressMethods = response.data.data.filter(method => 
+          method.TocDo === 'express' || method.TocDo === 'super_express'
+        );
+        return expressMethods;
+      }
+      return getExpressShippingFallback();
     } catch (error: any) {
       console.error("Lỗi lấy phương thức vận chuyển tốc độ cao:", error);
       return getExpressShippingFallback();
     }
   },
 
-  // 🆕 11. Kiểm tra tính khả thi của đơn hàng tốc độ cao
+  // 🆕 13. Kiểm tra tính khả thi của đơn hàng tốc độ cao (cho tương thích)
   validateExpressOrder: async (data: {
     province: string;
     district: string;
@@ -299,14 +434,22 @@ export const orderService = {
     constraints?: string[];
   }> => {
     try {
-      const response = await api.post<
-        ApiResponse<{
-          isValid: boolean;
-          message?: string;
-          constraints?: string[];
-        }>
-      >("/order/validate-express", data);
-      return response.data.data;
+      const deliveryAddress = `${data.district}, ${data.province}`;
+      
+      // Gọi API validate mới
+      const response = await api.post<ShippingValidationResponse>(
+        "/order/shipping/validate",
+        {
+          deliveryAddress,
+          deliveryType: data.deliverySpeed
+        }
+      );
+
+      return {
+        isValid: response.data.success,
+        message: response.data.message,
+        constraints: response.data.success ? [] : [response.data.message]
+      };
     } catch (error: any) {
       console.error("Lỗi validate đơn hàng tốc độ cao:", error);
       return validateExpressOrderFallback(data);
@@ -315,12 +458,14 @@ export const orderService = {
 };
 
 // ============================================
-// FALLBACK IMPLEMENTATIONS
+// FALLBACK IMPLEMENTATIONS (CHO TƯƠNG THÍCH)
 // ============================================
 
 const calculateShippingFallback = async (
-  request: ShippingCalculationRequest
+  request: ShippingCalculationRequestOld
 ): Promise<ShippingCalculationResult[]> => {
+  console.log("🔄 Using fallback shipping calculation");
+  
   const baseCost = calculateBaseCost(request);
   const speedMultiplier = getSpeedMultiplier(request.deliverySpeed);
   const areaMultiplier = request.isUrbanArea ? 1 : 1.3;
@@ -403,7 +548,7 @@ const calculateShippingFallback = async (
   return results;
 };
 
-const calculateBaseCost = (request: ShippingCalculationRequest): number => {
+const calculateBaseCost = (request: ShippingCalculationRequestOld): number => {
   const baseRates: { [key: string]: number } = {
     "Thành phố Hồ Chí Minh": 15000,
     "Thành phố Hà Nội": 16000,
@@ -477,7 +622,7 @@ const isExpressAvailableNow = (): boolean => {
 };
 
 const isSuperExpressAvailable = (
-  request: ShippingCalculationRequest
+  request: ShippingCalculationRequestOld
 ): boolean => {
   const now = new Date();
   const hour = now.getHours();
@@ -488,18 +633,24 @@ const isSuperExpressAvailable = (
 const getExpressShippingFallback = (): ShippingMethod[] => {
   return [
     {
-      MaPTVC: "VC01",
+      MaPTVC: "VC05",
       TenPTVC: "Giao hàng hỏa tốc",
       PhiVanChuyen: 50000,
       ThoiGianGiaoHang: "4-8 giờ",
       TocDo: "express",
+      isAvailable: true,
+      UuDai: ["Ưu tiên xử lý", "Theo dõi real-time"],
+      zone: "intra_city",
     },
     {
-      MaPTVC: "VC02",
+      MaPTVC: "VC06",
       TenPTVC: "Giao hàng siêu tốc",
       PhiVanChuyen: 80000,
       ThoiGianGiaoHang: "1-2 giờ",
       TocDo: "super_express",
+      isAvailable: true,
+      UuDai: ["Xử lý ưu tiên cao nhất", "Giám sát 24/7"],
+      zone: "intra_city",
     },
   ];
 };

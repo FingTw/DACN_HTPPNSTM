@@ -369,25 +369,62 @@
 
         // Mở modal xem ảnh minh chứng
         function openEvidenceModal(imageUrl, blockIndex, actor, role) {
-            console.log('🔍 Opening evidence modal:', imageUrl);
-            
-            const modal = document.getElementById('imageModal');
-            const modalImg = document.getElementById('modalImage');
-            const modalCaption = document.getElementById('modalCaption');
-            
-            // Xử lý URL ảnh
-            let fullImageUrl = imageUrl;
-            if (!imageUrl.startsWith('http')) {
-                fullImageUrl = `${window.location.origin}${imageUrl}`;
-            }
-            
-            console.log('Full image URL:', fullImageUrl);
-            
-            // Đặt ảnh và hiển thị modal
-            modalImg.src = fullImageUrl;
-            modalCaption.textContent = `Minh chứng - Block #${blockIndex} - ${actor} (${role})`;
-            modal.style.display = "block";
+    console.log('🔍 Opening evidence modal:', imageUrl);
+    
+    const modal = document.getElementById('imageModal');
+    const modalImg = document.getElementById('modalImage');
+    const modalCaption = document.getElementById('modalCaption');
+    
+    // 🔥 FIX: ĐƠN GIẢN HÓA - Chỉ cần dùng imageUrl trực tiếp
+    let fullImageUrl = imageUrl;
+    
+    // DEBUG: Kiểm tra URL
+    console.log('📊 Image URL analysis:', {
+        original: imageUrl,
+        startsWithUploads: imageUrl && imageUrl.startsWith('/uploads/'),
+        includesUploads: imageUrl && imageUrl.includes('/uploads/'),
+        fullUrl: window.location.origin + imageUrl
+    });
+    
+    // Nếu imageUrl đã có /uploads/, dùng trực tiếp
+    if (imageUrl && typeof imageUrl === 'string') {
+        // Đảm bảo không có khoảng trắng
+        fullImageUrl = imageUrl.trim();
+        
+        // Nếu không bắt đầu bằng /, thêm /
+        if (!fullImageUrl.startsWith('/')) {
+            fullImageUrl = '/' + fullImageUrl;
         }
+        
+        console.log('✅ Final image URL:', fullImageUrl);
+    } else {
+        console.error('❌ Invalid imageUrl:', imageUrl);
+        alert('Không có ảnh minh chứng cho block này');
+        return;
+    }
+    
+    // Thêm timestamp để tránh cache
+    const cacheBuster = `?t=${Date.now()}`;
+    const finalUrl = fullImageUrl + cacheBuster;
+    
+    console.log('🚀 Loading image from:', finalUrl);
+    
+    // Đặt ảnh và hiển thị modal
+    modalImg.src = finalUrl;
+    modalImg.onload = function() {
+        console.log('✅ Image loaded successfully');
+    };
+    modalImg.onerror = function() {
+        console.error('❌ Image failed to load:', finalUrl);
+        // Thử fallback URL với origin đầy đủ
+        const fallbackUrl = window.location.origin + fullImageUrl + cacheBuster;
+        console.log('🔄 Trying fallback URL:', fallbackUrl);
+        modalImg.src = fallbackUrl;
+    };
+    
+    modalCaption.textContent = `Minh chứng - Block #${blockIndex} - ${actor}`;
+    modal.style.display = "block";
+}
 
         // Đóng modal
         document.querySelector('.image-modal-close').onclick = function() {
@@ -455,34 +492,33 @@
                         <div class="block-info">
                             <!-- Tên sự kiện (dùng inferred nếu không có) -->
                             <div>
-                                <strong>📅 Sự kiện:</strong> 
+                                <strong>Sự kiện:</strong> 
                                 <span class="event-badge">${getEventName(inferredEventType)}</span>
                             </div>                           
                             
                             <!-- Thông tin cơ bản -->
-                            ${block.location ? `<div><strong>📍 Địa điểm:</strong> ${block.location}</div>` : ''}
-                            ${block.actor ? `<div><strong>👤 Người thực hiện:</strong> ${block.actor}</div>` : ''}
-                            ${block.role ? `<div><strong>🎭 Vai trò:</strong> ${block.role}</div>` : ''}
-                            ${block.notes ? `<div><strong>📝 Ghi chú:</strong> ${block.notes}</div>` : ''}
+                            ${block.location ? `<div><strong>Địa điểm:</strong> ${block.location}</div>` : ''}
+                            ${block.actor ? `<div><strong>Người thực hiện:</strong> ${block.actor}</div>` : ''}
+                            ${block.notes ? `<div><strong>Ghi chú:</strong> ${block.notes}</div>` : ''}
                             
                             <!-- 🔥 THÊM QUALITY VÀO THÔNG TIN CƠ BẢN (không phải sự kiện) -->
-                            ${block.quality ? `<div><strong>⭐ Chất lượng:</strong> ${block.quality}</div>` : ''}
+                            ${block.quality ? `<div><strong>Chất lượng:</strong> ${block.quality}</div>` : ''}
                         </div>
 
                         <!-- Hiển thị chi tiết sự kiện (KHÔNG BAO GỒM quality) -->
                         ${displayEventDetails(block)}
 
                         <!-- Nút xem minh chứng -->
-                        ${block.imageUrl ? `
-                            <button class="evidence-button" 
-                                    onclick="openEvidenceModal('${block.imageUrl}', ${block.index}, '${block.actor}', '${block.role}')">
-                                📷 Xem Minh Chứng
-                            </button>
-                        ` : `
-                            <button class="evidence-button" disabled>
-                                📷 Không có minh chứng
-                            </button>
-                        `}
+${block.imageUrl ? `
+    <button class="evidence-button" 
+            onclick="openEvidenceModal('${block.imageUrl}', ${block.index}, '${block.actor}', '${block.role}')">
+        📷 Xem Minh Chứng
+    </button>
+` : `
+    <button class="evidence-button" disabled>
+        📷 Không có minh chứng
+    </button>
+`}
 
                         <div class="block-info" style="margin-top: 10px;">
                         <div>

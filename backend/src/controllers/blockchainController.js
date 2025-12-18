@@ -413,8 +413,7 @@ class BlockchainController {
 }
 
     // Lấy tất cả blocks của một sản phẩm
-    // Endpoint đơn giản để lấy blocks của sản phẩm
-async getProductBlocks(req, res) {
+ async getProductBlocks(req, res) {
     try {
         const { productId } = req.params;
         
@@ -430,25 +429,71 @@ async getProductBlocks(req, res) {
         let productBlocks = [];
         try {
             const fullChain = blockchainService.getFullChain();
-            productBlocks = fullChain.filter(block => 
-                block.data && 
-                block.data.productId && 
-                block.data.productId.toString() === productId.toString()
-            ).map(block => ({
-                index: block.index,
-                hash: block.hash,
-                timestamp: block.timestamp,
-                eventType: block.data.eventType || 'Unknown',
-                location: block.data.location || 'Unknown',
-                actor: block.data.actor || 'Unknown',
-                role: block.data.role || 'Unknown',
-                notes: block.data.notes
-            }));
+            console.log(`📊 Full chain length: ${fullChain.length}`);
+            
+            productBlocks = fullChain.filter(block => {
+                if (!block.data || !block.data.productId) return false;
+                // So sánh không phân biệt hoa thường
+                const blockProductId = block.data.productId.toString().toLowerCase();
+                const targetProductId = productId.toString().toLowerCase();
+                return blockProductId === targetProductId;
+            }).map(block => {
+                // 🔥 TRẢ VỀ TOÀN BỘ DỮ LIỆU TỪ block.data
+                const blockData = block.data || {};
+                
+                // Log để debug
+                console.log(`📸 Block #${block.index} imageUrl: ${blockData.imageUrl}`);
+                
+                return {
+                    // Block metadata
+                    index: block.index,
+                    hash: block.hash,
+                    timestamp: block.timestamp,
+                    previousHash: block.previousHash,
+                    nonce: block.nonce,
+                    
+                    // 🔥 TẤT CẢ DỮ LIỆU TỪ block.data
+                    ...blockData,
+                    
+                    // Đảm bảo các trường quan trọng luôn có
+                    eventType: blockData.eventType || 'Unknown',
+                    location: blockData.location || 'Unknown',
+                    actor: blockData.actor || 'Unknown',
+                    role: blockData.role || 'Unknown',
+                    notes: blockData.notes || '',
+                    imageUrl: blockData.imageUrl || null,
+                    productId: blockData.productId,
+                    
+                    // Thêm các trường cụ thể từ data
+                    seedType: blockData.seedType,
+                    area: blockData.area,
+                    yield: blockData.yield,
+                    waterSource: blockData.waterSource,
+                    fertilizerType: blockData.fertilizerType,
+                    harvestDate: blockData.harvestDate,
+                    saleDate: blockData.saleDate,
+                    duration: blockData.duration,
+                    temperature: blockData.temperature,
+                    customerType: blockData.customerType,
+                    batchNumber: blockData.batchNumber,
+                    fromLocation: blockData.fromLocation,
+                    toLocation: blockData.toLocation,
+                    processType: blockData.processType,
+                    quantity: blockData.quantity,
+                    quality: blockData.quality,
+                    price: blockData.price
+                };
+            });
         } catch (error) {
             console.log('⚠️ Error filtering blocks:', error.message);
         }
 
         console.log(`✅ Found ${productBlocks.length} blocks for product: ${productId}`);
+        
+        // Debug: log tất cả imageUrl
+        productBlocks.forEach(block => {
+            console.log(`📋 Block #${block.index}: imageUrl = ${block.imageUrl}`);
+        });
 
         res.json({
             success: true,
@@ -464,11 +509,11 @@ async getProductBlocks(req, res) {
         console.error('❌ Get product blocks error:', error);
         res.status(500).json({
             success: false,
-            message: 'Lỗi lấy thông tin blocks'
+            message: 'Lỗi lấy thông tin blocks',
+            error: error.message
         });
     }
 }
-
     // Thêm method mới để get QR code cho block
     async generateBlockQRCode(req, res) {
         try {

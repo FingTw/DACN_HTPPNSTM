@@ -3,7 +3,7 @@ import { v4 as uuidv4 } from "uuid";
 import { initModels } from "../models/init-models.js";
 import { Op } from "sequelize";
 import sequelize from "../config/db.js";
-import { DistanceCalculator } from "../services/distanceCalculator.js";
+import { DeliveryPricingEngine } from "../services/distanceCalculator.js";
 
 const models = initModels(sequelize);
 
@@ -123,12 +123,89 @@ export const processCheckout = async (req, res) => {
       MaPTVC,
       MaPTTT,
       items,
-      appliedVouchers, // Hiện tại xử lý voucher cho nhiều đơn khá phức tạp, ở đây sẽ áp dụng voucher chia đều hoặc chỉ đơn đầu (tuỳ logic)
-      PhiVanChuyen, // Lưu ý: Phí vận chuyển tổng cần được chia ra hoặc tính lại theo từng shop
+      deliveryType, // 🟢 THÊM deliveryType vào đây
+      appliedVouchers,
+      PhiVanChuyen,
     } = req.body;
+
+    console.log("📦 Request body:", {
+      DCNhanHang,
+      MaPTVC,
+      MaPTTT,
+      deliveryType,
+      itemsCount: items?.length,
+      PhiVanChuyen
+    });
 
     if (!items || !items.length) {
       return res.status(400).json({ message: "Chưa chọn sản phẩm" });
+    }
+
+    // === 2.1 Tính phí vận chuyển dựa trên địa chỉ và loại giao hàng ===
+    const shopAddress = await getShopPickupAddress();
+    if (!shopAddress) {
+      return res.status(500).json({ 
+        message: "Hệ thống chưa được cấu hình địa chỉ lấy hàng." 
+      });
+    }
+
+    // 🟢 SỬA LỖI: Sử dụng biến deliveryType từ req.body
+    let actualDeliveryType = deliveryType;
+    
+    // 🟢 Nếu không có deliveryType, dùng MaPTVC để suy ra
+    if (!actualDeliveryType && MaPTVC) {
+      const ptvcToTypeMapping = {
+        'VC03': 'standard',
+        'VC04': 'fast', 
+        'VC05': 'express',
+        'VC06': 'super_express'
+      };
+      actualDeliveryType = ptvcToTypeMapping[MaPTVC] || 'standard';
+    }
+
+    console.log("🚚 Delivery type:", {
+      fromRequest: deliveryType,
+      fromMaPTVC: MaPTVC,
+      actual: actualDeliveryType
+    });
+
+    if (!actualDeliveryType) {
+      return res.status(400).json({ 
+        message: "Thiếu loại giao hàng (deliveryType)" 
+      });
+    }
+
+    // Tính phí vận chuyển
+    let shippingFeePerOrder = 0;
+    let maPTVCFinal = MaPTVC; // 🟢 Dùng biến mới để không thay đổi MaPTVC gốc
+    
+    try {
+      const feeResult = await DeliveryPricingEngine.calculateDeliveryFee(
+        actualDeliveryType,
+        shopAddress,
+        DCNhanHang
+      );
+      
+      // Lưu metadata phí vận chuyển
+      console.log("💰 Phí vận chuyển đã tính:", feeResult);
+      shippingFeePerOrder = feeResult.deliveryFee;
+      
+      // 🟢 Cập nhật maPTVCFinal nếu chưa có MaPTVC
+      if (!maPTVCFinal) {
+        const typeToPTVCMapping = {
+          'standard': 'VC03',
+          'fast': 'VC04',
+          'express': 'VC05',
+          'super_express': 'VC06'
+        };
+        maPTVCFinal = typeToPTVCMapping[actualDeliveryType] || 'VC03';
+      }
+    } catch (error) {
+      console.error("❌ Lỗi tính phí vận chuyển:", error);
+      return res.status(400).json({
+        message: `Không thể áp dụng ${actualDeliveryType}: ${error.message}`,
+        suggestion: "Vui lòng chọn phương thức vận chuyển khác"
+      });
     }
 
     // === 3. Lấy giỏ hàng & Sản phẩm đầy đủ thông tin (Kèm MaCH) ===
@@ -148,8 +225,7 @@ export const processCheckout = async (req, res) => {
                 "GiaBan",
                 "SLTon",
                 "MaCH",
-                // "HinhAnh",
-              ], // QUAN TRỌNG: Phải lấy MaCH
+              ],
               include: [
                 {
                   model: hinhanh,
@@ -175,7 +251,6 @@ export const processCheckout = async (req, res) => {
         return {
           ...ct.dataValues,
           SL: selected.SL,
-          // Đảm bảo lấy được thông tin sản phẩm
           ProductData: ct.MaSP_sanpham,
         };
       });
@@ -194,7 +269,7 @@ export const processCheckout = async (req, res) => {
           .status(400)
           .json({ message: `Lỗi dữ liệu sản phẩm ${item.MaSP}` });
 
-      const maCH = sp.MaCH; // Mã cửa hàng
+      const maCH = sp.MaCH;
 
       if (!ordersByShop[maCH]) {
         ordersByShop[maCH] = {
@@ -218,17 +293,15 @@ export const processCheckout = async (req, res) => {
     // Bắt đầu Transaction
     transaction = await sequelize.transaction();
 
-    const createdOrderIds = []; // Mảng chứa các Mã Đơn Hàng đã tạo
-    let totalAllOrders = 0; // Tổng tiền tất cả các đơn
+    const createdOrderIds = [];
+    let totalAllOrders = 0;
 
     // === 5. VÒNG LẶP TẠO ĐƠN HÀNG CHO TỪNG SHOP ===
     const shopIds = Object.keys(ordersByShop);
 
-    // Xử lý logic chia phí vận chuyển (Tạm thời chia đều cho số lượng shop)
-    // Thực tế nên tính lại phí ship cho từng shop từ frontend
-    const shippingFeePerOrder = PhiVanChuyen
-      ? Math.round(PhiVanChuyen / shopIds.length)
-      : 0;
+    // Sử dụng shippingFeePerOrder đã tính từ DeliveryPricingEngine
+    // Chia đều cho các shop (có thể cải tiến sau)
+    const shopShippingFee = Math.round(shippingFeePerOrder / Math.max(shopIds.length, 1));
 
     for (const shopId of shopIds) {
       const shopData = ordersByShop[shopId];
@@ -243,14 +316,15 @@ export const processCheckout = async (req, res) => {
       }
 
       // Tính toán tiền nong cho đơn hàng của shop này
-      let finalTotal = shopData.subTotal + shippingFeePerOrder;
+      let finalTotal = shopData.subTotal + shopShippingFee;
       let discountAmount = 0;
       let appliedVoucherCode = null;
 
-      // TODO: Logic Voucher phức tạp khi tách đơn.
-      // Ở đây tạm thời: Nếu có voucher, chỉ áp dụng cho đơn hàng đầu tiên hoặc chia tỷ lệ.
-      // Để đơn giản và an toàn, tạm thời chưa trừ voucher trong code mẫu này để tránh lỗi logic tiền âm.
-      // Nếu bạn muốn chia voucher, cần tính tỷ lệ % giá trị đơn của shop so với tổng đơn.
+      // Xử lý voucher nếu có
+      if (appliedVouchers && appliedVouchers.length > 0) {
+        // TODO: Logic xử lý voucher cho từng shop
+        console.log("🎫 Có voucher nhưng chưa xử lý cho shop:", shopId);
+      }
 
       // Tạo Record Đơn Hàng
       const newDonHang = await donhang.create(
@@ -258,13 +332,13 @@ export const processCheckout = async (req, res) => {
           MaDH,
           MaTK,
           DCNhanHang: DCNhanHang.trim(),
-          MaPTVC: MaPTVC || "VC_STANDARD",
+          MaPTVC: maPTVCFinal || "VC03", // 🟢 Dùng maPTVCFinal thay vì MaPTVC
           MaPTTT: MaPTTT || "TT01",
-          TongTien: finalTotal, // Tiền của riêng đơn shop này
+          TongTien: finalTotal,
           GiamGia: discountAmount,
-          PhiVanChuyen: shippingFeePerOrder,
+          PhiVanChuyen: shopShippingFee,
           MaKM: appliedVoucherCode,
-          TrangThai: "Chờ xác nhận", // Trạng thái khởi tạo
+          TrangThai: "Chờ xác nhận",
           NgayTao: new Date(),
         },
         { transaction }
@@ -273,7 +347,7 @@ export const processCheckout = async (req, res) => {
       createdOrderIds.push(MaDH);
       totalAllOrders += finalTotal;
 
-      // Tạo Chi Tiết Đơn Hàng (Chỉ chứa sản phẩm của Shop này)
+      // Tạo Chi Tiết Đơn Hàng
       for (let ct of shopData.items) {
         await chitiet_donhang.create(
           {
@@ -287,8 +361,7 @@ export const processCheckout = async (req, res) => {
         );
       }
 
-      // Tạo Thanh Toán (Mỗi đơn hàng cần 1 record thanh toán riêng hoặc 1 record tổng)
-      // Hệ thống DB của bạn có vẻ liên kết 1-1 giữa ThanhToan và DonHang
+      // Tạo Thanh Toán
       const MaTT =
         "TT" + uuidv4().replace(/-/g, "").substring(0, 8).toUpperCase();
       const ptttRecord = await pttt.findByPk(MaPTTT);
@@ -314,7 +387,7 @@ export const processCheckout = async (req, res) => {
       transaction,
     });
 
-    // Kiểm tra nếu giỏ hết sạch thì xoá luôn giỏ (tuỳ logic)
+    // Kiểm tra nếu giỏ hết sạch thì xoá luôn giỏ
     const remaining = await ctgh.count({
       where: { MaGH: cart.MaGH },
       transaction,
@@ -326,14 +399,15 @@ export const processCheckout = async (req, res) => {
     await transaction.commit();
     console.log("✅ Đã tạo thành công các đơn hàng:", createdOrderIds);
 
-    // Trả về mảng các MaDH hoặc MaDH đầu tiên để frontend redirect
+    // Trả về kết quả
     return res.json({
       success: true,
-      // Nếu frontend chỉ nhận 1 MaDH để redirect, ta gửi cái đầu tiên hoặc sửa frontend nhận mảng
       MaDH: createdOrderIds[0],
       listMaDH: createdOrderIds,
       message: `Đã tạo ${createdOrderIds.length} đơn hàng thành công`,
       totalAmount: totalAllOrders,
+      deliveryType: actualDeliveryType, // 🟢 Trả về deliveryType đã sử dụng
+      shippingFeePerShop: shopShippingFee
     });
   } catch (err) {
     if (transaction) await transaction.rollback();
@@ -341,6 +415,115 @@ export const processCheckout = async (req, res) => {
     return res.status(500).json({
       message: "Lỗi server khi xử lý đơn hàng",
       error: err.message,
+    });
+  }
+};
+// 🆕 API lấy thông tin phí vận chuyển chi tiết cho từng shop
+export const calculateMultiShopShipping = async (req, res) => {
+  try {
+    const { deliveryAddress, shopItems } = req.body;
+    
+    if (!deliveryAddress || !shopItems) {
+      return res.status(400).json({
+        success: false,
+        message: "Thiếu thông tin địa chỉ giao hoặc danh sách shop"
+      });
+    }
+    
+    const shopAddress = await getShopPickupAddress();
+    if (!shopAddress) {
+      return res.status(500).json({
+        success: false,
+        message: "Không thể lấy địa chỉ lấy hàng"
+      });
+    }
+    
+    const results = {};
+    
+    // Tính phí cho mỗi shop
+    for (const [shopId, items] of Object.entries(shopItems)) {
+      try {
+        // Tính phí standard cho mỗi shop (vì express/super_express chỉ áp dụng trong điều kiện nhất định)
+        const feeResult = await DeliveryPricingEngine.calculateDeliveryFee(
+          "standard",
+          shopAddress,
+          deliveryAddress
+        );
+        
+        results[shopId] = {
+          success: true,
+          shippingFee: feeResult.deliveryFee,
+          metadata: feeResult.metadata,
+          itemsCount: items.length,
+          subtotal: items.reduce((sum, item) => sum + (item.price * item.quantity), 0)
+        };
+      } catch (error) {
+        results[shopId] = {
+          success: false,
+          error: error.message,
+          shippingFee: 0
+        };
+      }
+    }
+    
+    return res.json({
+      success: true,
+      data: results,
+      totalShippingFee: Object.values(results).reduce((sum, result) => sum + (result.shippingFee || 0), 0)
+    });
+    
+  } catch (error) {
+    console.error("❌ Lỗi tính phí multi-shop:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Lỗi tính phí vận chuyển nhiều shop"
+    });
+  }
+};
+// 🆕 Hàm validate phương thức vận chuyển trước khi checkout
+export const validateShippingMethod = async (req, res) => {
+  try {
+    const { deliveryAddress, deliveryType } = req.body;
+
+    if (!deliveryAddress || !deliveryType) {
+      return res.status(400).json({
+        success: false,
+        message: "Thiếu địa chỉ hoặc loại giao hàng",
+      });
+    }
+
+    const shopAddress = await getShopPickupAddress();
+    if (!shopAddress) {
+      return res.status(500).json({
+        success: false,
+        message: "Hệ thống chưa được cấu hình địa chỉ lấy hàng.",
+      });
+    }
+
+    try {
+      const result = await DeliveryPricingEngine.calculateDeliveryFee(
+        deliveryType,
+        shopAddress,
+        deliveryAddress
+      );
+
+      return res.json({
+        success: true,
+        data: result,
+        message: `Phương thức ${deliveryType} có thể áp dụng`,
+      });
+    } catch (error) {
+      return res.status(400).json({
+        success: false,
+        message: error.message,
+        valid: false,
+      });
+    }
+  } catch (error) {
+    console.error("❌ Lỗi validate phương thức vận chuyển:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Lỗi validate phương thức vận chuyển",
     });
   }
 };
@@ -952,7 +1135,7 @@ export const getOrdersByStatus = async (req, res) => {
 // 🆕 API tính phí vận chuyển với khoảng cách thực tế từ HDBanHang
 export const calculateShipping = async (req, res) => {
   try {
-    const { deliveryAddress, items, deliverySpeed = "standard" } = req.body;
+    const { deliveryAddress, items, deliveryType = "standard" } = req.body;
 
     if (!deliveryAddress) {
       return res.status(400).json({
@@ -970,41 +1153,40 @@ export const calculateShipping = async (req, res) => {
       });
     }
 
-    console.log("📍 Tính khoảng cách:", {
+    console.log("📍 Tính phí giao hàng:", {
       from: shopAddress,
       to: deliveryAddress,
+      deliveryType,
     });
 
-    // === TÍNH KHOẢNG CÁCH NỘI BỘ ===
-    const distanceResult = await DistanceCalculator.calculateRealDistance(
-      shopAddress,
-      deliveryAddress
-    );
+    try {
+      // === SỬ DỤNG DELIVERY PRICING ENGINE MỚI ===
+      const feeResult = await DeliveryPricingEngine.calculateDeliveryFee(
+        deliveryType,
+        shopAddress,
+        deliveryAddress
+      );
 
-    console.log("📏 Khoảng cách tính được:", distanceResult);
+      console.log("💰 Kết quả tính phí:", feeResult);
 
-    // === TÍNH PHÍ VẬN CHUYỂN ===
-    const shippingOptions = calculateShippingByRealDistance(
-      distanceResult,
-      items,
-      deliverySpeed,
-      deliveryAddress
-    );
-
-    // KIỂM TRA NẾU KHÔNG CÓ PHƯƠNG THỨC NÀO KHẢ DỤNG
-    if (!shippingOptions || shippingOptions.length === 0) {
+      return res.json({
+        success: true,
+        data: {
+          deliveryFee: feeResult.deliveryFee,
+          deliveryType: feeResult.deliveryType,
+          zone: feeResult.zone,
+          metadata: feeResult.metadata,
+        },
+        message: "Tính phí vận chuyển thành công",
+      });
+    } catch (error) {
+      // Xử lý lỗi từ DeliveryPricingEngine
       return res.status(400).json({
         success: false,
-        message: "Không có phương thức vận chuyển khả dụng cho địa chỉ này.",
-        distanceInfo: distanceResult,
+        message: error.message,
+        suggestion: "Vui lòng chọn phương thức vận chuyển khác",
       });
     }
-
-    return res.json({
-      success: true,
-      data: shippingOptions,
-      distanceInfo: distanceResult,
-    });
   } catch (error) {
     console.error("❌ Lỗi tính phí vận chuyển:", error);
     return res.status(500).json({
@@ -1013,6 +1195,142 @@ export const calculateShipping = async (req, res) => {
       error: process.env.NODE_ENV === "development" ? error.message : undefined,
     });
   }
+};
+
+// 🆕 API lấy tất cả phương thức vận chuyển khả dụng cho địa chỉ
+export const getAvailableShippingMethods = async (req, res) => {
+  try {
+    const { deliveryAddress } = req.body;
+
+    if (!deliveryAddress) {
+      return res.status(400).json({
+        success: false,
+        message: "Thiếu địa chỉ giao hàng",
+      });
+    }
+
+    // === LẤY ĐỊA CHỈ LẤY HÀNG ===
+    const shopAddress = await getShopPickupAddress();
+    if (!shopAddress) {
+      return res.status(500).json({
+        success: false,
+        message: "Hệ thống chưa được cấu hình địa chỉ lấy hàng.",
+      });
+    }
+
+    console.log("📍 Kiểm tra phương thức vận chuyển:", {
+      from: shopAddress,
+      to: deliveryAddress,
+    });
+
+    // === LẤY DANH SÁCH PHƯƠNG THỨC KHẢ DỤNG ===
+    const availableMethods = await DeliveryPricingEngine.getAvailableDeliveryTypes(
+      shopAddress,
+      deliveryAddress
+    );
+
+    console.log("📦 Phương thức khả dụng:", availableMethods);
+
+    // Ánh xạ delivery type sang mã phương thức vận chuyển (PTVC)
+    const typeToPTVCMapping = {
+      'standard': 'VC03',
+      'fast': 'VC04',
+      'express': 'VC05',
+      'super_express': 'VC06'
+    };
+
+    // Tạo danh sách chi tiết các phương thức
+    const detailedMethods = [];
+    
+    for (const deliveryType of availableMethods.availableTypes) {
+      try {
+        const feeResult = await DeliveryPricingEngine.calculateDeliveryFee(
+          deliveryType,
+          shopAddress,
+          deliveryAddress
+        );
+
+        // Tên hiển thị cho phương thức
+        const displayNames = {
+          'standard': 'Giao hàng tiêu chuẩn',
+          'fast': 'Giao hàng nhanh',
+          'express': 'Giao hàng hỏa tốc',
+          'super_express': 'Giao hàng siêu tốc'
+        };
+
+        // Mô tả thời gian giao hàng ước tính
+        const estimatedTimes = {
+          'standard': '2-4 ngày làm việc',
+          'fast': '1-2 ngày làm việc',
+          'express': '4-8 giờ',
+          'super_express': '1-3 giờ'
+        };
+
+        // Ưu đãi/đặc quyền
+        const benefits = {
+          'standard': ['Miễn phí đổi trả 7 ngày'],
+          'fast': ['Giao hàng ưu tiên', 'Hỗ trợ 24/7'],
+          'express': ['Giao hàng trong ngày', 'Ưu tiên xử lý'],
+          'super_express': ['Giao hàng siêu tốc', 'Xử lý ưu tiên cao nhất', 'Giám sát real-time']
+        };
+
+        detailedMethods.push({
+          MaPTVC: typeToPTVCMapping[deliveryType] || 'VC03',
+          TenPTVC: displayNames[deliveryType] || 'Giao hàng tiêu chuẩn',
+          PhiVanChuyen: feeResult.deliveryFee,
+          ThoiGianGiaoHang: estimatedTimes[deliveryType] || '2-4 ngày',
+          TocDo: deliveryType,
+          isAvailable: true,
+          UuDai: benefits[deliveryType] || [],
+          zone: feeResult.zone,
+          metadata: {
+            pricingSource: feeResult.metadata.pricingSource,
+            ruleApplied: feeResult.metadata.ruleApplied,
+            administrativeScope: feeResult.metadata.administrativeScope
+          }
+        });
+      } catch (error) {
+        console.warn(`⚠️ Không thể tính phí cho ${deliveryType}:`, error.message);
+      }
+    }
+
+    return res.json({
+      success: true,
+      data: {
+        availableMethods: detailedMethods,
+        zone: availableMethods.zone,
+        unavailableReasons: availableMethods.reasons
+      },
+      message: `Có ${detailedMethods.length} phương thức vận chuyển khả dụng`,
+    });
+  } catch (error) {
+    console.error("❌ Lỗi lấy phương thức vận chuyển:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Lỗi lấy phương thức vận chuyển",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+// Hàm hỗ trợ: Mô tả loại giao hàng
+const getDeliveryTypeDescription = (type) => {
+  const descriptions = {
+    standard: "Giao hàng tiêu chuẩn (3-7 ngày)",
+    express: "Giao hàng hỏa tốc (1-2 ngày)",
+    super_express: "Giao hàng siêu tốc (trong ngày)"
+  };
+  return descriptions[type] || type;
+};
+
+// Hàm hỗ trợ: Điều kiện áp dụng
+const getDeliveryConditions = (type, zone) => {
+  const conditions = {
+    standard: `Áp dụng cho mọi khu vực (${zone})`,
+    express: `Chỉ áp dụng nội thành, thành phố lớn`,
+    super_express: `Chỉ áp dụng nội tỉnh, bán kính ≤40km`
+  };
+  return conditions[type] || "";
 };
 
 // 🆕 Hàm tính phí vận chuyển chính xác
